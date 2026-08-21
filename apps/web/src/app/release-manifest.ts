@@ -9,19 +9,17 @@ import {
 import type {
 	AssessmentYear,
 	FinancialYear,
-	RulePackId,
-	Sha256Digest,
+	RulePackIdentity,
 	TaxAnalysisModuleArtifactIdentity,
 	TaxFormId,
 } from "@openitr/model";
 
 export type AnalysisRelease = Readonly<{
 	taxAnalysisModule: TaxAnalysisModuleArtifactIdentity;
-	rulePack: Readonly<{
-		id: RulePackId;
-		sourceManifestSha256: Sha256Digest;
-		compiledPackSha256: Sha256Digest;
-	}>;
+	rulePack: Pick<
+		RulePackIdentity,
+		"id" | "sourceManifestSha256" | "compiledPackSha256"
+	>;
 	form: TaxFormId;
 	financialYear: FinancialYear;
 	assessmentYear: AssessmentYear;
