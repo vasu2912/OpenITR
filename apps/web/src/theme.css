@@ -1,0 +1,230 @@
+:root {
+	--pf-t--global--border--radius--small: var(
+		--pf-t--global--border--radius--0
+	);
+	--pf-t--global--border--radius--medium: var(
+		--pf-t--global--border--radius--0
+	);
+	--pf-t--global--border--radius--large: var(
+		--pf-t--global--border--radius--0
+	);
+	color-scheme: light;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+}
+
+.openitr-page {
+	min-height: 100%;
+	background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.openitr-masthead {
+	background: var(--pf-t--global--background--color--inverse--default);
+	border-bottom: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--on-secondary);
+	color: var(--pf-t--global--text--color--inverse);
+}
+
+.openitr-wordmark {
+	color: var(--pf-t--global--text--color--inverse);
+	font-size: var(--pf-t--global--font--size--lg);
+	font-weight: var(--pf-t--global--font--weight--heading--bold);
+	letter-spacing: 0.01em;
+}
+
+.openitr-masthead-context {
+	color: var(--pf-t--global--text--color--inverse);
+	font-size: var(--pf-t--global--font--size--body--sm);
+}
+
+.openitr-sidebar {
+	background: var(--pf-t--global--background--color--inverse--default);
+	border-right: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--on-secondary);
+}
+
+.openitr-workflow {
+	color: var(--pf-t--global--text--color--inverse);
+	padding: var(--pf-t--global--spacer--lg) var(--pf-t--global--spacer--md);
+}
+
+.openitr-workflow-heading {
+	color: var(--pf-t--global--text--color--inverse);
+	font-size: var(--pf-t--global--font--size--body--sm);
+	font-weight: var(--pf-t--global--font--weight--heading--bold);
+	letter-spacing: 0.08em;
+	margin: 0 0 var(--pf-t--global--spacer--md);
+	text-transform: uppercase;
+}
+
+.openitr-workflow-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.openitr-workflow-step {
+	align-items: flex-start;
+	display: flex;
+	gap: var(--pf-t--global--spacer--sm);
+	padding: var(--pf-t--global--spacer--sm) 0;
+}
+
+.openitr-workflow-step strong,
+.openitr-workflow-step small {
+	display: block;
+}
+
+.openitr-workflow-step small {
+	color: var(--pf-t--global--text--color--inverse);
+	margin-top: var(--pf-t--global--spacer--100);
+}
+
+.openitr-step-marker {
+	align-items: center;
+	background: var(--pf-t--global--color--brand--default);
+	border: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--brand--accent--default);
+	display: inline-flex;
+	color: var(--pf-t--global--text--color--on-brand--default);
+	font-weight: var(--pf-t--global--font--weight--heading--bold);
+	height: var(--pf-t--global--spacer--xl);
+	justify-content: center;
+	min-width: var(--pf-t--global--spacer--xl);
+}
+
+.openitr-workflow-step[data-status="blocked"] .openitr-step-marker {
+	background: var(--pf-t--global--color--status--danger--default);
+	color: var(--pf-t--global--text--color--status--on-danger--default);
+}
+
+.openitr-content {
+	background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.openitr-content-inner {
+	margin: 0 auto;
+	max-width: 58rem;
+	padding: var(--pf-t--global--spacer--lg) 0
+		var(--pf-t--global--spacer--3xl);
+}
+
+.openitr-eyebrow {
+	color: var(--pf-t--global--text--color--subtle);
+	font-size: var(--pf-t--global--font--size--body--sm);
+	font-weight: var(--pf-t--global--font--weight--heading--bold);
+	letter-spacing: 0.08em;
+	margin: 0 0 var(--pf-t--global--spacer--sm);
+	text-transform: uppercase;
+}
+
+.openitr-lede {
+	color: var(--pf-t--global--text--color--regular);
+	font-size: var(--pf-t--global--font--size--body--default);
+	line-height: var(--pf-t--global--font--line-height--body);
+	margin: var(--pf-t--global--spacer--sm) 0
+		var(--pf-t--global--spacer--lg);
+	max-width: 46rem;
+}
+
+.openitr-scope-alert,
+.openitr-question-card,
+.openitr-result-card {
+	margin-top: var(--pf-t--global--spacer--lg);
+}
+
+.openitr-question-card,
+.openitr-result-card {
+	border-top: var(--pf-t--global--border--width--extra-strong) solid
+		var(--pf-t--global--border--color--brand--default);
+}
+
+.openitr-question-fieldset {
+	border: 0;
+	margin: 0;
+	padding: 0;
+}
+
+.openitr-question-fieldset legend {
+	font-size: var(--pf-t--global--font--size--body--lg);
+	font-weight: var(--pf-t--global--font--weight--heading);
+	line-height: var(--pf-t--global--font--line-height--body);
+	margin-bottom: var(--pf-t--global--spacer--xs);
+	max-width: 48rem;
+}
+
+.openitr-question-fieldset p {
+	color: var(--pf-t--global--text--color--subtle);
+	margin: 0 0 var(--pf-t--global--spacer--md);
+}
+
+.openitr-answer-options {
+	display: grid;
+	gap: var(--pf-t--global--spacer--sm);
+	margin-bottom: var(--pf-t--global--spacer--lg);
+}
+
+.openitr-result-details {
+	display: grid;
+	gap: var(--pf-t--global--spacer--md);
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	margin: var(--pf-t--global--spacer--lg) 0;
+}
+
+.openitr-result-details div:first-child,
+.openitr-result-details div:last-child {
+	grid-column: 1 / -1;
+}
+
+.openitr-result-details dt {
+	color: var(--pf-t--global--text--color--subtle);
+	font-size: var(--pf-t--global--font--size--body--sm);
+	font-weight: var(--pf-t--global--font--weight--heading--bold);
+	letter-spacing: 0.05em;
+	margin-bottom: var(--pf-t--global--spacer--100);
+	text-transform: uppercase;
+}
+
+.openitr-result-details dd {
+	margin: 0;
+}
+
+.openitr-result-limit {
+	border-left: var(--pf-t--global--border--width--strong) solid
+		var(--pf-t--global--border--color--status--warning--default);
+	margin: var(--pf-t--global--spacer--md) 0 0;
+	padding-left: var(--pf-t--global--spacer--sm);
+}
+
+.openitr-session-note {
+	border-top: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	color: var(--pf-t--global--text--color--regular);
+	line-height: var(--pf-t--global--font--line-height--body);
+	margin-top: var(--pf-t--global--spacer--lg);
+	padding-top: var(--pf-t--global--spacer--md);
+}
+
+@media (max-width: 48rem) {
+	.openitr-masthead-context {
+		display: none;
+	}
+
+	.openitr-content-inner {
+		padding-top: var(--pf-t--global--spacer--xs);
+	}
+
+	.openitr-result-details {
+		grid-template-columns: 1fr;
+	}
+
+	.openitr-result-details div:first-child,
+	.openitr-result-details div:last-child {
+		grid-column: auto;
+	}
+}
