@@ -11,12 +11,12 @@ import type {
 	FinancialYear,
 	RulePackId,
 	Sha256Digest,
-	TaxAnalysisModuleIdentity,
+	TaxAnalysisModuleArtifactIdentity,
 	TaxFormId,
 } from "@openitr/model";
 
 export type AnalysisRelease = Readonly<{
-	taxAnalysisModule: TaxAnalysisModuleIdentity;
+	taxAnalysisModule: TaxAnalysisModuleArtifactIdentity;
 	rulePack: Readonly<{
 		id: RulePackId;
 		sourceManifestSha256: Sha256Digest;

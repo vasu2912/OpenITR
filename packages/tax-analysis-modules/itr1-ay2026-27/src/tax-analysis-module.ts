@@ -2,11 +2,11 @@ import {
 	parseSha256Digest,
 	parseTaxAnalysisModuleId,
 } from "@openitr/model";
-import type { TaxAnalysisModule } from "@openitr/model";
+import type { TaxAnalysisModuleArtifact } from "@openitr/model";
 
 import { itr1Ay202627RulePack } from "./rule-pack";
 
-export const itr1Ay202627TaxAnalysisModule = Object.freeze({
+export const itr1Ay202627TaxAnalysisModuleArtifact = Object.freeze({
 	identity: Object.freeze({
 		id: parseTaxAnalysisModuleId("itr1-ay2026-27"),
 		compiledModuleSha256: parseSha256Digest(
@@ -14,4 +14,4 @@ export const itr1Ay202627TaxAnalysisModule = Object.freeze({
 		),
 	}),
 	rulePack: itr1Ay202627RulePack,
-}) satisfies TaxAnalysisModule;
+}) satisfies TaxAnalysisModuleArtifact;

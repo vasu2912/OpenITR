@@ -44,9 +44,15 @@ const officialSource = Object.freeze({
 	location: sourceReference.location,
 }) satisfies OfficialSource;
 
+const answerOptionsByValue = Object.freeze({
+	yes: Object.freeze({ value: "yes", label: "Yes" }) satisfies
+		AnswerOption<"yes">,
+	no: Object.freeze({ value: "no", label: "No" }) satisfies
+		AnswerOption<"no">,
+});
 const answerOptions: EligibilityQuestion["answers"] = Object.freeze([
-	Object.freeze({ value: "yes", label: "Yes" }) satisfies AnswerOption,
-	Object.freeze({ value: "no", label: "No" }) satisfies AnswerOption,
+	answerOptionsByValue.yes,
+	answerOptionsByValue.no,
 ]);
 const answerValues: EligibilityQuestion["answerSchema"]["values"] =
 	Object.freeze([answerOptions[0].value, answerOptions[1].value]);
@@ -130,13 +136,8 @@ const resultFor = (answer: EligibilityAnswerValue): ScopeCheckResult => {
 	});
 };
 
-const answerLabel = (answer: EligibilityAnswerValue): string => {
-	const option = answerOptions.find((candidate) => candidate.value === answer);
-	if (option === undefined) {
-		throw new Error(`Rule pack has no label for answer: ${answer}`);
-	}
-	return option.label;
-};
+const answerLabel = (answer: EligibilityAnswerValue): string =>
+	answerOptionsByValue[answer].label;
 
 const evaluate: ScopeRulePack["evaluate"] = ({ answer, answeredAt }) =>
 	Object.freeze({
