@@ -1,19 +1,142 @@
+type BrandedString<Name extends string> = string & {
+	readonly __brand: Name;
+};
+
+export type FactKey = BrandedString<"FactKey">;
+export type IsoTimestamp = BrandedString<"IsoTimestamp">;
+export type IssueCode = BrandedString<"IssueCode">;
+export type QuestionId = BrandedString<"QuestionId">;
+export type RuleId = BrandedString<"RuleId">;
+export type RulePackId = BrandedString<"RulePackId">;
+export type Sha256Digest = BrandedString<"Sha256Digest">;
+export type SourceId = BrandedString<"SourceId">;
+
+const isFactKey = (value: string): value is FactKey =>
+	/^taxpayer\.[a-z0-9.-]+$/.test(value);
+
+const isIsoTimestamp = (value: string): value is IsoTimestamp => {
+	const parsed = Date.parse(value);
+	return !Number.isNaN(parsed) && new Date(parsed).toISOString() === value;
+};
+
+const isIssueCode = (value: string): value is IssueCode =>
+	/^RULE_[A-Z0-9_]+$/.test(value);
+
+const isQuestionId = (value: string): value is QuestionId =>
+	/^itr1-[a-z0-9-]+$/.test(value);
+
+const isRuleId = (value: string): value is RuleId =>
+	/^ITR1-[A-Z0-9-]+$/.test(value);
+
+const isRulePackId = (value: string): value is RulePackId =>
+	/^itr1-ay\d{4}-\d{2}\.\d{4}-\d{2}-\d{2}$/.test(value);
+
+const isSha256Digest = (value: string): value is Sha256Digest =>
+	/^[a-f0-9]{64}$/.test(value);
+
+const isSourceId = (value: string): value is SourceId =>
+	/^cbdt-[a-z0-9-]+$/.test(value);
+
+export const parseFactKey = (value: string): FactKey => {
+	if (!isFactKey(value)) {
+		throw new Error(`Invalid fact key: ${value}`);
+	}
+	return value;
+};
+
+export const parseIsoTimestamp = (value: string): IsoTimestamp => {
+	if (!isIsoTimestamp(value)) {
+		throw new Error(`Invalid ISO timestamp: ${value}`);
+	}
+	return value;
+};
+
+export const parseIssueCode = (value: string): IssueCode => {
+	if (!isIssueCode(value)) {
+		throw new Error(`Invalid issue code: ${value}`);
+	}
+	return value;
+};
+
+export const parseQuestionId = (value: string): QuestionId => {
+	if (!isQuestionId(value)) {
+		throw new Error(`Invalid question ID: ${value}`);
+	}
+	return value;
+};
+
+export const parseRuleId = (value: string): RuleId => {
+	if (!isRuleId(value)) {
+		throw new Error(`Invalid rule ID: ${value}`);
+	}
+	return value;
+};
+
+export const parseRulePackId = (value: string): RulePackId => {
+	if (!isRulePackId(value)) {
+		throw new Error(`Invalid rule-pack ID: ${value}`);
+	}
+	return value;
+};
+
+export const parseSha256Digest = (value: string): Sha256Digest => {
+	if (!isSha256Digest(value)) {
+		throw new Error(`Invalid SHA-256 digest: ${value}`);
+	}
+	return value;
+};
+
+export const parseSourceId = (value: string): SourceId => {
+	if (!isSourceId(value)) {
+		throw new Error(`Invalid source ID: ${value}`);
+	}
+	return value;
+};
+
 export type EligibilityAnswerValue = "yes" | "no";
 
+export type AnswerOption = Readonly<{
+	value: EligibilityAnswerValue;
+	label: string;
+}>;
+
+export type RuleSourceReference = Readonly<{
+	sourceId: SourceId;
+	location: string;
+}>;
+
 export type EligibilityQuestion = Readonly<{
-	id: string;
+	id: QuestionId;
 	prompt: string;
 	helpText: string;
-	answers: readonly Readonly<{
-		value: EligibilityAnswerValue;
-		label: string;
-	}>[];
+	answers: readonly [AnswerOption, AnswerOption];
+	suppliesFact: FactKey;
+	requiresRuleId: RuleId;
+	answerSchema: Readonly<{
+		kind: "choice";
+		values: readonly [EligibilityAnswerValue, EligibilityAnswerValue];
+	}>;
+	visibility: Readonly<{ kind: "always" }>;
+	blockingEffect: Readonly<{
+		kind: "block-on-answer";
+		answer: "no";
+		issueCode: IssueCode;
+	}>;
+	sourceReference: RuleSourceReference;
 }>;
 
 export type RuleCitation = Readonly<{
-	id: string;
+	id: RuleId;
 	citation: string;
 	sourceUrl: string;
+}>;
+
+export type ScopeIssue = Readonly<{
+	code: IssueCode;
+	severity: "blocking" | "review" | "warning" | "information";
+	affectedFacts: readonly FactKey[];
+	sourceReferences: readonly RuleSourceReference[];
+	recoveryAction: string;
 }>;
 
 export type ScopeCheckResult =
@@ -28,37 +151,43 @@ export type ScopeCheckResult =
 			title: string;
 			explanation: string;
 			rule: RuleCitation;
+			issue: ScopeIssue;
 	  }>;
+
+export type AttestedAnswer = Readonly<{
+	questionId: QuestionId;
+	value: EligibilityAnswerValue;
+	label: string;
+	answeredAt: IsoTimestamp;
+	rulePackId: RulePackId;
+}>;
 
 export type CompletedScopeCheck = Readonly<{
 	question: Pick<EligibilityQuestion, "id" | "prompt">;
-	answer: Readonly<{
-		value: EligibilityAnswerValue;
-		label: string;
-	}>;
+	answer: AttestedAnswer;
 	result: ScopeCheckResult;
 }>;
 
 export type RulePackIdentity = Readonly<{
-	id: string;
+	id: RulePackId;
 	form: "ITR-1";
 	financialYear: "2025-26";
 	assessmentYear: "2026-27";
 	revision: string;
-	officialSourceRevisionIds: readonly string[];
-	sourceManifestSha256: string;
-	compiledPackSha256: string;
+	officialSourceRevisionIds: readonly SourceId[];
+	sourceManifestSha256: Sha256Digest;
+	compiledPackSha256: Sha256Digest;
 	minimumEngineContractVersion: string;
 }>;
 
 export type OfficialSource = Readonly<{
-	id: string;
+	id: SourceId;
 	title: string;
 	authority: string;
 	url: string;
 	releaseDate: string;
 	retrievedDate: string;
-	contentSha256: string;
+	contentSha256: Sha256Digest;
 	redistributionStatus: "not-redistributed";
 	location: string;
 }>;
@@ -67,21 +196,26 @@ export type ScopeRulePack = Readonly<{
 	identity: RulePackIdentity;
 	officialSources: readonly OfficialSource[];
 	question: EligibilityQuestion;
-	evaluate(answer: EligibilityAnswerValue): CompletedScopeCheck;
+	evaluate(
+		input: Readonly<{
+			answer: EligibilityAnswerValue;
+			answeredAt: IsoTimestamp;
+		}>,
+	): CompletedScopeCheck;
 }>;
 
 export type ScopeCheckSessionSnapshot =
 	| Readonly<{
 			kind: "awaiting-scope-answer";
 			workflow: "eligibility";
-			rulePackId: string;
+			rulePackId: RulePackId;
 			question: EligibilityQuestion;
 	  }>
 	| Readonly<{
 			kind: "scope-check-complete";
 			workflow: "eligibility";
-			rulePackId: string;
+			rulePackId: RulePackId;
 			question: Pick<EligibilityQuestion, "id" | "prompt">;
-			answer: CompletedScopeCheck["answer"];
+			answer: AttestedAnswer;
 			result: ScopeCheckResult;
 	  }>;

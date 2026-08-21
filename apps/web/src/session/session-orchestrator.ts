@@ -1,11 +1,12 @@
-import { getItr1Ay202627RulePack } from "@openitr/itr1-ay2026-27";
+import { parseIsoTimestamp } from "@openitr/model";
 import type {
 	CompletedScopeCheck,
 	EligibilityAnswerValue,
+	IsoTimestamp,
 	ScopeCheckSessionSnapshot,
 	ScopeRulePack,
 } from "@openitr/model";
-import { assign, createActor, setup } from "xstate";
+import { createActor, setup } from "xstate";
 
 export type SessionCommand = Readonly<{
 	kind: "answer-eligibility-question";
@@ -17,10 +18,12 @@ export type SessionOrchestrator = Readonly<{
 	getSnapshot(): ScopeCheckSessionSnapshot;
 	send(command: SessionCommand): void;
 	stop(): void;
+	subscribe(listener: () => void): () => void;
 }>;
 
 type SessionContext = Readonly<{
 	rulePack: ScopeRulePack;
+	answerTime: IsoTimestamp;
 	scopeCheck:
 		| Readonly<{ kind: "awaiting-answer" }>
 		| Readonly<{
@@ -34,23 +37,15 @@ type SessionEvent = Readonly<{
 	answer: EligibilityAnswerValue;
 }>;
 
-const createSessionMachine = (rulePack: ScopeRulePack) =>
-	setup({
-		types: {
-			context: {} as SessionContext,
-			events: {} as SessionEvent,
-		},
-		actions: {
-			recordAnswer: assign({
-				scopeCheck: ({ context, event }) => ({
-					kind: "complete",
-					completion: context.rulePack.evaluate(event.answer),
-				}),
-			}),
-		},
-	}).createMachine({
+const createSessionMachine = ({
+	rulePack,
+	answerTime,
+}: Readonly<{ rulePack: ScopeRulePack; answerTime: IsoTimestamp }>) => {
+	const sessionSetup = setup<SessionContext, SessionEvent>({});
+	return sessionSetup.createMachine({
 		context: {
 			rulePack,
+			answerTime,
 			scopeCheck: { kind: "awaiting-answer" },
 		},
 		initial: "awaiting-answer",
@@ -58,7 +53,15 @@ const createSessionMachine = (rulePack: ScopeRulePack) =>
 			"awaiting-answer": {
 				on: {
 					"answer-eligibility-question": {
-						actions: "recordAnswer",
+						actions: sessionSetup.assign({
+							scopeCheck: ({ context, event }) => ({
+								kind: "complete",
+								completion: context.rulePack.evaluate({
+									answer: event.answer,
+									answeredAt: context.answerTime,
+								}),
+							}),
+						}),
 						target: "complete",
 					},
 				},
@@ -68,6 +71,7 @@ const createSessionMachine = (rulePack: ScopeRulePack) =>
 			},
 		},
 	});
+};
 
 const toSessionSnapshot = (context: SessionContext): ScopeCheckSessionSnapshot => {
 	switch (context.scopeCheck.kind) {
@@ -93,20 +97,39 @@ const toSessionSnapshot = (context: SessionContext): ScopeCheckSessionSnapshot =
 };
 
 export const createSessionOrchestrator = ({
-	rulePackId,
-}: Readonly<{ rulePackId: string }>): SessionOrchestrator => {
-	const rulePack = getItr1Ay202627RulePack(rulePackId);
-	if (rulePack === undefined) {
-		throw new Error(`Unknown rule pack: ${rulePackId}`);
-	}
-
-	const actor = createActor(createSessionMachine(rulePack));
+	rulePack,
+	executionContext,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	executionContext: Readonly<{ answerTime: string }>;
+}>): SessionOrchestrator => {
+	const answerTime = parseIsoTimestamp(executionContext.answerTime);
+	const actor = createActor(createSessionMachine({ rulePack, answerTime }));
 	actor.start();
 
+	let actorSnapshot = actor.getSnapshot();
+	let sessionSnapshot = toSessionSnapshot(actorSnapshot.context);
+	const listeners = new Set<() => void>();
+	const actorSubscription = actor.subscribe((nextActorSnapshot) => {
+		if (nextActorSnapshot === actorSnapshot) {
+			return;
+		}
+		actorSnapshot = nextActorSnapshot;
+		sessionSnapshot = toSessionSnapshot(nextActorSnapshot.context);
+		for (const listener of listeners) {
+			listener();
+		}
+	});
+	const getSnapshot = () => sessionSnapshot;
+	const subscribe = (listener: () => void) => {
+		listeners.add(listener);
+		return () => listeners.delete(listener);
+	};
+
 	return {
-		getSnapshot: () => toSessionSnapshot(actor.getSnapshot().context),
+		getSnapshot,
 		send: (command) => {
-			const snapshot = toSessionSnapshot(actor.getSnapshot().context);
+			const snapshot = getSnapshot();
 			if (snapshot.kind !== "awaiting-scope-answer") {
 				return;
 			}
@@ -119,6 +142,11 @@ export const createSessionOrchestrator = ({
 				answer: command.answer,
 			});
 		},
-		stop: () => actor.stop(),
+		stop: () => {
+			actorSubscription.unsubscribe();
+			actor.stop();
+			listeners.clear();
+		},
+		subscribe,
 	};
 };

@@ -1,12 +1,58 @@
+import { itr1Ay202627RulePack } from "@openitr/itr1-ay2026-27";
 import { describe, expect, test } from "vitest";
 
 import { createSessionOrchestrator } from "./session-orchestrator";
 
 describe("ITR-1 scope check", () => {
-	test("reports a resident individual as supported by the pinned rule", () => {
-		const session = createSessionOrchestrator({
-			rulePackId: "itr1-ay2026-27.2026-08-22",
+	const createSession = () =>
+		createSessionOrchestrator({
+			rulePack: itr1Ay202627RulePack,
+			executionContext: {
+				answerTime: "2026-08-22T00:00:00.000Z",
+			},
 		});
+
+	test("presents one cited question with the facts needed by the rule pack", () => {
+		const session = createSession();
+
+		expect(session.getSnapshot()).toEqual({
+			kind: "awaiting-scope-answer",
+			workflow: "eligibility",
+			rulePackId: "itr1-ay2026-27.2026-08-22",
+			question: {
+				id: "itr1-resident-individual",
+				prompt:
+					"For FY 2025-26, were you an individual with Resident status, excluding Resident but not ordinarily resident?",
+				helpText:
+					"Answer No if your status was Resident but not ordinarily resident or Non-resident.",
+				answers: [
+					{ value: "yes", label: "Yes" },
+					{ value: "no", label: "No" },
+				],
+				suppliesFact: "taxpayer.residential-status",
+				requiresRuleId: "ITR1-ELIGIBILITY-RESIDENT",
+				answerSchema: {
+					kind: "choice",
+					values: ["yes", "no"],
+				},
+				visibility: { kind: "always" },
+				blockingEffect: {
+					kind: "block-on-answer",
+					answer: "no",
+					issueCode: "RULE_ITR1_RESIDENT_STATUS_UNSUPPORTED",
+				},
+				sourceReference: {
+					sourceId: "cbdt-notification-45-2026",
+					location: "Form ITR-1 heading, Gazette page 16",
+				},
+			},
+		});
+
+		session.stop();
+	});
+
+	test("reports a resident individual as supported by the pinned rule", () => {
+		const session = createSession();
 
 		session.send({
 			kind: "answer-eligibility-question",
@@ -24,8 +70,11 @@ describe("ITR-1 scope check", () => {
 					"For FY 2025-26, were you an individual with Resident status, excluding Resident but not ordinarily resident?",
 			},
 			answer: {
+				questionId: "itr1-resident-individual",
 				value: "yes",
 				label: "Yes",
+				answeredAt: "2026-08-22T00:00:00.000Z",
+				rulePackId: "itr1-ay2026-27.2026-08-22",
 			},
 			result: {
 				kind: "supported",
@@ -46,9 +95,7 @@ describe("ITR-1 scope check", () => {
 	});
 
 	test("reports any other residential status as unsupported by the pinned rule", () => {
-		const session = createSessionOrchestrator({
-			rulePackId: "itr1-ay2026-27.2026-08-22",
-		});
+		const session = createSession();
 
 		session.send({
 			kind: "answer-eligibility-question",
@@ -66,8 +113,11 @@ describe("ITR-1 scope check", () => {
 					"For FY 2025-26, were you an individual with Resident status, excluding Resident but not ordinarily resident?",
 			},
 			answer: {
+				questionId: "itr1-resident-individual",
 				value: "no",
 				label: "No",
+				answeredAt: "2026-08-22T00:00:00.000Z",
+				rulePackId: "itr1-ay2026-27.2026-08-22",
 			},
 			result: {
 				kind: "unsupported",
@@ -81,6 +131,19 @@ describe("ITR-1 scope check", () => {
 					sourceUrl:
 						"https://www.incometax.gov.in/iec/foportal/sites/default/files/2026-04/Notification%20No.45_2026.pdf",
 				},
+				issue: {
+					code: "RULE_ITR1_RESIDENT_STATUS_UNSUPPORTED",
+					severity: "blocking",
+					affectedFacts: ["taxpayer.residential-status"],
+					sourceReferences: [
+						{
+							sourceId: "cbdt-notification-45-2026",
+							location: "Form ITR-1 heading, Gazette page 16",
+						},
+					],
+					recoveryAction:
+						"Stop this ITR-1 analysis and review another return-form scope or consult a qualified professional.",
+				},
 			},
 		});
 
@@ -89,9 +152,7 @@ describe("ITR-1 scope check", () => {
 
 	test("replays the same answer against the same rule-pack revision", () => {
 		const runScopeCheck = () => {
-			const session = createSessionOrchestrator({
-				rulePackId: "itr1-ay2026-27.2026-08-22",
-			});
+			const session = createSession();
 			session.send({
 				kind: "answer-eligibility-question",
 				questionId: "itr1-resident-individual",
@@ -103,5 +164,24 @@ describe("ITR-1 scope check", () => {
 		};
 
 		expect(runScopeCheck()).toEqual(runScopeCheck());
+	});
+
+	test("notifies subscribers when the scope check completes", () => {
+		const session = createSession();
+		const observedSnapshotKinds: string[] = [];
+		const unsubscribe = session.subscribe(() => {
+			observedSnapshotKinds.push(session.getSnapshot().kind);
+		});
+
+		session.send({
+			kind: "answer-eligibility-question",
+			questionId: "itr1-resident-individual",
+			answer: "yes",
+		});
+
+		expect(observedSnapshotKinds).toEqual(["scope-check-complete"]);
+
+		unsubscribe();
+		session.stop();
 	});
 });
