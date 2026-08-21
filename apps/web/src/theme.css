@@ -201,6 +201,19 @@ body,
 	padding-left: var(--pf-t--global--spacer--sm);
 }
 
+.openitr-session-actions {
+	align-items: baseline;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--pf-t--global--spacer--md);
+	margin-top: var(--pf-t--global--spacer--lg);
+}
+
+.openitr-session-actions-note {
+	color: var(--pf-t--global--text--color--subtle);
+	margin: 0;
+}
+
 .openitr-session-note {
 	border-top: var(--pf-t--global--border--width--regular) solid
 		var(--pf-t--global--border--color--default);
