@@ -18,8 +18,21 @@ export type TaxFormId = BrandedString<"TaxFormId">;
 const isFactKey = (value: string): value is FactKey =>
 	/^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/.test(value);
 
+const isConsecutiveYearRange = (value: string): boolean => {
+	const match = /^(\d{4})-(\d{2})$/.exec(value);
+	if (match === null) {
+		return false;
+	}
+	const startYear = match[1];
+	const endYear = match[2];
+	if (startYear === undefined || endYear === undefined) {
+		return false;
+	}
+	return (Number(startYear) + 1) % 100 === Number(endYear);
+};
+
 const isFinancialYear = (value: string): value is FinancialYear =>
-	/^\d{4}-\d{2}$/.test(value);
+	isConsecutiveYearRange(value);
 
 const isIsoTimestamp = (value: string): value is IsoTimestamp => {
 	const parsed = Date.parse(value);
@@ -47,7 +60,7 @@ const isSourceId = (value: string): value is SourceId =>
 	/^[a-z][a-z0-9-]+$/.test(value);
 
 const isAssessmentYear = (value: string): value is AssessmentYear =>
-	/^\d{4}-\d{2}$/.test(value);
+	isConsecutiveYearRange(value);
 
 const isTaxAnalysisModuleId = (
 	value: string,
