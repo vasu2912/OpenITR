@@ -3,6 +3,7 @@ type BrandedString<Name extends string> = string & {
 };
 
 export type FactKey = BrandedString<"FactKey">;
+export type FinancialYear = BrandedString<"FinancialYear">;
 export type IsoTimestamp = BrandedString<"IsoTimestamp">;
 export type IssueCode = BrandedString<"IssueCode">;
 export type QuestionId = BrandedString<"QuestionId">;
@@ -10,9 +11,15 @@ export type RuleId = BrandedString<"RuleId">;
 export type RulePackId = BrandedString<"RulePackId">;
 export type Sha256Digest = BrandedString<"Sha256Digest">;
 export type SourceId = BrandedString<"SourceId">;
+export type AssessmentYear = BrandedString<"AssessmentYear">;
+export type TaxAnalysisModuleId = BrandedString<"TaxAnalysisModuleId">;
+export type TaxFormId = BrandedString<"TaxFormId">;
 
 const isFactKey = (value: string): value is FactKey =>
-	/^taxpayer\.[a-z0-9.-]+$/.test(value);
+	/^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/.test(value);
+
+const isFinancialYear = (value: string): value is FinancialYear =>
+	/^\d{4}-\d{2}$/.test(value);
 
 const isIsoTimestamp = (value: string): value is IsoTimestamp => {
 	const parsed = Date.parse(value);
@@ -20,26 +27,45 @@ const isIsoTimestamp = (value: string): value is IsoTimestamp => {
 };
 
 const isIssueCode = (value: string): value is IssueCode =>
-	/^RULE_[A-Z0-9_]+$/.test(value);
+	/^(?:FILE|DOCUMENT|FACT|QUESTION|RULE|VALIDATION|ANALYSIS)_[A-Z0-9_]+$/.test(
+		value,
+	);
 
 const isQuestionId = (value: string): value is QuestionId =>
-	/^itr1-[a-z0-9-]+$/.test(value);
+	/^[a-z][a-z0-9-]+$/.test(value);
 
 const isRuleId = (value: string): value is RuleId =>
-	/^ITR1-[A-Z0-9-]+$/.test(value);
+	/^[A-Z][A-Z0-9-]+$/.test(value);
 
 const isRulePackId = (value: string): value is RulePackId =>
-	/^itr1-ay\d{4}-\d{2}\.\d{4}-\d{2}-\d{2}$/.test(value);
+	/^[a-z][a-z0-9-]*\.[a-z0-9.-]+$/.test(value);
 
 const isSha256Digest = (value: string): value is Sha256Digest =>
 	/^[a-f0-9]{64}$/.test(value);
 
 const isSourceId = (value: string): value is SourceId =>
-	/^cbdt-[a-z0-9-]+$/.test(value);
+	/^[a-z][a-z0-9-]+$/.test(value);
+
+const isAssessmentYear = (value: string): value is AssessmentYear =>
+	/^\d{4}-\d{2}$/.test(value);
+
+const isTaxAnalysisModuleId = (
+	value: string,
+): value is TaxAnalysisModuleId => /^[a-z][a-z0-9-]+$/.test(value);
+
+const isTaxFormId = (value: string): value is TaxFormId =>
+	/^[A-Z][A-Z0-9-]+$/.test(value);
 
 export const parseFactKey = (value: string): FactKey => {
 	if (!isFactKey(value)) {
 		throw new Error(`Invalid fact key: ${value}`);
+	}
+	return value;
+};
+
+export const parseFinancialYear = (value: string): FinancialYear => {
+	if (!isFinancialYear(value)) {
+		throw new Error(`Invalid financial year: ${value}`);
 	}
 	return value;
 };
@@ -89,6 +115,29 @@ export const parseSha256Digest = (value: string): Sha256Digest => {
 export const parseSourceId = (value: string): SourceId => {
 	if (!isSourceId(value)) {
 		throw new Error(`Invalid source ID: ${value}`);
+	}
+	return value;
+};
+
+export const parseAssessmentYear = (value: string): AssessmentYear => {
+	if (!isAssessmentYear(value)) {
+		throw new Error(`Invalid assessment year: ${value}`);
+	}
+	return value;
+};
+
+export const parseTaxAnalysisModuleId = (
+	value: string,
+): TaxAnalysisModuleId => {
+	if (!isTaxAnalysisModuleId(value)) {
+		throw new Error(`Invalid tax-analysis module ID: ${value}`);
+	}
+	return value;
+};
+
+export const parseTaxFormId = (value: string): TaxFormId => {
+	if (!isTaxFormId(value)) {
+		throw new Error(`Invalid tax form ID: ${value}`);
 	}
 	return value;
 };
@@ -170,9 +219,9 @@ export type CompletedScopeCheck = Readonly<{
 
 export type RulePackIdentity = Readonly<{
 	id: RulePackId;
-	form: "ITR-1";
-	financialYear: "2025-26";
-	assessmentYear: "2026-27";
+	form: TaxFormId;
+	financialYear: FinancialYear;
+	assessmentYear: AssessmentYear;
 	revision: string;
 	officialSourceRevisionIds: readonly SourceId[];
 	sourceManifestSha256: Sha256Digest;
@@ -202,6 +251,16 @@ export type ScopeRulePack = Readonly<{
 			answeredAt: IsoTimestamp;
 		}>,
 	): CompletedScopeCheck;
+}>;
+
+export type TaxAnalysisModuleIdentity = Readonly<{
+	id: TaxAnalysisModuleId;
+	compiledModuleSha256: Sha256Digest;
+}>;
+
+export type TaxAnalysisModule = Readonly<{
+	identity: TaxAnalysisModuleIdentity;
+	rulePack: ScopeRulePack;
 }>;
 
 export type ScopeCheckSessionSnapshot =

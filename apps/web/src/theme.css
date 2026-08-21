@@ -98,6 +98,11 @@ body,
 	min-width: var(--pf-t--global--spacer--xl);
 }
 
+.openitr-workflow-step[data-status="blocked"] .openitr-step-marker {
+	background: var(--pf-t--global--color--status--danger--default);
+	color: var(--pf-t--global--text--color--status--on-danger--default);
+}
+
 .openitr-content {
 	background: var(--pf-t--global--background--color--secondary--default);
 }

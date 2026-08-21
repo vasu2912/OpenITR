@@ -1,11 +1,14 @@
 import {
+	parseAssessmentYear,
 	parseFactKey,
+	parseFinancialYear,
 	parseIssueCode,
 	parseQuestionId,
 	parseRuleId,
 	parseRulePackId,
 	parseSha256Digest,
 	parseSourceId,
+	parseTaxFormId,
 } from "@openitr/model";
 import type {
 	AnswerOption,
@@ -41,16 +44,12 @@ const officialSource = Object.freeze({
 	location: sourceReference.location,
 }) satisfies OfficialSource;
 
-const yesOption = Object.freeze({ value: "yes", label: "Yes" }) satisfies
-	AnswerOption;
-const noOption = Object.freeze({ value: "no", label: "No" }) satisfies
-	AnswerOption;
 const answerOptions: EligibilityQuestion["answers"] = Object.freeze([
-	yesOption,
-	noOption,
+	Object.freeze({ value: "yes", label: "Yes" }) satisfies AnswerOption,
+	Object.freeze({ value: "no", label: "No" }) satisfies AnswerOption,
 ]);
 const answerValues: EligibilityQuestion["answerSchema"]["values"] =
-	Object.freeze(["yes", "no"]);
+	Object.freeze([answerOptions[0].value, answerOptions[1].value]);
 
 const issueCode = parseIssueCode("RULE_ITR1_RESIDENT_STATUS_UNSUPPORTED");
 const residentialStatusFact = parseFactKey("taxpayer.residential-status");
@@ -96,9 +95,9 @@ const unsupportedIssue = Object.freeze({
 
 const identity = Object.freeze({
 	id: parseRulePackId("itr1-ay2026-27.2026-08-22"),
-	form: "ITR-1",
-	financialYear: "2025-26",
-	assessmentYear: "2026-27",
+	form: parseTaxFormId("ITR-1"),
+	financialYear: parseFinancialYear("2025-26"),
+	assessmentYear: parseAssessmentYear("2026-27"),
 	revision: "2026-08-22",
 	officialSourceRevisionIds: Object.freeze([officialSource.id]),
 	sourceManifestSha256: parseSha256Digest(
@@ -132,16 +131,11 @@ const resultFor = (answer: EligibilityAnswerValue): ScopeCheckResult => {
 };
 
 const answerLabel = (answer: EligibilityAnswerValue): string => {
-	switch (answer) {
-		case "yes":
-			return "Yes";
-		case "no":
-			return "No";
-		default: {
-			const _exhaustive: never = answer;
-			return _exhaustive;
-		}
+	const option = answerOptions.find((candidate) => candidate.value === answer);
+	if (option === undefined) {
+		throw new Error(`Rule pack has no label for answer: ${answer}`);
 	}
+	return option.label;
 };
 
 const evaluate: ScopeRulePack["evaluate"] = ({ answer, answeredAt }) =>
