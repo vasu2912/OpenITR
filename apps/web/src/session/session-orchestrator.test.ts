@@ -4,12 +4,12 @@ import { describe, expect, test } from "vitest";
 import { createSessionOrchestrator } from "./session-orchestrator";
 
 describe("ITR-1 scope check", () => {
-	const createSession = () =>
+	const fixedAnswerTime = "2026-08-22T00:00:00.000Z";
+	const questionId = itr1Ay202627RulePack.question.id;
+	const createSession = (now: () => string = () => fixedAnswerTime) =>
 		createSessionOrchestrator({
 			rulePack: itr1Ay202627RulePack,
-			executionContext: {
-				answerTime: "2026-08-22T00:00:00.000Z",
-			},
+			executionContext: { now },
 		});
 
 	test("presents one cited question with the facts needed by the rule pack", () => {
@@ -56,7 +56,7 @@ describe("ITR-1 scope check", () => {
 
 		session.send({
 			kind: "answer-eligibility-question",
-			questionId: "itr1-resident-individual",
+			questionId,
 			answer: "yes",
 		});
 
@@ -99,7 +99,7 @@ describe("ITR-1 scope check", () => {
 
 		session.send({
 			kind: "answer-eligibility-question",
-			questionId: "itr1-resident-individual",
+			questionId,
 			answer: "no",
 		});
 
@@ -155,7 +155,7 @@ describe("ITR-1 scope check", () => {
 			const session = createSession();
 			session.send({
 				kind: "answer-eligibility-question",
-				questionId: "itr1-resident-individual",
+				questionId,
 				answer: "yes",
 			});
 			const snapshot = session.getSnapshot();
@@ -175,13 +175,33 @@ describe("ITR-1 scope check", () => {
 
 		session.send({
 			kind: "answer-eligibility-question",
-			questionId: "itr1-resident-individual",
+			questionId,
 			answer: "yes",
 		});
 
 		expect(observedSnapshotKinds).toEqual(["scope-check-complete"]);
 
 		unsubscribe();
+		session.stop();
+	});
+
+	test("records the execution-context time when the answer is sent", () => {
+		let currentTime = "2026-08-22T00:00:00.000Z";
+		const session = createSession(() => currentTime);
+		currentTime = "2026-08-22T00:05:00.000Z";
+
+		session.send({
+			kind: "answer-eligibility-question",
+			questionId,
+			answer: "yes",
+		});
+
+		const snapshot = session.getSnapshot();
+		expect(snapshot.kind).toBe("scope-check-complete");
+		if (snapshot.kind === "scope-check-complete") {
+			expect(snapshot.answer.answeredAt).toBe(currentTime);
+		}
+
 		session.stop();
 	});
 });

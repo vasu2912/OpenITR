@@ -3,6 +3,7 @@ import type {
 	CompletedScopeCheck,
 	EligibilityAnswerValue,
 	IsoTimestamp,
+	QuestionId,
 	ScopeCheckSessionSnapshot,
 	ScopeRulePack,
 } from "@openitr/model";
@@ -10,7 +11,7 @@ import { createActor, setup } from "xstate";
 
 export type SessionCommand = Readonly<{
 	kind: "answer-eligibility-question";
-	questionId: string;
+	questionId: QuestionId;
 	answer: EligibilityAnswerValue;
 }>;
 
@@ -23,7 +24,6 @@ export type SessionOrchestrator = Readonly<{
 
 type SessionContext = Readonly<{
 	rulePack: ScopeRulePack;
-	answerTime: IsoTimestamp;
 	scopeCheck:
 		| Readonly<{ kind: "awaiting-answer" }>
 		| Readonly<{
@@ -35,17 +35,16 @@ type SessionContext = Readonly<{
 type SessionEvent = Readonly<{
 	type: "answer-eligibility-question";
 	answer: EligibilityAnswerValue;
+	answeredAt: IsoTimestamp;
 }>;
 
 const createSessionMachine = ({
 	rulePack,
-	answerTime,
-}: Readonly<{ rulePack: ScopeRulePack; answerTime: IsoTimestamp }>) => {
+}: Readonly<{ rulePack: ScopeRulePack }>) => {
 	const sessionSetup = setup<SessionContext, SessionEvent>({});
 	return sessionSetup.createMachine({
 		context: {
 			rulePack,
-			answerTime,
 			scopeCheck: { kind: "awaiting-answer" },
 		},
 		initial: "awaiting-answer",
@@ -58,7 +57,7 @@ const createSessionMachine = ({
 								kind: "complete",
 								completion: context.rulePack.evaluate({
 									answer: event.answer,
-									answeredAt: context.answerTime,
+									answeredAt: event.answeredAt,
 								}),
 							}),
 						}),
@@ -101,10 +100,9 @@ export const createSessionOrchestrator = ({
 	executionContext,
 }: Readonly<{
 	rulePack: ScopeRulePack;
-	executionContext: Readonly<{ answerTime: string }>;
+	executionContext: Readonly<{ now(): string }>;
 }>): SessionOrchestrator => {
-	const answerTime = parseIsoTimestamp(executionContext.answerTime);
-	const actor = createActor(createSessionMachine({ rulePack, answerTime }));
+	const actor = createActor(createSessionMachine({ rulePack }));
 	actor.start();
 
 	let actorSnapshot = actor.getSnapshot();
@@ -140,6 +138,7 @@ export const createSessionOrchestrator = ({
 			actor.send({
 				type: "answer-eligibility-question",
 				answer: command.answer,
+				answeredAt: parseIsoTimestamp(executionContext.now()),
 			});
 		},
 		stop: () => {

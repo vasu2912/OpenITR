@@ -37,6 +37,16 @@ type SessionLoadState =
 			incidentCode: "ANALYSIS_RULE_PACK_LOAD_FAILED";
 	  }>;
 
+type WorkflowState = "in-progress" | "complete" | "blocked";
+
+const workflowStatePresentation: Readonly<
+	Record<WorkflowState, Readonly<{ marker: string; label: string }>>
+> = Object.freeze({
+	"in-progress": Object.freeze({ marker: "1", label: "In progress" }),
+	complete: Object.freeze({ marker: "✓", label: "Complete" }),
+	blocked: Object.freeze({ marker: "!", label: "Blocked" }),
+});
+
 const AppMasthead = () => (
 	<Masthead className="openitr-masthead">
 		<MastheadMain>
@@ -54,42 +64,48 @@ const AppMasthead = () => (
 );
 
 const WorkflowSidebar = ({
-	isComplete,
-}: Readonly<{ isComplete: boolean }>) => (
-	<PageSidebar className="openitr-sidebar" isManagedSidebar>
-		<PageSidebarBody>
-			<nav aria-label="Analysis workflow" className="openitr-workflow">
-				<p className="openitr-workflow-heading">Analysis workflow</p>
-				<ol className="openitr-workflow-list">
-					<li
-						aria-current={isComplete ? undefined : "step"}
-						className="openitr-workflow-step"
-					>
-						<span aria-hidden="true" className="openitr-step-marker">
-							{isComplete ? "✓" : "1"}
-						</span>
-						<span>
-							<strong>Scope check</strong>
-							<small>{isComplete ? "Complete" : "In progress"}</small>
-						</span>
-					</li>
-				</ol>
-			</nav>
-		</PageSidebarBody>
-	</PageSidebar>
-);
+	workflowState,
+}: Readonly<{ workflowState: WorkflowState }>) => {
+	const presentation = workflowStatePresentation[workflowState];
+	return (
+		<PageSidebar className="openitr-sidebar" isManagedSidebar>
+			<PageSidebarBody>
+				<nav aria-label="Analysis workflow" className="openitr-workflow">
+					<p className="openitr-workflow-heading">Analysis workflow</p>
+					<ol className="openitr-workflow-list">
+						<li
+							aria-current={
+								workflowState === "in-progress" ? "step" : undefined
+							}
+							className="openitr-workflow-step"
+							data-status={workflowState}
+						>
+							<span aria-hidden="true" className="openitr-step-marker">
+								{presentation.marker}
+							</span>
+							<span>
+								<strong>Scope check</strong>
+								<small>{presentation.label}</small>
+							</span>
+						</li>
+					</ol>
+				</nav>
+			</PageSidebarBody>
+		</PageSidebar>
+	);
+};
 
 const AppFrame = ({
 	children,
-	isComplete,
-}: Readonly<{ children: ReactNode; isComplete: boolean }>) => (
+	workflowState,
+}: Readonly<{ children: ReactNode; workflowState: WorkflowState }>) => (
 	<Page
 		className="openitr-page"
 		defaultManagedSidebarIsOpen
 		isManagedSidebar
 		mainContainerId="openitr-main"
 		masthead={<AppMasthead />}
-		sidebar={<WorkflowSidebar isComplete={isComplete} />}
+		sidebar={<WorkflowSidebar workflowState={workflowState} />}
 	>
 		<PageSection className="openitr-content" isFilled>
 			<div className="openitr-content-inner">
@@ -154,7 +170,7 @@ const ScopeInteraction = ({
 
 	if (snapshot.kind === "awaiting-scope-answer") {
 		return (
-			<AppFrame isComplete={false}>
+			<AppFrame workflowState="in-progress">
 				<Card className="openitr-question-card" component="section">
 					<CardTitle>
 						<Title headingLevel="h2" size="lg">
@@ -200,7 +216,7 @@ const ScopeInteraction = ({
 	}
 
 	return (
-		<AppFrame isComplete>
+		<AppFrame workflowState="complete">
 			<Card
 				aria-live="polite"
 				className="openitr-result-card"
@@ -271,14 +287,14 @@ export const App = () => {
 		let isDisposed = false;
 		let sessionToStop: SessionOrchestrator | undefined;
 
-		void loadRulePack(activeAnalysisRelease.rulePackId)
+		void loadRulePack(activeAnalysisRelease)
 			.then((rulePack) => {
 				if (isDisposed) {
 					return;
 				}
 				sessionToStop = createSessionOrchestrator({
 					rulePack,
-					executionContext: { answerTime: new Date().toISOString() },
+					executionContext: { now: () => new Date().toISOString() },
 				});
 				setLoadState({ kind: "ready", session: sessionToStop });
 			})
@@ -300,7 +316,7 @@ export const App = () => {
 	switch (loadState.kind) {
 		case "loading":
 			return (
-				<AppFrame isComplete={false}>
+				<AppFrame workflowState="in-progress">
 					<Alert
 						className="openitr-question-card"
 						isInline
@@ -315,7 +331,7 @@ export const App = () => {
 			return <ScopeInteraction session={loadState.session} />;
 		case "failed":
 			return (
-				<AppFrame isComplete={false}>
+				<AppFrame workflowState="blocked">
 					<Alert
 						className="openitr-question-card"
 						isInline
