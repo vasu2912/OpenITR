@@ -8,13 +8,16 @@ import type {
 	ScopeRulePack,
 } from "@openitr/model";
 import { createActor, setup } from "xstate";
+import type { Subscription } from "xstate";
 
-export type SessionCommand = Readonly<{
-	kind: "answer-eligibility-question";
-	questionId: QuestionId;
-	answer: EligibilityAnswerValue;
-	executionContext: Readonly<{ answerTime: string }>;
-}>;
+export type SessionCommand =
+	| Readonly<{
+			kind: "answer-eligibility-question";
+			questionId: QuestionId;
+			answer: EligibilityAnswerValue;
+			executionContext: Readonly<{ answerTime: string }>;
+	  }>
+	| Readonly<{ kind: "reset" }>;
 
 export type SessionOrchestrator = Readonly<{
 	getSnapshot(): ScopeCheckSessionSnapshot;
@@ -73,6 +76,10 @@ const createSessionMachine = ({
 	});
 };
 
+type SessionMachine = ReturnType<typeof createSessionMachine>;
+type SessionActor = ReturnType<typeof createActor<SessionMachine>>;
+type SessionActorSnapshot = ReturnType<SessionActor["getSnapshot"]>;
+
 const toSessionSnapshot = (context: SessionContext): ScopeCheckSessionSnapshot => {
 	switch (context.scopeCheck.kind) {
 		case "awaiting-answer":
@@ -101,22 +108,36 @@ export const createSessionOrchestrator = ({
 }: Readonly<{
 	rulePack: ScopeRulePack;
 }>): SessionOrchestrator => {
-	const actor = createActor(createSessionMachine({ rulePack }));
-	actor.start();
-
-	let actorSnapshot = actor.getSnapshot();
-	let sessionSnapshot = toSessionSnapshot(actorSnapshot.context);
 	const listeners = new Set<() => void>();
-	const actorSubscription = actor.subscribe((nextActorSnapshot) => {
-		if (nextActorSnapshot === actorSnapshot) {
-			return;
-		}
-		actorSnapshot = nextActorSnapshot;
-		sessionSnapshot = toSessionSnapshot(nextActorSnapshot.context);
-		for (const listener of listeners) {
-			listener();
-		}
-	});
+	let actor: SessionActor;
+	let actorSubscription: Subscription;
+	let actorSnapshot: SessionActorSnapshot;
+	let sessionSnapshot: ScopeCheckSessionSnapshot;
+	let isStopped = false;
+
+	const startSessionActor = () => {
+		const nextActor: SessionActor = createActor(
+			createSessionMachine({ rulePack }),
+		);
+		const subscription = nextActor.subscribe((nextActorSnapshot) => {
+			if (nextActorSnapshot === actorSnapshot) {
+				return;
+			}
+			actorSnapshot = nextActorSnapshot;
+			sessionSnapshot = toSessionSnapshot(nextActorSnapshot.context);
+			for (const listener of listeners) {
+				listener();
+			}
+		});
+		nextActor.start();
+		actor = nextActor;
+		actorSubscription = subscription;
+		actorSnapshot = nextActor.getSnapshot();
+		sessionSnapshot = toSessionSnapshot(actorSnapshot.context);
+	};
+
+	startSessionActor();
+
 	const getSnapshot = () => sessionSnapshot;
 	const subscribe = (listener: () => void) => {
 		listeners.add(listener);
@@ -126,6 +147,16 @@ export const createSessionOrchestrator = ({
 	return {
 		getSnapshot,
 		send: (command) => {
+			if (isStopped) {
+				return;
+			}
+			if (command.kind === "reset") {
+				actorSubscription.unsubscribe();
+				actor.stop();
+				startSessionActor();
+				return;
+			}
+
 			const snapshot = getSnapshot();
 			if (snapshot.kind !== "awaiting-scope-answer") {
 				return;
@@ -141,6 +172,7 @@ export const createSessionOrchestrator = ({
 			});
 		},
 		stop: () => {
+			isStopped = true;
 			actorSubscription.unsubscribe();
 			actor.stop();
 			listeners.clear();

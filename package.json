@@ -5,10 +5,12 @@
 	"scripts": {
 		"build": "pnpm --filter @openitr/web build",
 		"test": "vitest run",
+		"test:browser": "playwright test",
 		"typecheck": "pnpm --recursive --if-present typecheck",
-		"validate": "pnpm typecheck && pnpm test && pnpm build"
+		"validate": "pnpm typecheck && pnpm test && pnpm build && pnpm test:browser"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.62.1",
 		"@types/react": "19.2.18",
 		"@types/react-dom": "19.2.4",
 		"@vitejs/plugin-react": "6.1.0",
