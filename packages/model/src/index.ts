@@ -144,8 +144,10 @@ export const parseTaxFormId = (value: string): TaxFormId => {
 
 export type EligibilityAnswerValue = "yes" | "no";
 
-export type AnswerOption = Readonly<{
-	value: EligibilityAnswerValue;
+export type AnswerOption<
+	Value extends EligibilityAnswerValue = EligibilityAnswerValue,
+> = Readonly<{
+	value: Value;
 	label: string;
 }>;
 
@@ -158,7 +160,7 @@ export type EligibilityQuestion = Readonly<{
 	id: QuestionId;
 	prompt: string;
 	helpText: string;
-	answers: readonly [AnswerOption, AnswerOption];
+	answers: readonly [AnswerOption<"yes">, AnswerOption<"no">];
 	suppliesFact: FactKey;
 	requiresRuleId: RuleId;
 	answerSchema: Readonly<{
@@ -253,13 +255,13 @@ export type ScopeRulePack = Readonly<{
 	): CompletedScopeCheck;
 }>;
 
-export type TaxAnalysisModuleIdentity = Readonly<{
+export type TaxAnalysisModuleArtifactIdentity = Readonly<{
 	id: TaxAnalysisModuleId;
 	compiledModuleSha256: Sha256Digest;
 }>;
 
-export type TaxAnalysisModule = Readonly<{
-	identity: TaxAnalysisModuleIdentity;
+export type TaxAnalysisModuleArtifact = Readonly<{
+	identity: TaxAnalysisModuleArtifactIdentity;
 	rulePack: ScopeRulePack;
 }>;
 

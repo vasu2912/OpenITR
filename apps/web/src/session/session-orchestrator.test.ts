@@ -2,15 +2,22 @@ import { itr1Ay202627RulePack } from "@openitr/itr1-ay2026-27";
 import { describe, expect, test } from "vitest";
 
 import { createSessionOrchestrator } from "./session-orchestrator";
+import type { SessionCommand } from "./session-orchestrator";
 
 describe("ITR-1 scope check", () => {
 	const fixedAnswerTime = "2026-08-22T00:00:00.000Z";
 	const questionId = itr1Ay202627RulePack.question.id;
-	const createSession = (now: () => string = () => fixedAnswerTime) =>
-		createSessionOrchestrator({
-			rulePack: itr1Ay202627RulePack,
-			executionContext: { now },
-		});
+	const createSession = () =>
+		createSessionOrchestrator({ rulePack: itr1Ay202627RulePack });
+	const answerCommand = (
+		answer: "yes" | "no",
+		answerTime = fixedAnswerTime,
+	): SessionCommand => ({
+		kind: "answer-eligibility-question",
+		questionId,
+		answer,
+		executionContext: { answerTime },
+	});
 
 	test("presents one cited question with the facts needed by the rule pack", () => {
 		const session = createSession();
@@ -54,11 +61,7 @@ describe("ITR-1 scope check", () => {
 	test("reports a resident individual as supported by the pinned rule", () => {
 		const session = createSession();
 
-		session.send({
-			kind: "answer-eligibility-question",
-			questionId,
-			answer: "yes",
-		});
+		session.send(answerCommand("yes"));
 
 		expect(session.getSnapshot()).toEqual({
 			kind: "scope-check-complete",
@@ -97,11 +100,7 @@ describe("ITR-1 scope check", () => {
 	test("reports any other residential status as unsupported by the pinned rule", () => {
 		const session = createSession();
 
-		session.send({
-			kind: "answer-eligibility-question",
-			questionId,
-			answer: "no",
-		});
+		session.send(answerCommand("no"));
 
 		expect(session.getSnapshot()).toEqual({
 			kind: "scope-check-complete",
@@ -153,11 +152,7 @@ describe("ITR-1 scope check", () => {
 	test("replays the same answer against the same rule-pack revision", () => {
 		const runScopeCheck = () => {
 			const session = createSession();
-			session.send({
-				kind: "answer-eligibility-question",
-				questionId,
-				answer: "yes",
-			});
+			session.send(answerCommand("yes"));
 			const snapshot = session.getSnapshot();
 			session.stop();
 			return snapshot;
@@ -173,11 +168,7 @@ describe("ITR-1 scope check", () => {
 			observedSnapshotKinds.push(session.getSnapshot().kind);
 		});
 
-		session.send({
-			kind: "answer-eligibility-question",
-			questionId,
-			answer: "yes",
-		});
+		session.send(answerCommand("yes"));
 
 		expect(observedSnapshotKinds).toEqual(["scope-check-complete"]);
 
@@ -185,21 +176,16 @@ describe("ITR-1 scope check", () => {
 		session.stop();
 	});
 
-	test("records the execution-context time when the answer is sent", () => {
-		let currentTime = "2026-08-22T00:00:00.000Z";
-		const session = createSession(() => currentTime);
-		currentTime = "2026-08-22T00:05:00.000Z";
+	test("records the explicit answer time supplied with the command", () => {
+		const session = createSession();
+		const answerTime = "2026-08-22T00:05:00.000Z";
 
-		session.send({
-			kind: "answer-eligibility-question",
-			questionId,
-			answer: "yes",
-		});
+		session.send(answerCommand("yes", answerTime));
 
 		const snapshot = session.getSnapshot();
 		expect(snapshot.kind).toBe("scope-check-complete");
 		if (snapshot.kind === "scope-check-complete") {
-			expect(snapshot.answer.answeredAt).toBe(currentTime);
+			expect(snapshot.answer.answeredAt).toBe(answerTime);
 		}
 
 		session.stop();

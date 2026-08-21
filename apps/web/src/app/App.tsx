@@ -165,6 +165,7 @@ const ScopeInteraction = ({
 			kind: "answer-eligibility-question",
 			questionId: snapshot.question.id,
 			answer,
+			executionContext: { answerTime: new Date().toISOString() },
 		});
 	};
 
@@ -294,7 +295,6 @@ export const App = () => {
 				}
 				sessionToStop = createSessionOrchestrator({
 					rulePack,
-					executionContext: { now: () => new Date().toISOString() },
 				});
 				setLoadState({ kind: "ready", session: sessionToStop });
 			})

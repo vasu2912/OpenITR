@@ -13,6 +13,7 @@ export type SessionCommand = Readonly<{
 	kind: "answer-eligibility-question";
 	questionId: QuestionId;
 	answer: EligibilityAnswerValue;
+	executionContext: Readonly<{ answerTime: string }>;
 }>;
 
 export type SessionOrchestrator = Readonly<{
@@ -97,10 +98,8 @@ const toSessionSnapshot = (context: SessionContext): ScopeCheckSessionSnapshot =
 
 export const createSessionOrchestrator = ({
 	rulePack,
-	executionContext,
 }: Readonly<{
 	rulePack: ScopeRulePack;
-	executionContext: Readonly<{ now(): string }>;
 }>): SessionOrchestrator => {
 	const actor = createActor(createSessionMachine({ rulePack }));
 	actor.start();
@@ -138,7 +137,7 @@ export const createSessionOrchestrator = ({
 			actor.send({
 				type: "answer-eligibility-question",
 				answer: command.answer,
-				answeredAt: parseIsoTimestamp(executionContext.now()),
+				answeredAt: parseIsoTimestamp(command.executionContext.answerTime),
 			});
 		},
 		stop: () => {
