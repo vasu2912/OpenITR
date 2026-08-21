@@ -1,12 +1,12 @@
 # OpenITR architecture
 
-Status: accepted baseline
+Status: accepted analysis-only baseline
 
-Last updated: 2026-08-21
+Last updated: 2026-08-22
 
 ## Purpose
 
-OpenITR prepares an Indian income tax return inside the user's browser. The user selects local documents, answers questions that the documents cannot resolve, reviews the resulting facts and computations, and downloads an ITR JSON file.
+OpenITR is an educational Indian income-tax analysis application that runs inside the user's browser. The user selects local documents, answers questions that the documents cannot resolve, and reviews the resulting facts, computations, evidence, explanations, and limitations.
 
 This document explains the system structure and the reasons behind it. It defines the domain model, module interfaces, data flow, extension model, security model, deployment model, and repository structure.
 
@@ -14,7 +14,7 @@ This document does not define implementation phases, milestones, tickets, estima
 
 ## Accepted product scope
 
-The first supported return has this scope:
+The first supported analysis envelope has this scope:
 
 - Financial Year 2025-26.
 - Assessment Year 2026-27.
@@ -22,13 +22,13 @@ The first supported return has this scope:
 - Unlocked and unencrypted local files.
 - Explicit questionnaire answers for facts that documents cannot establish.
 - Local extraction, reconciliation, tax computation, analytics, and validation.
-- A downloaded JSON file as the final artifact after the government export gate opens.
+- An in-session educational analysis report with evidence and computation traces.
 
-The first release has no user account, login, saved draft, database, server-side tax engine, government portal connection, or return submission.
+The first release has no user account, login, saved draft, database, server-side tax engine, government portal connection, return submission, or filing artifact.
 
-The public analysis preview includes extraction, evidence review, computation, and analytics. It does not expose a government-shaped JSON download. That download appears only after OpenITR has confirmed its producer identity and digest requirements.
+OpenITR does not generate government-shaped ITR JSON, claim upload readiness, submit a return, or act as an e-Return Intermediary. It is not tax, legal, or professional advice. The UI tells users to review the evidence and calculations, perform their own due diligence, and consult a qualified professional when appropriate.
 
-The official AY 2026-27 download page describes the current ITR-1 eligibility envelope. It includes salary income, up to two house properties, other sources, limited long-term capital gains under section 112A, and limited agricultural income. The return module, rather than this summary, owns the complete executable eligibility rules. See the [Income Tax Department downloads for AY 2026-27](https://www.incometax.gov.in/iec/foportal/downloads/income-tax-returns).
+The official AY 2026-27 download page describes the current ITR-1 eligibility envelope. It includes salary income, up to two house properties, other sources, limited long-term capital gains under section 112A, and limited agricultural income. The tax-analysis module, rather than this summary, owns the complete executable eligibility rules. See the [Income Tax Department downloads for AY 2026-27](https://www.incometax.gov.in/iec/foportal/downloads/income-tax-returns).
 
 ## Architectural drivers
 
@@ -41,20 +41,20 @@ OpenITR never invents a taxpayer fact. Each accepted fact comes from one of thes
 - A resolution entered by the user when sources conflict.
 - A value derived from accepted facts by a cited rule.
 
-Software version, JSON creation date, producer identity, and similar export metadata are not taxpayer facts. OpenITR records them as execution context or producer metadata.
+Application version, rule-pack identity, and analysis time are not taxpayer facts. OpenITR records them as execution context.
 
 ### Determinism is observable
 
-Given the same file bytes, answers, resolutions, return module, rule pack, application build, and execution context, OpenITR produces the same preparation report.
+Given the same file bytes, answers, resolutions, tax-analysis module, rule pack, application build, and execution context, OpenITR produces the same preparation report.
 
 The contract is:
 
 ```text
-PreparationReport = prepare(
+PreparationReport = analyze(
 	fileBytes,
 	answers,
 	resolutions,
-	returnModuleId,
+	taxAnalysisModuleId,
 	rulePackId,
 	applicationBuildId,
 	executionContext
@@ -63,7 +63,7 @@ PreparationReport = prepare(
 
 The report records every input identity. A user or test can replay the preparation with the same identities and compare the result.
 
-JSON creation time is an explicit input because the government schema requires creation metadata. The engine does not read the clock from inside a tax calculation.
+Analysis time is an explicit input when a report displays it. The engine does not read the clock from inside a tax calculation.
 
 ### Unsupported input fails closed
 
@@ -81,13 +81,11 @@ Selected files stay inside the browser process. OpenITR sends no document bytes,
 
 The static host can still receive ordinary page-request information, including an IP address and a user agent. The host does not receive the selected files.
 
-### Upload-ready is a stronger claim than locally valid
+### Educational scope is enforced in the product
 
-OpenITR can validate a return against a pinned government schema and the published validation rules. The government portal also performs checks against records that a local application cannot access, including PAN, Aadhaar, prior-return, and payment data.
+A disclaimer alone does not define the product boundary. The production application contains no government JSON projection, software-provider identity, digest generation, ERI integration, portal submission, or filing-oriented download.
 
-The UI uses the phrase `locally validated` for local success. It does not claim government acceptance.
-
-The AY 2026-27 ITR-1 schema requires software identity and digest fields. OpenITR can develop the exporter before those values are available, but a public build cannot claim upload readiness until the producer identity and digest procedure are confirmed. See the [AY 2026-27 ITR-1 JSON schema](https://www.incometax.gov.in/iec/foportal/sites/default/files/2026-06/ITR-1_2026_Main_V1.1.json).
+OpenITR can compare its educational computations with official rules, forms, validation publications, and utilities. Those checks improve the analysis; they do not make the result a return, professional advice, or a filing guarantee.
 
 ## System context
 
@@ -107,7 +105,7 @@ OpenITR has one runtime application and one release-time rule process.
 
                           Browser runtime
 
- User ──> local files ──> OpenITR web application ──> local JSON download
+ User ──> local files ──> OpenITR web application ──> educational analysis
    |                             |
    └────> answers and reviews ───┘
 
@@ -139,22 +137,17 @@ Observations                       |
               tax facts
                  |
                  v
-        return preparation engine
+          analysis engine
           |          |          |
           v          v          v
     computation   insights   local issues
-          |
-          v
-     ITR-1 projection
-          |
-          v
- schema and rule validation
-          |
-          v
- preparation report and JSON download
+          \          |          /
+           \         |         /
+            v        v        v
+       educational preparation report
 ```
 
-Each arrow crosses an explicit interface. Raw PDF objects, worksheet objects, React state, and government JSON objects do not leak into the tax domain model.
+Each arrow crosses an explicit interface. Raw PDF objects, worksheet objects, parser-library objects, and React state do not leak into the tax domain model.
 
 ## Domain model
 
@@ -202,9 +195,9 @@ A `Resolution` records how the user resolved a conflict. The resolution refers t
 
 ### Tax fact
 
-A `TaxFact` is a canonical, typed value accepted for return preparation. A tax fact contains its provenance. Its provenance refers to observations, an answer, a resolution, or a derivation.
+A `TaxFact` is a canonical, typed value accepted for tax analysis. A tax fact contains its provenance. Its provenance refers to observations, an answer, a resolution, or a derivation.
 
-The government JSON shape does not define the tax fact model. This separation prevents an annual schema change from spreading through document adapters and tax calculations.
+The notified return form does not define the internal tax fact model. This separation prevents an annual form or publication change from spreading through document adapters and tax calculations.
 
 ### Derived value
 
@@ -212,13 +205,13 @@ A `DerivedValue` is the output of a rule. It records the rule ID, the exact inpu
 
 ### Issue
 
-An `Issue` explains why preparation can continue, cannot continue, or needs review. Each issue has a stable code, severity, affected facts, source references, and recovery action.
+An `Issue` explains why analysis can continue, cannot continue, or needs review. Each issue has a stable code, severity, affected facts, source references, and recovery action.
 
 The severity values are:
 
 - `blocking`: OpenITR cannot produce a valid downstream result.
 - `review`: OpenITR has a result, but the user must confirm it.
-- `warning`: OpenITR can continue, but the condition may affect portal acceptance or taxpayer interpretation.
+- `warning`: OpenITR can continue, but the condition may affect completeness or the user's interpretation.
 - `information`: OpenITR explains a result without asking for action.
 
 ### Rule
@@ -227,15 +220,15 @@ A `Rule` is a cited, executable statement that derives a value, determines appli
 
 ### Rule pack
 
-A `RulePack` is an immutable collection of official source identities, constants, questions, rules, validations, and output metadata for one form, assessment year, and revision.
+A `RulePack` is an immutable collection of official source identities, constants, questions, rules, validations, and explanation metadata for one form, assessment year, and revision.
 
-### Return module
+### Tax-analysis module
 
-A `ReturnModule` prepares one return form for one assessment year. The module owns applicability, the question graph, computation, insights, validation, and government JSON projection.
+A `TaxAnalysisModule` analyzes one return-form envelope for one assessment year. The module owns applicability, the question graph, computation, insights, validation, and educational explanations.
 
 ### Preparation report
 
-A `PreparationReport` is the complete result of one deterministic preparation. It contains accepted facts, provenance, computation traces, insights, issues, validation results, export readiness, and the candidate JSON.
+A `PreparationReport` is the complete result of one deterministic analysis. It contains accepted facts, provenance, computation traces, insights, issues, validation results, limitations, and analysis readiness.
 
 ## Fact states and reconciliation
 
@@ -261,7 +254,7 @@ The questionnaire is progressive. It asks a question when the answer becomes nec
 
 ### Eligibility questions appear first
 
-The first screen asks only questions that can establish that ITR-1 is outside the user's filing situation. The AY 2026-27 return module owns these questions.
+The first screen asks only questions that establish whether the user's situation falls outside the supported ITR-1 analysis envelope. The AY 2026-27 tax-analysis module owns these questions.
 
 The official portal also uses qualifying conditions and wizard questions to determine the form and schedules. See the [Identification and Generation of Applicable ITR manual](https://www.incometax.gov.in/iec/foportal/help/identification-and-generation-of-applicable-itr-individual).
 
@@ -271,9 +264,9 @@ After extraction, the question engine asks only for missing facts that affect an
 
 ### Choice questions appear after comparison
 
-OpenITR computes every legally relevant comparison that does not require a prior choice. The regime question appears after the user can inspect the comparison. The user must select the filing regime explicitly.
+OpenITR computes every legally relevant comparison that does not require a prior choice. The regime question appears after the user can inspect the comparison. The user must explicitly select the regime used for their primary analysis scenario.
 
-### Confirmation questions appear before export
+### Confirmation questions appear before final analysis
 
 The final review asks the user to confirm facts and declarations that require personal attestation. A confirmation records an answer. It does not mutate an earlier observation.
 
@@ -303,9 +296,9 @@ The main states are:
 4. `reviewing-facts` displays observations, missing facts, and conflicts.
 5. `answering` collects contextual answers and resolutions.
 6. `comparing` shows available regime and tax comparisons.
-7. `computing` prepares the selected return.
-8. `validating` runs internal, schema, and published validations.
-9. `ready` permits the appropriate download.
+7. `computing` evaluates the selected analysis scenario.
+8. `validating` runs internal and applicable published validations.
+9. `ready` displays the complete educational analysis.
 10. `failed` reports an unexpected application failure without exposing taxpayer data.
 
 The session can move back to an earlier state. A changed answer invalidates only the derived values that depend on that answer. The engine then recomputes the affected graph.
@@ -314,29 +307,29 @@ The session can move back to an earlier state. A changed answer invalidates only
 
 ### Web application shell
 
-The web application shell owns browser integration. It loads static assets, creates the session actor, accepts `File` objects, starts workers, and triggers local downloads.
+The web application shell owns browser integration. It loads static assets, creates the session actor, accepts `File` objects, starts workers, and renders the analysis workflow.
 
 The shell contains no tax rules. It translates browser events into domain commands and renders domain results.
 
 ### Session orchestrator
 
-The session orchestrator owns the XState machine and ephemeral session context. It calls the preparation engine and document adapters through injected interfaces.
+The session orchestrator owns the XState machine and ephemeral session context. It calls the analysis engine and document adapters through injected interfaces.
 
-The orchestrator does not inspect PDF text, calculate tax, or construct government JSON.
+The orchestrator does not inspect PDF text or calculate tax.
 
-### Preparation engine
+### Analysis engine
 
-The preparation engine is the main deep module. Its external interface is small:
+The analysis engine is the main deep module. Its external interface is small:
 
 ```ts
-interface PreparationEngine {
-	prepare(input: PreparationInput): PreparationReport;
+interface AnalysisEngine {
+	analyze(input: AnalysisInput): PreparationReport;
 }
 ```
 
-The `PreparationInput` contains typed facts, answers, resolutions, the selected return module, and execution context. The result contains values rather than side effects.
+The `AnalysisInput` contains typed facts, answers, resolutions, the selected tax-analysis module, and execution context. The result contains values rather than side effects.
 
-The preparation engine hides fact assembly, dependency evaluation, exact arithmetic, trace construction, issue aggregation, and export-readiness evaluation.
+The analysis engine hides fact assembly, dependency evaluation, exact arithmetic, trace construction, issue aggregation, and analysis-readiness evaluation.
 
 ### Document adapter
 
@@ -352,16 +345,16 @@ interface DocumentAdapter {
 
 `inspect` identifies the document kind and template revision. `extract` returns observations and extraction issues.
 
-An adapter cannot calculate tax, select a regime, answer a question, or produce government JSON.
+An adapter cannot calculate tax, select a regime, answer a question, or produce an analysis result.
 
-### Return module
+### Tax-analysis module
 
-A return module satisfies this interface:
+A tax-analysis module satisfies this interface:
 
 ```ts
-interface ReturnModule {
-	readonly manifest: ReturnManifest;
-	prepare(input: ReturnInput): PreparationReport;
+interface TaxAnalysisModule {
+	readonly manifest: TaxAnalysisManifest;
+	analyze(input: TaxAnalysisInput): PreparationReport;
 }
 ```
 
@@ -378,45 +371,45 @@ interface InsightModule {
 }
 ```
 
-An insight cannot modify a tax fact, a computation, a validation result, or government JSON.
+An insight cannot modify a tax fact, a computation, or a validation result.
 
-Filing insights explain the current return. Planning insights concern a future financial year. The UI keeps these categories separate because a completed financial year can no longer accept many tax-saving actions.
+Current-year insights explain the analyzed tax position. Planning insights concern a future financial year. The UI keeps these categories separate because a completed financial year can no longer accept many tax-saving actions.
 
 ## Dependency direction
 
-Dependencies point toward the domain model and the preparation engine.
+Dependencies point toward the domain model and the analysis engine.
 
 ```text
 apps/web
   |
   +--> packages/engine
   +--> packages/document-adapters
-  +--> packages/return-modules
+  +--> packages/tax-analysis-modules
   +--> packages/ui
 
 packages/document-adapters --> packages/model
-packages/return-modules    --> packages/model
+packages/tax-analysis-modules --> packages/model
 packages/engine            --> packages/model
 packages/ui                --> packages/model
 
 tools/rulepack-compiler --> packages/model
 ```
 
-`packages/model` contains shared domain types and invariants. It imports no browser, React, PDF, spreadsheet, or government-schema library.
+`packages/model` contains shared domain types and invariants. It imports no browser, React, PDF, or spreadsheet library.
 
-`packages/engine` imports no React or PatternFly code. A test can call the engine without a browser.
+`packages/engine` imports no React or PatternFly code. A test can call the analysis engine without a browser.
 
 Document adapters depend on parser libraries behind internal seams. Parser library types do not appear in the adapter interface.
 
-Return modules own government schema projection because the projection changes with the form and assessment year. A generic pass-through government package would add no depth.
+Tax-analysis modules own the form- and assessment-year-specific tax model. Document adapters and the generic engine remain independent of annual form changes.
 
 ## Extension model
 
 OpenITR supports extensions at known seams. It does not load arbitrary remote JavaScript at runtime.
 
-### Return-module extensions
+### Tax-analysis-module extensions
 
-A return-module extension adds a form and assessment-year implementation. The module includes a manifest, a full rule pack, computations, validations, insights, government projection, and fixtures.
+A tax-analysis-module extension adds a form and assessment-year analysis implementation. The module includes a manifest, a full rule pack, computations, validations, insights, explanations, and fixtures.
 
 Adding AY 2027-28 creates a new immutable module. The module may start as a generated copy of AY 2026-27, but the published module contains a complete materialized rule set. Runtime inheritance is prohibited because it can carry an old threshold into a new year without an obvious diff.
 
@@ -446,7 +439,7 @@ A rule-pack identity contains:
 - The financial year.
 - The assessment year.
 - The pack revision.
-- The government schema version.
+- The official source revision set.
 - The source-manifest hash.
 - The compiled-pack hash.
 - The minimum engine contract version.
@@ -464,8 +457,7 @@ A rule pack contains:
 - Pure computation rules.
 - Published validation rules.
 - Internal provenance and completeness rules.
-- Government JSON mapping metadata.
-- Filing and planning insight definitions.
+- Current-year and planning insight definitions.
 - Official source references.
 
 ### Official source manifest
@@ -482,8 +474,8 @@ When official sources disagree, the rule-pack build uses this order:
 
 1. Acts, Rules, notifications, and corrigenda, evaluated by effective date.
 2. The notified assessment-year form.
-3. The assessment-year JSON schema and schema change document for payload structure.
-4. The published assessment-year validation rules.
+3. The published assessment-year validation rules for applicable tax and form conditions.
+4. The assessment-year JSON schema and schema change document as supporting descriptions of return fields only.
 5. Official utility behavior as a parity oracle.
 6. FAQs and help pages for explanation only.
 
@@ -499,7 +491,6 @@ OpenITR uses the simplest representation that preserves reviewability.
 | Question visibility and applicability | Typed decision tables or pure predicates |
 | Tax computations | Pure TypeScript functions |
 | Cross-field validations | Structured rules or pure predicates |
-| JSON mapping | Form-specific projection code |
 | Explanations | Metadata linked to a rule ID |
 
 The runtime uses no `eval`, dynamic function construction, or downloaded executable rule code.
@@ -515,18 +506,18 @@ The compiler verifies the pack before publication. It checks:
 - Acyclic question and computation graphs.
 - Known fact references.
 - Explicit arithmetic and rounding operations.
-- Complete required-field mapping.
+- Complete fact-to-rule and fact-to-explanation coverage.
 - Fixture coverage for each changed rule.
 - A compatible engine contract version.
 - A reproducible compiled hash.
 
 The compiler produces a static manifest and a machine-readable change report. A source change never becomes executable without review.
 
-### Government schema defaults
+### Official defaults do not create taxpayer facts
 
-The AY 2026-27 ITR-1 schema uses JSON Schema draft 04 and contains `default` keywords. Some defaults concern filing choices and taxpayer values.
+Official forms, schemas, and utilities can contain or display default values. Some defaults concern choices and taxpayer values.
 
-The schema validator ignores `default` as a mutation instruction. A default may document the government utility, but it never creates a tax fact.
+OpenITR treats a default as documentary evidence about an official artifact, not as an instruction to populate a fact. A default never creates a taxpayer fact or preselects an answer.
 
 ### Rule-pack updates
 
@@ -586,7 +577,7 @@ The architecture does not assign numeric limits. The implementation plan sets th
 
 ### Canonical facts enter the engine
 
-The engine accepts only typed tax facts. It never accepts a worksheet object, a PDF text item, an unvalidated form value, or a government JSON node.
+The engine accepts only typed tax facts. It never accepts a worksheet object, a PDF text item, or an unvalidated form value.
 
 Validation and type narrowing occur when raw data crosses into a typed module. Internal calculations trust the domain types.
 
@@ -596,7 +587,7 @@ A computation reads facts and rule-pack data, then returns derived values and is
 
 ### Arithmetic is exact
 
-OpenITR does not use JavaScript binary floating-point arithmetic for tax amounts. The engine uses `decimal.js` for exact decimal operations and branded integer types for values that the government schema expresses as whole rupees.
+OpenITR does not use JavaScript binary floating-point arithmetic for tax amounts. The engine uses `decimal.js` for exact decimal operations and branded integer types for values expressed as whole rupees by the applicable official rules and forms.
 
 Each statutory rounding step is a named operation in the computation graph. The engine does not postpone all rounding until the final value unless the cited rule requires that behavior.
 
@@ -606,9 +597,9 @@ Each derived value declares its fact and rule dependencies. A changed answer inv
 
 The graph produces a trace that the UI can explain. A trace shows the inputs, rule, operation, rounding, and result without exposing internal library objects.
 
-### Regime comparison stays separate from filing choice
+### Regime comparison stays separate from the user's scenario
 
-When the available facts permit both computations, OpenITR calculates the old-regime and new-regime results before the user selects the filing regime. The final ITR projection uses the explicit selection.
+When the available facts permit both computations, OpenITR calculates the old-regime and new-regime results before the user selects the scenario they want to examine. The analysis report records the explicit selection.
 
 The comparison cannot silently change an accepted fact or select a regime.
 
@@ -623,55 +614,41 @@ The first categories are:
 - Taxes paid, refund, or amount payable.
 - Old-regime and new-regime comparison.
 - Source mismatches and missing evidence.
-- Deductions included in the current return.
+- Deductions included in the current-year analysis.
 - Planning observations for a future financial year.
 
-An insight states whether it concerns the current filing or future planning. A planning insight cannot present a completed financial-year action as still available.
+An insight states whether it concerns the current-year analysis or future planning. A planning insight cannot present a completed financial-year action as still available.
 
 Every numeric insight links to the same derived value used by the preparation report. The UI does not recalculate a total for display.
 
-## Government JSON export
+## Educational analysis boundary
 
-### Projection occurs last
-
-The return module projects canonical facts and derived values into the AY 2026-27 ITR-1 shape after computation. Document adapters never populate government JSON directly.
-
-This order isolates annual schema churn inside the return module.
-
-### Validation has distinct layers
+### Validation supports explanation, not filing
 
 OpenITR runs these validation layers:
 
-1. Domain completeness checks confirm that required facts have provenance.
-2. Computation invariants confirm internal totals and dependencies.
-3. The official JSON Schema validates structure and field constraints.
-4. Published validation rules check cross-field and filing conditions.
-5. Export-readiness checks confirm producer metadata and digest requirements.
+1. Domain completeness checks confirm that facts needed for a displayed result have provenance.
+2. Computation invariants confirm internal totals, dependencies, arithmetic, and rounding.
+3. Applicable published validation rules identify conditions that affect the educational analysis.
+4. Presentation checks confirm that limitations, missing evidence, conflicts, and assumptions remain visible.
 
-Ajv with `ajv-draft-04` validates the official schema. The validator does not coerce types, remove properties, or apply defaults.
+The [AY 2026–27 ITR-1 validation document](https://www.incometax.gov.in/iec/foportal/sites/default/files/2026-05/CBDT_e-Filing_ITR%201_Validation%20Rules_AY%202026-27.pdf) is an official source for relevant form conditions. Passing an applicable published validation does not turn the analysis into a return or establish portal acceptance.
 
-The [AY 2026-27 ITR-1 validation document](https://www.incometax.gov.in/iec/foportal/sites/default/files/2026-05/CBDT_e-Filing_ITR%201_Validation%20Rules_AY%202026-27.pdf) is an official source for the published validation layer.
-
-### Export readiness is explicit
+### Analysis readiness is explicit
 
 The preparation report records one of these states:
 
-- `analysis-ready`: computation and analytics are available.
-- `locally-valid`: the candidate JSON passes all available local checks.
-- `government-export-ready`: local checks pass and producer metadata requirements are satisfied.
-- `blocked`: at least one blocking issue prevents the requested artifact.
+- `analysis-ready`: the requested computations and explanations are available with complete provenance.
+- `needs-review`: results are available, but conflicts, attested answers, limitations, or warnings require attention.
+- `blocked`: missing or unsupported evidence prevents one or more requested results.
 
-`locally-valid` does not imply portal acceptance.
+An ITR-1-ineligible situation can still receive clearly scoped educational analysis when the available rules support it. The UI must not suggest that the user is eligible to file ITR-1.
 
-An ineligible ITR-1 situation can remain `analysis-ready`, but it cannot become `government-export-ready`. An unsupported document blocks export only when its unresolved facts remain necessary.
+### No filing artifact exists
 
-### Download stays local
+The production application does not construct, serialize, expose, or download government-schema-shaped ITR JSON. It contains no producer ID, digest, ERI credential, portal-upload instruction, or submission integration.
 
-Only a `government-export-ready` report enables the public JSON download. The browser serializes the candidate JSON to a `Blob`, creates an object URL, triggers the user download, and revokes the URL.
-
-Development and parity tests can inspect candidate JSON before that gate opens. The public analysis preview cannot download or describe the candidate as a portal artifact.
-
-OpenITR records no copy in browser storage. The downloaded file belongs to the user and remains on the user's device.
+The report is an in-session OpenITR result, visibly labeled for education and personal review. Internal fixtures and tests operate on OpenITR domain objects rather than a hidden filing payload.
 
 ## Session and storage
 
@@ -681,7 +658,7 @@ The XState actor owns the current session. React views subscribe to actor snapsh
 
 OpenITR stores no taxpayer session in `localStorage`, `sessionStorage`, IndexedDB, Cache Storage, cookies, or a service worker. A refresh destroys the application state and releases its references to selected files.
 
-The browser or operating system may retain memory pages or downloaded files outside OpenITR's control. The privacy statement describes this limit plainly.
+The browser or operating system may retain memory pages, caches, or copies of the user's original local files outside OpenITR's control. The privacy statement describes this limit plainly.
 
 ### Rule assets may use normal HTTP caching
 
@@ -713,7 +690,7 @@ The UI renders extracted text as text. It does not inject document text as HTML.
 
 ### Sensitive logs are absent
 
-Production code does not log document text, file names, PAN values, answers, observations, facts, or JSON payloads. Unexpected failures use stable error codes.
+Production code does not log document text, file names, PAN values, answers, observations, facts, or structured source content. Unexpected failures use stable error codes.
 
 The application has no remote log destination. Development fixtures use synthetic identities.
 
@@ -731,7 +708,7 @@ PDF parsing, workbook parsing, hashing, and tax preparation run outside the Reac
 
 ### Code loads by need
 
-The initial bundle contains the application shell and first-screen UI. Vite creates lazy chunks for PDF parsing, spreadsheet parsing, the selected return module, and large rule assets.
+The initial bundle contains the application shell and first-screen UI. Vite creates lazy chunks for PDF parsing, spreadsheet parsing, the selected tax-analysis module, and large rule assets.
 
 The browser loads only the parser required by the selected files.
 
@@ -785,7 +762,7 @@ A React component does not calculate a tax amount or decide whether a fact is va
 
 ### Accessibility
 
-OpenITR uses WCAG 2.2 AA as its engineering reference without making a formal conformance claim in v1. Keyboard navigation, visible focus, semantic headings, form labels, error association, contrast, accessible status messages, automated checks, and one screen-reader smoke test of the critical filing path are release requirements.
+OpenITR uses WCAG 2.2 AA as its engineering reference without making a formal conformance claim in v1. Keyboard navigation, visible focus, semantic headings, form labels, error association, contrast, accessible status messages, automated checks, and one screen-reader smoke test of the critical analysis path are release requirements.
 
 Square styling cannot remove focus indicators or reduce target sizes.
 
@@ -801,11 +778,10 @@ Square styling cannot remove focus indicators or reduce target sizes.
 | Workspace | pnpm workspaces | Package isolation and one lockfile |
 | PDF parser | PDF.js | Local PDF parsing and rendering |
 | Spreadsheet parser | SheetJS Community Edition | Local XLS and XLSX parsing |
-| Government schema validator | Ajv with `ajv-draft-04` | Draft 04 validation without mutation |
 | Exact arithmetic | `decimal.js` | Exact decimal operations and explicit rounding |
 | Hashing | Web Crypto SHA-256 | File and rule-asset identities |
 | Unit and property tests | Vitest and fast-check | Pure rule and invariant verification |
-| Browser tests | Playwright | Cross-browser workflow, privacy, and download tests |
+| Browser tests | Playwright | Cross-browser workflow, privacy, and accessibility tests |
 
 Exact package versions belong to the lockfile and dependency policy. The architecture names package families, not permanent versions.
 
@@ -864,7 +840,7 @@ openitr/
 │   │       ├── assembly/
 │   │       ├── computation/
 │   │       ├── reconciliation/
-│   │       └── prepare-return.ts
+│   │       └── analyze-tax.ts
 │   ├── document-adapters/
 │   │   ├── prefilled-json/
 │   │   ├── form16/
@@ -873,7 +849,7 @@ openitr/
 │   │   ├── form26as/
 │   │   ├── epay-tax/
 │   │   └── registry.generated.ts
-│   ├── return-modules/
+│   ├── tax-analysis-modules/
 │   │   ├── itr1/
 │   │   │   └── ay2026-27/
 │   │   │       ├── manifest.ts
@@ -885,7 +861,7 @@ openitr/
 │   │   │       ├── computations/
 │   │   │       ├── validations/
 │   │   │       ├── insights/
-│   │   │       ├── government-json/
+│   │   │       ├── explanations/
 │   │   │       └── fixtures/
 │   │   └── registry.generated.ts
 │   └── ui/
@@ -933,11 +909,11 @@ A replay test runs the same preparation twice with identical identities. It comp
 
 The test also changes one input at a time and checks that the provenance graph identifies the affected results.
 
-### Government parity tests
+### Official calculation comparison tests
 
 Parity tests compare supported synthetic cases with the current official utility when the utility permits a reliable comparison. A parity mismatch blocks release until the project explains and resolves the difference.
 
-Local parity cannot prove that a government portal database check will pass.
+Calculation comparison improves confidence in the educational result. It does not prove filing eligibility, portal acceptance, or professional correctness.
 
 ### Privacy tests
 
@@ -945,13 +921,13 @@ Browser tests select sentinel documents and monitor network activity. A test fai
 
 Static analysis rejects browser-storage calls outside an approved asset-cache module. The first release has no such module for taxpayer state.
 
-### Schema tests
+### Official-source tests
 
-The official schema fixtures confirm that Ajv uses draft 04 behavior and does not apply defaults, coerce values, or remove fields.
+Source tests verify every pinned artifact identity and every executable rule citation. They also confirm that values described as defaults by an official form, schema, or utility never become taxpayer facts or preselected answers.
 
 ### Independent review
 
-The analysis preview can ship after the automated preview gates pass. A stable upload-ready release also requires a qualified second human to review the tax rules, published validations, representative calculations, and government JSON export.
+An analysis release can ship after its automated gates pass and the maintainer reviews the changed rules, citations, fixtures, calculations, disclosures, and privacy evidence. Independent review is encouraged but is not represented as professional certification.
 
 ## Error handling
 
@@ -964,10 +940,8 @@ The main issue families are:
 - `FACT_*` for missing and conflicting facts.
 - `QUESTION_*` for incomplete or invalid answers.
 - `RULE_*` for computation and applicability failures.
-- `SCHEMA_*` for official schema failures.
 - `VALIDATION_*` for published rule failures.
-- `EXPORT_*` for producer metadata and serialization failures.
-- `EXTERNAL_*` for checks that only the government portal can perform.
+- `ANALYSIS_*` for incomplete reports, limitations, and presentation failures.
 
 An expected issue includes a recovery action. An unexpected failure ends the affected operation and shows a stable incident code. The production build sends no automatic error report.
 
@@ -986,37 +960,38 @@ The deployment uses:
 - Frame protection through Content Security Policy.
 - No service worker in the first release.
 
-The application loads a release manifest, pins a return-module hash for the session, and then starts the workflow. A deployment cannot replace the pinned module inside an active tab.
+The application loads a release manifest, pins a tax-analysis-module hash for the session, and then starts the workflow. A deployment cannot replace the pinned module inside an active tab.
 
 ## Architectural decisions
 
 | Decision | Reason | Consequence |
 | --- | --- | --- |
-| Static browser application | Taxpayer files can remain local | Live portal checks and server-side recovery are unavailable |
+| Analysis-only product | OpenITR is an educational side project | No filing artifact, portal integration, or upload-ready claim exists |
+| Static browser application | Taxpayer files can remain local | Cross-device resume and server-side recovery are unavailable |
 | Progressive questionnaire | Documents can answer many questions | The question graph must react to extracted facts |
-| Canonical tax facts | Government schemas change every year | A form-specific projection is required |
+| Canonical tax facts | Official forms and rules change every year | A form-specific tax-analysis module translates annual semantics |
 | Fail-closed document adapters | Silent extraction errors are unacceptable | Unsupported templates require new adapters |
 | Immutable rule packs | Official artifacts can change after release | Sessions pin a pack and releases retain old packs |
 | Pure tax engine | Determinism and testing matter more than framework convenience | Browser and UI code stay outside calculations |
 | Web Workers | PDF and workbook parsing can be expensive | Worker messages require typed contracts and cancellation |
 | Memory-only taxpayer state | Refresh must discard the session | Users cannot resume a lost or refreshed session |
 | Build-time extension registry | Runtime code loading weakens review and security | New code extensions require a static release |
-| Read-only insights | Analytics must not change a return | Filing logic stays authoritative |
+| Read-only insights | Analytics must not change accepted facts or calculations | The cited analysis engine stays authoritative |
 | Permissive license allowlist | The chosen parsers and fonts are not all MIT | Releases must preserve third-party notices |
 
 ## Rejected alternatives
 
 ### Server-side document processing
 
-A backend could simplify parser resource limits and portal integration. It would also receive the user's most sensitive financial documents. The first release chooses local processing and accepts browser constraints.
+A backend could simplify parser resource limits. It would also receive the user's most sensitive financial documents. The first release chooses local processing and accepts browser constraints.
 
 ### Generic document extraction
 
 A generic table detector or language model could support more layouts with less adapter work. It cannot meet the requirement to avoid guesses. OpenITR chooses reviewed document adapters and explicit unsupported results.
 
-### Government-schema-shaped domain objects
+### Government-schema-shaped domain and output objects
 
-Using the ITR-1 JSON object as the internal model would reduce the first exporter mapping. It would couple every parser and computation to one annual schema. OpenITR chooses canonical facts and a final projection.
+Using the ITR-1 JSON object as the internal model would couple every parser and computation to one annual schema and could make an educational result resemble a filing artifact. OpenITR chooses canonical facts and produces no government projection.
 
 ### Mutable latest rules
 
@@ -1039,11 +1014,11 @@ IndexedDB could support resume after refresh. It would retain taxpayer data beyo
 - The first release supports only reviewed ITR-1 situations for FY 2025-26 and AY 2026-27.
 - The initial build extracts only the accepted government and statutory document matrix. It rejects private institution templates.
 - The first release rejects encrypted, damaged, image-only, and unknown-template documents.
-- Local validation cannot reproduce portal database checks.
+- The result is educational information, not tax, legal, or professional advice.
+- OpenITR does not guarantee correctness, completeness, filing eligibility, tax outcome, or portal acceptance.
+- The user must review the evidence and calculations and perform their own due diligence.
+- OpenITR produces no government-shaped JSON, filing artifact, portal upload, or return submission.
 - Refreshing or closing the tab destroys the session.
-- The user's downloaded JSON remains on the user's device after the session ends.
-- Government export readiness depends on confirmed producer identity and digest behavior.
-- The Type 3 ERI classification may apply even when OpenITR only prepares a file for manual upload. Confirm this point before a public upload-ready claim. See the [Income Tax Department ERI registration manual](https://www.incometax.gov.in/iec/foportal/help/eri/registration?mobile-app=1).
 
 These limits are product facts. The UI and project documentation must state them without hiding them in legal text.
 
@@ -1057,7 +1032,6 @@ These limits are product facts. The UI and project documentation must state them
 - [AY 2026-27 ITR-1 validation rules](https://www.incometax.gov.in/iec/foportal/sites/default/files/2026-05/CBDT_e-Filing_ITR%201_Validation%20Rules_AY%202026-27.pdf)
 - [Identification and Generation of Applicable ITR manual](https://www.incometax.gov.in/iec/foportal/help/identification-and-generation-of-applicable-itr-individual)
 - [Offline Utility for ITRs FAQ](https://www.incometax.gov.in/iec/foportal/help/offline-utility-faq)
-- [ERI registration manual](https://www.incometax.gov.in/iec/foportal/help/eri/registration?mobile-app=1)
 - [Annual Information Statement FAQ](https://www.incometax.gov.in/iec/foportal/help/all-topics/e-filing-services/ais%20-%20annual%20information%20statement-faqs)
 
 ### Technical foundations
@@ -1069,5 +1043,4 @@ These limits are product facts. The UI and project documentation must state them
 - [XState documentation](https://stately.ai/docs)
 - [PDF.js documentation](https://mozilla.github.io/pdf.js/getting_started/)
 - [SheetJS local-file documentation](https://docs.sheetjs.com/docs/demos/local/file/)
-- [Ajv draft 04 adapter](https://github.com/ajv-validator/ajv-draft-04)
 - [`decimal.js` source and documentation](https://github.com/MikeMcl/decimal.js/)

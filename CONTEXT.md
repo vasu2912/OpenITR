@@ -1,8 +1,8 @@
 # OpenITR
 
-OpenITR prepares an Indian income tax return from local evidence and explicit taxpayer attestations. This glossary fixes the language used by the product, rules, issues, and project documents.
+OpenITR provides educational Indian income-tax analysis from local evidence and explicit user attestations. It does not prepare or submit a filing artifact. This glossary fixes the language used by the product, rules, issues, and project documents.
 
-## Return preparation
+## Tax analysis
 
 **Source document**:
 A local file that the taxpayer selects for the current session.
@@ -25,7 +25,7 @@ The taxpayer's explicit choice between conflicting observations or permitted val
 _Avoid_: Edit, correction
 
 **Tax fact**:
-A canonical typed value accepted for return preparation, together with its provenance.
+A canonical typed value accepted for tax analysis, together with its provenance.
 _Avoid_: Field, input value
 
 **Derived value**:
@@ -33,27 +33,27 @@ A value computed from tax facts by a cited rule, with its inputs and rounding re
 _Avoid_: Calculated field, generated value
 
 **Preparation report**:
-The complete deterministic result of one preparation, including facts, provenance, computations, insights, issues, readiness, and candidate government JSON.
-_Avoid_: Session result, return data
+The complete deterministic result of one analysis, including facts, provenance, computations, insights, issues, limitations, and analysis readiness.
+_Avoid_: Tax return, filing result, candidate return
 
 ## Rules and releases
 
 **Rule pack**:
-An immutable assessment-year and form revision that contains cited eligibility, questions, computations, validations, and export metadata.
+An immutable assessment-year and form revision that contains cited eligibility, questions, computations, validations, insights, and explanations.
 _Avoid_: Tax configuration, latest rules
 
-**Analysis preview**:
-A public release that can extract, explain, calculate, and validate locally but cannot offer a government JSON download.
-_Avoid_: Upload-ready beta, filing release
+**Analysis release**:
+A public educational release that can extract, reconcile, explain, calculate, and validate locally without producing a filing artifact.
+_Avoid_: Filing release, tax-filing software, return generator
 
-**Government export-ready**:
-A readiness state in which local checks pass and OpenITR has satisfied its producer identity and digest requirements.
-_Avoid_: Portal accepted, guaranteed valid
+**Analysis-ready**:
+A state in which the requested educational computations and explanations are available with complete provenance.
+_Avoid_: Filing-ready, locally accepted, guaranteed correct
 
-**Upload-ready release**:
-A release permitted to download government-shaped JSON for manual portal upload after every export and review gate passes.
-_Avoid_: E-filing service, government-approved return
+**Educational limitation**:
+A visible statement that OpenITR is not tax, legal, or professional advice; gives no correctness, outcome, or filing guarantee; and requires the user to review the evidence and perform their own due diligence.
+_Avoid_: Fine print, liability waiver
 
-**Portal acceptance**:
-The Income Tax Department portal's result after it runs checks that OpenITR cannot perform locally.
-_Avoid_: Local validation, export readiness
+**Filing artifact**:
+A government-shaped return file or other artifact intended for portal upload or return submission. Filing artifacts are outside OpenITR's product scope.
+_Avoid_: Download, report, analysis result
