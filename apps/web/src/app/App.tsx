@@ -31,7 +31,9 @@ import type { FormEvent, ReactNode } from "react";
 import { loadRulePack } from "../session/load-rule-pack";
 import { createSessionOrchestrator } from "../session/session-orchestrator";
 import type { SessionOrchestrator } from "../session/session-orchestrator";
+import { workerInspectionFacility } from "../session/worker-inspection-facility";
 import { activeAnalysisRelease } from "./release-manifest";
+import { DocumentsIntakeView } from "../views/documents-intake";
 
 type SessionLoadState =
 	| Readonly<{ kind: "loading" }>
@@ -280,6 +282,13 @@ const ScopeInteraction = ({
 		);
 	}
 
+	const completion =
+		snapshot.kind === "scope-check-complete"
+			? snapshot
+			: snapshot.completedScopeCheck;
+	const documents =
+		snapshot.kind === "document-intake" ? snapshot.documents : [];
+
 	return (
 		<AppFrame
 			sessionActions={
@@ -305,42 +314,42 @@ const ScopeInteraction = ({
 				<CardBody>
 					<Alert
 						isInline
-						title={snapshot.result.title}
+						title={completion.result.title}
 						variant={
-							snapshot.result.kind === "supported" ? "success" : "warning"
+							completion.result.kind === "supported" ? "success" : "warning"
 						}
 					>
-						{snapshot.result.explanation}
+						{completion.result.explanation}
 					</Alert>
 					<dl className="openitr-result-details">
 						<div>
 							<dt>Question</dt>
-							<dd>{snapshot.question.prompt}</dd>
+							<dd>{completion.question.prompt}</dd>
 						</div>
 						<div>
 							<dt>Your answer</dt>
-							<dd>{snapshot.answer.label}</dd>
+							<dd>{completion.answer.label}</dd>
 						</div>
 						<div>
 							<dt>Rule</dt>
-							<dd>{snapshot.result.rule.id}</dd>
+							<dd>{completion.result.rule.id}</dd>
 						</div>
 						<div>
 							<dt>Official source</dt>
 							<dd>
 								<a
-									href={snapshot.result.rule.sourceUrl}
+									href={completion.result.rule.sourceUrl}
 									rel="noreferrer"
 									target="_blank"
 								>
-									{snapshot.result.rule.citation}
+									{completion.result.rule.citation}
 								</a>
 							</dd>
 						</div>
 					</dl>
-					{snapshot.result.kind === "unsupported" ? (
+					{completion.result.kind === "unsupported" ? (
 						<p className="openitr-recovery-action">
-							<strong>Next action:</strong> {snapshot.result.issue.recoveryAction}
+							<strong>Next action:</strong> {completion.result.issue.recoveryAction}
 						</p>
 					) : null}
 					<p className="openitr-result-limit">
@@ -349,6 +358,7 @@ const ScopeInteraction = ({
 					</p>
 				</CardBody>
 			</Card>
+			<DocumentsIntakeView documents={documents} session={session} />
 			<ResetSessionDialog
 				isOpen={isResetConfirmationOpen}
 				onCancel={() => setResetConfirmationOpen(false)}
@@ -377,6 +387,7 @@ export const App = () => {
 				}
 				sessionToStop = createSessionOrchestrator({
 					rulePack,
+					inspection: workerInspectionFacility(),
 				});
 				setLoadState({ kind: "ready", session: sessionToStop });
 			})

@@ -9,10 +9,14 @@ import {
 } from "./synthetic-rule-pack-fixtures";
 import { createSessionOrchestrator } from "./session-orchestrator";
 import type { SessionCommand } from "./session-orchestrator";
+import { inProcessInspectionFacility } from "./in-process-inspection-facility";
 
 const fixedAnswerTime = "2026-08-22T00:00:00.000Z";
 const createSession = () =>
-	createSessionOrchestrator({ rulePack: itr1Ay202627RulePack });
+	createSessionOrchestrator({
+		rulePack: itr1Ay202627RulePack,
+		inspection: inProcessInspectionFacility(),
+	});
 const expectedInitialSnapshot = {
 	kind: "awaiting-scope-answer",
 	workflow: "eligibility",
@@ -298,12 +302,18 @@ describe("rule-pack revision pinning", () => {
 
 	test("keeps an active session pinned to its original revision after another revision becomes available", async () => {
 		const first = await createSyntheticRulePack(firstSyntheticRevision);
-		const activeSession = createSessionOrchestrator({ rulePack: first });
+		const activeSession = createSessionOrchestrator({
+			rulePack: first,
+			inspection: inProcessInspectionFacility(),
+		});
 		activeSession.send(answerCommandFor(first, "yes"));
 		const pinnedSnapshot = activeSession.getSnapshot();
 
 		const second = await createSyntheticRulePack(secondSyntheticRevision);
-		createSessionOrchestrator({ rulePack: second }).stop();
+		createSessionOrchestrator({
+			rulePack: second,
+			inspection: inProcessInspectionFacility(),
+		}).stop();
 
 		expect(activeSession.getSnapshot()).toEqual(pinnedSnapshot);
 		expect(activeSession.getSnapshot().rulePackId).toBe(
@@ -316,10 +326,16 @@ describe("rule-pack revision pinning", () => {
 	test("selects the newer revision for a new session while the active session stays on its own", async () => {
 		const first = await createSyntheticRulePack(firstSyntheticRevision);
 		const second = await createSyntheticRulePack(secondSyntheticRevision);
-		const activeSession = createSessionOrchestrator({ rulePack: first });
+		const activeSession = createSessionOrchestrator({
+			rulePack: first,
+			inspection: inProcessInspectionFacility(),
+		});
 		activeSession.send(answerCommandFor(first, "yes"));
 
-		const newSession = createSessionOrchestrator({ rulePack: second });
+		const newSession = createSessionOrchestrator({
+			rulePack: second,
+			inspection: inProcessInspectionFacility(),
+		});
 		newSession.send(answerCommandFor(second, "yes"));
 
 		const activeSnapshot = activeSession.getSnapshot();
@@ -349,7 +365,10 @@ describe("rule-pack revision pinning", () => {
 	test("produces identical scope results for identical facts, execution context, and revision", async () => {
 		const runPinnedScopeCheck = async () => {
 			const rulePack = await createSyntheticRulePack(secondSyntheticRevision);
-			const session = createSessionOrchestrator({ rulePack });
+			const session = createSessionOrchestrator({
+				rulePack,
+				inspection: inProcessInspectionFacility(),
+			});
 			session.send(answerCommandFor(rulePack, "yes"));
 			const snapshot = session.getSnapshot();
 			session.stop();
@@ -362,7 +381,10 @@ describe("rule-pack revision pinning", () => {
 	test("answers recorded in a session always carry that session's pinned rule-pack identity", async () => {
 		const first = await createSyntheticRulePack(firstSyntheticRevision);
 		const second = await createSyntheticRulePack(secondSyntheticRevision);
-		const activeSession = createSessionOrchestrator({ rulePack: first });
+		const activeSession = createSessionOrchestrator({
+			rulePack: first,
+			inspection: inProcessInspectionFacility(),
+		});
 
 		activeSession.send(answerCommandFor(first, "yes"));
 		const snapshot = activeSession.getSnapshot();

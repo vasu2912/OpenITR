@@ -130,3 +130,55 @@ export const expectNoStoredSessionData = async (
 	expect(snapshotUrl.search).toBe("");
 	expect(snapshotUrl.hash).toBe("");
 };
+
+export const openDocumentIntake = async (page: Page): Promise<void> => {
+	await openScopeQuestion(page);
+	await answerScopeCheck(page, "Yes");
+	await expect(
+		page.getByRole("heading", { name: "Select source documents" }),
+	).toBeVisible();
+};
+
+export type BrowserFixtureFile = Readonly<{
+	name: string;
+	mimeType: string;
+	buffer: Buffer;
+}>;
+
+export const selectSourceFiles = async (
+	page: Page,
+	files: readonly BrowserFixtureFile[],
+): Promise<void> => {
+	await page.setInputFiles(
+		"#document-input",
+		files.map((file) => ({
+			name: file.name,
+			mimeType: file.mimeType,
+			buffer: file.buffer,
+		})),
+	);
+};
+
+export const candidateRow = (page: Page, displayName: string) =>
+	page.locator(`[data-candidate="${displayName}"]`);
+
+export const expectCandidateStatus = (
+	page: Page,
+	displayName: string,
+	status:
+		| "queued"
+		| "inspecting"
+		| "identified"
+		| "rejected"
+		| "cancelled"
+		| "removed",
+): void => {
+	// expect.poll reads the attribute through protocol round-trips. The
+	// rAF-injected polling behind web-first assertions can stall a module
+	// worker's first message delivery in headless Chromium.
+	expect
+		.poll(() => candidateRow(page, displayName).getAttribute("data-status"), {
+			timeout: 15_000,
+		})
+		.toBe(status);
+};
