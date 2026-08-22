@@ -36,25 +36,22 @@ const formatDocumentType = (
 
 const candidateDetailLine = (candidate: CandidateDocument): string => {
 	switch (candidate.status) {
-		case "identified": {
-			const identified = candidate.identified;
-			if (identified === undefined) {
-				return "Document type unavailable";
-			}
+		case "identified":
 			return `Document type: ${formatDocumentType(
-				identified.documentKind,
-				identified.templateRevision,
+				candidate.identification.documentKind,
+				candidate.identification.templateRevision,
 			)}`;
-		}
-		case "rejected": {
-			const issue = candidate.issue;
-			if (issue === undefined) {
-				return "";
-			}
-			return `${String(issue.code)} — ${issue.recoveryAction}`;
-		}
-		default:
+		case "rejected":
+			return `${String(candidate.issue.code)} — ${candidate.issue.recoveryAction}`;
+		case "queued":
+		case "inspecting":
+		case "cancelled":
+		case "removed":
 			return "";
+		default: {
+			const _exhaustive: never = candidate;
+			return _exhaustive;
+		}
 	}
 };
 
@@ -75,6 +72,9 @@ export const DocumentsIntakeView = ({
 		const selected = await Promise.all(
 			[...fileList].map(async (file) => ({
 				displayName: file.name,
+				...(file.type === ""
+					? {}
+					: { suppliedMediaType: file.type }),
 				bytes: new Uint8Array(await file.arrayBuffer()),
 			})),
 		);

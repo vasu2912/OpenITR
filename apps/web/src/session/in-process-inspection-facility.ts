@@ -9,7 +9,7 @@ export const inProcessInspectionFacility = (): SourceDocumentInspectionFacility 
 	return {
 		inspect: (input, signal) =>
 			Promise.race([
-				registry.inspect(input),
+				registry.inspect(input, { signal }),
 				new Promise<never>((_resolve, reject) => {
 					if (signal.aborted) {
 						reject(new DOMException("Inspection cancelled", "AbortError"));

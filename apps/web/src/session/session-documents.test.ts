@@ -12,6 +12,7 @@ import {
 	createImageOnlyPdfFixture,
 	createPrivateStatementCsvFixture,
 	createUnknownBytesFixture,
+	utf8Bytes,
 } from "@openitr/document-adapters/testing";
 import { describe, expect, test } from "vitest";
 
@@ -26,13 +27,6 @@ import { inProcessInspectionFacility } from "./in-process-inspection-facility";
 import { itr1Ay202627RulePack } from "@openitr/itr1-ay2026-27";
 
 const fixedAnswerTime = "2026-08-22T00:00:00.000Z";
-
-const asciiBytes = (text: string): Uint8Array<ArrayBuffer> => {
-	const encoded = new TextEncoder().encode(text);
-	const buffer = new ArrayBuffer(encoded.length);
-	new Uint8Array(buffer).set(encoded);
-	return new Uint8Array(buffer);
-};
 
 const createEligibleSession = () => {
 	const session = createSessionOrchestrator({
@@ -59,10 +53,27 @@ const selectCommand = (
 	documents: files,
 });
 
-const intakeDocuments = (session: SessionOrchestrator): readonly CandidateDocument[] => {
+const intakeDocuments = (
+	session: SessionOrchestrator,
+): readonly CandidateDocument[] => {
 	const snapshot = session.getSnapshot();
 	return snapshot.kind === "document-intake" ? snapshot.documents : [];
 };
+
+const identifiedKindOf = (candidate: CandidateDocument | undefined): string => {
+	if (candidate?.status !== "identified") {
+		return "";
+	}
+	return candidate.identification.documentKind;
+};
+
+const rejectionOf = (
+	candidate: CandidateDocument | undefined,
+): string | undefined =>
+	candidate?.status === "rejected" ? candidate.rejection : undefined;
+
+const issueCodeOf = (candidate: CandidateDocument | undefined): string =>
+	candidate?.status === "rejected" ? String(candidate.issue.code) : "";
 
 const waitFor = async (
 	predicate: () => boolean,
@@ -112,7 +123,7 @@ describe("source document intake", () => {
 
 		session.send(
 			selectCommand([
-				{ displayName: "statement.json", bytes: asciiBytes(createAisJsonFixture()) },
+				{ displayName: "statement.json", bytes: utf8Bytes(createAisJsonFixture()) },
 				{
 					displayName: "notes.txt",
 					bytes: createUnknownBytesFixture(),
@@ -127,9 +138,9 @@ describe("source document intake", () => {
 			"notes.txt",
 		]);
 		expect(settled[0]?.status).toBe("identified");
-		expect(settled[0]?.identified?.documentKind).toBe("ais-json");
+		expect(identifiedKindOf(settled[0])).toBe("ais-json");
 		expect(settled[1]?.status).toBe("rejected");
-		expect(settled[1]?.rejection).toBe("unknown-format");
+		expect(rejectionOf(settled[1])).toBe("unknown-format");
 
 		session.stop();
 	});
@@ -173,7 +184,7 @@ describe("source document intake", () => {
 		expect(documents.length).toBe(2);
 		expect(documents[0]?.status).toBe("removed");
 		expect(documents[1]?.displayName).toBe("mislabeled-name.json");
-		expect(documents[1]?.identified?.documentKind).toBe("form16-pdf");
+		expect(identifiedKindOf(documents[1])).toBe("form16-pdf");
 		expect(documents[1]?.documentId).toBe(firstIdentity);
 
 		session.stop();
@@ -216,7 +227,7 @@ describe("source document intake", () => {
 			selectCommand([
 				{
 					displayName: "ais.json",
-					bytes: asciiBytes(createAisJsonFixture()),
+					bytes: utf8Bytes(createAisJsonFixture()),
 				},
 			]),
 		);
@@ -226,7 +237,7 @@ describe("source document intake", () => {
 			selectCommand([
 				{
 					displayName: "ais.json",
-					bytes: asciiBytes(createAisJsonFixture()),
+					bytes: utf8Bytes(createAisJsonFixture()),
 				},
 			]),
 		);
@@ -255,19 +266,31 @@ describe("rejected documents contribute nothing", () => {
 		const documents = intakeDocuments(session);
 		const rejected = documents[0];
 		expect(rejected?.status).toBe("rejected");
-		expect(rejected?.issue?.code).toBe("DOCUMENT_UNKNOWN_FORMAT");
-		expect(rejected?.rejection).toBe("unknown-format");
-		const rawSnapshot = JSON.stringify(session.getSnapshot());
-		expect(rawSnapshot).toContain("DOCUMENT_UNKNOWN_FORMAT");
-		expect(rawSnapshot).not.toContain('"observations"');
-		expect(rawSnapshot).not.toContain('"taxFacts"');
+		expect(issueCodeOf(rejected)).toBe("DOCUMENT_UNKNOWN_FORMAT");
+		expect(rejectionOf(rejected)).toBe("unknown-format");
+		const candidateKeys = Object.keys(rejected ?? {}).sort();
+		expect(candidateKeys).toEqual([
+			"candidateKey",
+			"displayName",
+			"documentId",
+			"issue",
+			"rejection",
+			"status",
+		]);
+		const snapshotKeys = Object.keys(session.getSnapshot()).sort();
+		expect(snapshotKeys).not.toContain("observations");
+		expect(snapshotKeys).not.toContain("taxFacts");
 
 		const modelSnapshot = session.getSnapshot();
 		if (modelSnapshot.kind === "document-intake") {
-			const issue = modelSnapshot.documents[0]?.issue;
-			expect(issue?.severity).toBe("blocking");
-			expect(issue?.affectedDocumentIds).toEqual([rejected?.documentId]);
-			expect(issue?.recoveryAction).toContain("supported");
+			const rejectedCandidate = modelSnapshot.documents.find(
+				(doc) => doc.status === "rejected",
+			);
+			expect(rejectedCandidate?.issue.severity).toBe("blocking");
+			expect(rejectedCandidate?.issue.affectedDocumentIds).toEqual([
+				rejected?.documentId,
+			]);
+			expect(rejectedCandidate?.issue.recoveryAction).toContain("supported");
 		}
 
 		session.stop();
@@ -304,7 +327,7 @@ describe("every rejection class reaches the session snapshot distinctly", () => 
 		{
 			displayName: "bank-statement.csv",
 			bytes: (): Uint8Array<ArrayBuffer> =>
-				asciiBytes(createPrivateStatementCsvFixture()),
+				utf8Bytes(createPrivateStatementCsvFixture()),
 			rejection: "private-institution",
 			issueCode: "DOCUMENT_PRIVATE_INSTITUTION_TEMPLATE",
 		},
@@ -323,14 +346,17 @@ describe("every rejection class reaches the session snapshot distinctly", () => 
 
 			const rejected = intakeDocuments(session)[0];
 			expect(rejected?.status).toBe("rejected");
-			expect(rejected?.rejection).toBe(rejectionCase.rejection);
-			expect(rejected?.issue?.code).toBe(rejectionCase.issueCode);
+			expect(rejectionOf(rejected)).toBe(rejectionCase.rejection);
+			expect(issueCodeOf(rejected)).toBe(rejectionCase.issueCode);
 			const modelSnapshot = session.getSnapshot();
 			if (modelSnapshot.kind === "document-intake") {
-				expect(modelSnapshot.documents[0]?.issue?.severity).toBe("blocking");
-				expect(
-					modelSnapshot.documents[0]?.issue?.affectedDocumentIds,
-				).toEqual([rejected?.documentId]);
+				const rejectedCandidate = modelSnapshot.documents.find(
+					(doc) => doc.status === "rejected",
+				);
+				expect(rejectedCandidate?.issue.severity).toBe("blocking");
+				expect(rejectedCandidate?.issue.affectedDocumentIds).toEqual([
+					rejected?.documentId,
+				]);
 			}
 
 			session.stop();
@@ -376,7 +402,7 @@ describe("cancellation and removal timing", () => {
 
 		session.send(
 			selectCommand([
-				{ displayName: "slow.json", bytes: asciiBytes(createAisJsonFixture()) },
+				{ displayName: "slow.json", bytes: utf8Bytes(createAisJsonFixture()) },
 			]),
 		);
 		await waitFor(() => intakeDocuments(session)[0]?.status === "inspecting");
@@ -400,7 +426,7 @@ describe("cancellation and removal timing", () => {
 		await new Promise((resolve) => setTimeout(resolve, 100));
 
 		expect(intakeDocuments(session)[0]?.status).toBe("cancelled");
-		expect(intakeDocuments(session)[0]?.identified?.documentKind).toBeUndefined();
+		expect(identifiedKindOf(intakeDocuments(session)[0])).toBe("");
 
 		session.stop();
 	});
@@ -410,7 +436,7 @@ describe("cancellation and removal timing", () => {
 
 		session.send(
 			selectCommand([
-				{ displayName: "slow.json", bytes: asciiBytes(createAisJsonFixture()) },
+				{ displayName: "slow.json", bytes: utf8Bytes(createAisJsonFixture()) },
 			]),
 		);
 		await waitFor(() => intakeDocuments(session)[0]?.status === "inspecting");
@@ -443,7 +469,7 @@ describe("cancellation and removal timing", () => {
 
 		session.send(
 			selectCommand([
-				{ displayName: "later.json", bytes: asciiBytes(createAisJsonFixture()) },
+				{ displayName: "later.json", bytes: utf8Bytes(createAisJsonFixture()) },
 				{ displayName: "first.json", bytes: createUnknownBytesFixture() },
 			]),
 		);
@@ -473,7 +499,7 @@ describe("selection order independence", () => {
 			const session = createEligibleSession();
 			const bytesFor = (kind: "ais" | "unknown"): Uint8Array<ArrayBuffer> =>
 				kind === "ais"
-					? asciiBytes(createAisJsonFixture())
+					? utf8Bytes(createAisJsonFixture())
 					: createUnknownBytesFixture();
 			session.send(
 				selectCommand(
@@ -487,7 +513,7 @@ describe("selection order independence", () => {
 			const outcomes = new Map(
 				intakeDocuments(session).map((doc) => [
 					String(doc.documentId),
-					`${doc.status}:${doc.identified?.documentKind ?? doc.rejection ?? ""}`,
+					`${doc.status}:${identifiedKindOf(doc)}${rejectionOf(doc) ?? ""}`,
 				]),
 			);
 			session.stop();

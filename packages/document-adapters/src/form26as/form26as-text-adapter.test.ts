@@ -1,20 +1,15 @@
 import { parseSha256Digest } from "@openitr/model";
+
+import { utf8Bytes } from "../testing";
 import { describe, expect, test } from "vitest";
 
 import { createForm26AsTextAdapter } from "./form26as-text-adapter";
-
-const asciiBytes = (text: string): Uint8Array<ArrayBuffer> => {
-	const encoded = new TextEncoder().encode(text);
-	const buffer = new ArrayBuffer(encoded.length);
-	new Uint8Array(buffer).set(encoded);
-	return new Uint8Array(buffer);
-};
 
 const verdictFor = async (
 	text: string,
 	displayName = "form26as.txt",
 ): Promise<string> => {
-	const bytes = asciiBytes(text);
+	const bytes = utf8Bytes(text);
 	const verdict = await createForm26AsTextAdapter().inspect({
 		identity: parseSha256Digest("a".repeat(64)),
 		displayName,

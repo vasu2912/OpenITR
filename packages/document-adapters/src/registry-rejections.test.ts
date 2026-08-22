@@ -5,9 +5,9 @@ import { describe, expect, test } from "vitest";
 import { buildSyntheticPdf } from "./fixtures/pdf-fixture-builder";
 import { createDocumentInspectionRegistry } from "./registry";
 
-const asciiBytesOf = (pdfBytes: Uint8Array): Uint8Array<ArrayBuffer> => {
-	const out = new Uint8Array(new ArrayBuffer(pdfBytes.length));
-	out.set(pdfBytes);
+const copyBytes = (source: Uint8Array): Uint8Array<ArrayBuffer> => {
+	const out = new Uint8Array(new ArrayBuffer(source.length));
+	out.set(source);
 	return out;
 };
 
@@ -24,7 +24,7 @@ const inspectPdf = async (
 	createDocumentInspectionRegistry().inspect({
 		identity: identityPlaceholder(tag),
 		displayName,
-		bytes: asciiBytesOf(pdfBytes),
+		bytes: copyBytes(pdfBytes),
 	});
 
 describe("registry fail-closed outcomes", () => {

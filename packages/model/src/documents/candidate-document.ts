@@ -1,10 +1,10 @@
+import type { Sha256Digest } from "../primitives";
 import type {
 	DocumentInspectionIssue,
 	DocumentKind,
 	DocumentRejection,
 	TemplateRevision,
 } from "./inspection-outcome";
-import type { Sha256Digest } from "../primitives";
 
 export const CANDIDATE_DOCUMENT_STATUSES = [
 	"queued",
@@ -24,15 +24,30 @@ export type CandidateDocumentIdentification = Readonly<{
 	adapterVersion: string;
 }>;
 
-export type CandidateDocument = Readonly<{
+type CandidateDocumentBase = Readonly<{
 	candidateKey: number;
 	documentId: Sha256Digest;
 	displayName: string;
-	status: CandidateDocumentStatus;
-	identified?: CandidateDocumentIdentification;
-	rejection?: DocumentRejection;
-	issue?: DocumentInspectionIssue;
 }>;
+
+export type CandidateDocument =
+	| Readonly<CandidateDocumentBase & { status: "queued" }>
+	| Readonly<CandidateDocumentBase & { status: "inspecting" }>
+	| Readonly<
+			CandidateDocumentBase & {
+				status: "identified";
+				identification: CandidateDocumentIdentification;
+			}
+	  >
+	| Readonly<
+			CandidateDocumentBase & {
+				status: "rejected";
+				rejection: DocumentRejection;
+				issue: DocumentInspectionIssue;
+			}
+	  >
+	| Readonly<CandidateDocumentBase & { status: "cancelled" }>
+	| Readonly<CandidateDocumentBase & { status: "removed" }>;
 
 export type SelectedSourceFile = Readonly<{
 	displayName: string;

@@ -69,29 +69,37 @@ export const workerInspectionFacility = (): SourceDocumentInspectionFacility => 
 					pending.set(requestId, { resolve, reject });
 				},
 			);
-			const transferableBuffer = input.bytes.buffer;
+			// Transfer the whole buffer when the view covers it exactly; copy
+			// once otherwise so the worker never sees a shifted window.
+			const view = input.bytes;
+			const coversWholeBuffer =
+				view.byteOffset === 0 &&
+				view.byteLength === view.buffer.byteLength;
+			const transferredBytes = coversWholeBuffer
+				? new Uint8Array(view.buffer)
+				: Uint8Array.from(view);
+			const transferableBuffer = transferredBytes.buffer;
+			const onAbort = (): void => {
+				current.postMessage({
+					type: "cancel",
+					requestId,
+				} satisfies InspectionWorkerRequest);
+			};
+			signal.addEventListener("abort", onAbort, { once: true });
 			current.postMessage(
 				{
 					type: "inspect",
 					requestId,
 					input: {
 						...input,
-						bytes: new Uint8Array(transferableBuffer),
+						bytes: transferredBytes,
 					},
 				} satisfies InspectionWorkerRequest,
 				[transferableBuffer],
 			);
-			signal.addEventListener(
-				"abort",
-				() => {
-					current.postMessage({
-						type: "cancel",
-						requestId,
-					} satisfies InspectionWorkerRequest);
-				},
-				{ once: true },
-			);
-			return promise;
+			return promise.finally(() => {
+				signal.removeEventListener("abort", onAbort);
+			});
 		},
 	};
 };
