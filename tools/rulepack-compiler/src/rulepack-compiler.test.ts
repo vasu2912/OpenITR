@@ -4,6 +4,24 @@ import { describe, expect, test } from "vitest";
 
 import { compileRulePack } from "./rulepack-compiler";
 
+const syntheticSourceRecord = {
+	id: "synthetic-source-a",
+	title: "Synthetic source A (test fixture)",
+	authority: "OpenITR synthetic fixtures, not a real authority",
+	url: "https://fixture.openitr.test/synthetic-source-a.pdf",
+	releaseDate: "2098-12-31",
+	retrievedDate: "2099-01-01",
+	contentSha256: "a1".repeat(32),
+	redistributionStatus: "not-redistributed",
+} satisfies RulePackManifest["officialSources"][number];
+
+const syntheticRuleRecord = {
+	id: "TEST-EXAMPLE-RULE",
+	citation: "Synthetic source A (test fixture), section 1",
+	sourceId: "synthetic-source-a",
+	sourceLocation: "Synthetic source A (test fixture), section 1",
+} satisfies RulePackManifest["supportedRules"][number];
+
 const syntheticManifest = (
 	mutate?: (manifest: RulePackManifest) => RulePackManifest,
 ): RulePackManifest => {
@@ -14,27 +32,8 @@ const syntheticManifest = (
 		assessmentYear: "2099-00",
 		packRevision: "2099-01-01",
 		engineContractVersion: "1",
-		officialSources: [
-			{
-				id: "synthetic-source-a",
-				title: "Synthetic source A (test fixture)",
-				authority: "OpenITR synthetic fixtures, not a real authority",
-				url: "https://fixture.openitr.test/synthetic-source-a.pdf",
-				releaseDate: "2098-12-31",
-				retrievedDate: "2099-01-01",
-				contentSha256:
-					"a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
-				redistributionStatus: "not-redistributed",
-			},
-		],
-		supportedRules: [
-			{
-				id: "TEST-EXAMPLE-RULE",
-				citation: "Synthetic source A (test fixture), section 1",
-				sourceId: "synthetic-source-a",
-				sourceLocation: "Synthetic source A (test fixture), section 1",
-			},
-		],
+		officialSources: [syntheticSourceRecord],
+		supportedRules: [syntheticRuleRecord],
 		scopeCheck: {
 			questionId: "test-example-question",
 			prompt: "Test example question prompt?",
@@ -111,7 +110,7 @@ describe("rule-pack compiler", () => {
 				...manifest,
 				officialSources: [
 					{
-						...manifest.officialSources[0]!,
+						...syntheticSourceRecord,
 						contentSha256:
 							"b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
 					},
@@ -160,7 +159,7 @@ describe("rule-pack compiler", () => {
 				manifest: syntheticManifest((manifest) => ({
 					...manifest,
 					supportedRules: [
-						{ ...manifest.supportedRules[0]!, citation: "" },
+						{ ...syntheticRuleRecord, citation: "" },
 					],
 				})),
 			}),
@@ -173,7 +172,7 @@ describe("rule-pack compiler", () => {
 				manifest: syntheticManifest((manifest) => ({
 					...manifest,
 					supportedRules: [
-						{ ...manifest.supportedRules[0]!, sourceLocation: "" },
+						{ ...syntheticRuleRecord, sourceLocation: "" },
 					],
 				})),
 			}),
@@ -187,7 +186,7 @@ describe("rule-pack compiler", () => {
 					...manifest,
 					officialSources: [
 						{
-							...manifest.officialSources[0]!,
+							...syntheticSourceRecord,
 							contentSha256: "not-a-checksum",
 						},
 					],
@@ -198,6 +197,36 @@ describe("rule-pack compiler", () => {
 		);
 	});
 
+	test("rejects a source record with an unsupported redistribution status", async () => {
+		await expect(
+			compileRulePack({
+				manifest: syntheticManifest((manifest) => ({
+					...manifest,
+					officialSources: [
+						{
+							...syntheticSourceRecord,
+							contentSha256: "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+							redistributionStatus: "redistributed-with-permission",
+						},
+					],
+				})),
+			}),
+		).rejects.toThrow(
+			'Unsupported redistribution status for official source "synthetic-source-a"',
+		);
+	});
+
+	test("rejects an engine contract version this compiler does not support", async () => {
+		await expect(
+			compileRulePack({
+				manifest: syntheticManifest((manifest) => ({
+					...manifest,
+					engineContractVersion: "999",
+				})),
+			}),
+		).rejects.toThrow("Incompatible engine contract version: 999");
+	});
+
 	test("rejects duplicate rule identifiers", async () => {
 		await expect(
 			compileRulePack({
@@ -205,7 +234,7 @@ describe("rule-pack compiler", () => {
 					...manifest,
 					supportedRules: [
 						...manifest.supportedRules,
-						manifest.supportedRules[0]!,
+						syntheticRuleRecord,
 					],
 				})),
 			}),
@@ -219,7 +248,7 @@ describe("rule-pack compiler", () => {
 					...manifest,
 					officialSources: [
 						...manifest.officialSources,
-						manifest.officialSources[0]!,
+						syntheticSourceRecord,
 					],
 				})),
 			}),
@@ -234,7 +263,7 @@ describe("rule-pack compiler", () => {
 				manifest: syntheticManifest((manifest) => ({
 					...manifest,
 					supportedRules: [
-						{ ...manifest.supportedRules[0]!, sourceId: "undeclared-source" },
+						{ ...syntheticRuleRecord, sourceId: "undeclared-source" },
 					],
 				})),
 			}),

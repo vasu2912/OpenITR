@@ -9,7 +9,7 @@ import {
 	createSyntheticRulePack,
 	firstSyntheticRevision,
 	secondSyntheticRevision,
-} from "./synthetic-rule-packs";
+} from "./synthetic-rule-pack-fixtures";
 
 const moduleId = parseTaxAnalysisModuleId("test-scope-module");
 

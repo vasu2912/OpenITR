@@ -42,6 +42,14 @@ export const loadRulePack = async (
 			`Tax-analysis module identity mismatch: ${release.taxAnalysisModule.id}`,
 		);
 	}
+	if (
+		moduleArtifact.rulePackRevisions.moduleId !==
+		release.taxAnalysisModule.id
+	) {
+		throw new Error(
+			`Rule-pack registry belongs to another tax-analysis module: ${moduleArtifact.rulePackRevisions.moduleId}`,
+		);
+	}
 
 	const rulePack = await moduleArtifact.rulePackRevisions.select(
 		release.rulePack.id,
@@ -53,6 +61,23 @@ export const loadRulePack = async (
 		identity.compiledPackSha256 !== release.rulePack.compiledPackSha256
 	) {
 		throw new Error(`Rule-pack identity mismatch: ${release.rulePack.id}`);
+	}
+	const engineContractVersion = Number.parseInt(
+		release.engineContractVersion,
+		10,
+	);
+	const minimumEngineContractVersion = Number.parseInt(
+		identity.minimumEngineContractVersion,
+		10,
+	);
+	if (
+		Number.isNaN(engineContractVersion) ||
+		Number.isNaN(minimumEngineContractVersion) ||
+		minimumEngineContractVersion > engineContractVersion
+	) {
+		throw new Error(
+			`Incompatible engine contract version: pack ${identity.minimumEngineContractVersion}, release ${release.engineContractVersion}`,
+		);
 	}
 	return rulePack;
 };

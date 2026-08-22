@@ -16,12 +16,19 @@ import type {
 	EligibilityQuestion,
 	OfficialSource,
 	RuleCitation,
-	RulePackIdentity,
 	RulePackManifest,
 	RulePackManifestRuleRecord,
 	RulePackManifestSourceRecord,
 	ScopeCheckResult,
+	SourceId,
 } from "@openitr/model";
+
+const compareStrings = (left: string, right: string): number => {
+	if (left < right) {
+		return -1;
+	}
+	return left > right ? 1 : 0;
+};
 
 const isNonEmpty = (value: string): boolean => value.trim().length > 0;
 
@@ -34,6 +41,10 @@ const requireNonEmpty = (
 	}
 	return value;
 };
+
+const supportedEngineContractVersions: readonly string[] = Object.freeze([
+	"1",
+]);
 
 const isIsoCalendarDate = (value: string): boolean => {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -77,6 +88,11 @@ const compileOfficialSource = (
 			`Malformed SHA-256 checksum for official source "${id}": ${record.contentSha256}`,
 		);
 	}
+	if (record.redistributionStatus !== "not-redistributed") {
+		throw new Error(
+			`Unsupported redistribution status for official source "${id}": ${record.redistributionStatus}`,
+		);
+	}
 
 	return Object.freeze({
 		id,
@@ -92,7 +108,7 @@ const compileOfficialSource = (
 
 type CompiledRule = Readonly<{
 	citation: RuleCitation;
-	sourceId: ReturnType<typeof parseSourceId>;
+	sourceId: SourceId;
 	sourceLocation: string;
 }>;
 
@@ -131,7 +147,7 @@ const canonicalizeJson = (value: unknown): unknown => {
 	if (value !== null && typeof value === "object") {
 		return Object.fromEntries(
 			Object.entries(value)
-				.sort(([left], [right]) => (left < right ? -1 : 1))
+				.sort(([left], [right]) => compareStrings(left, right))
 				.map(([key, entryValue]) => [key, canonicalizeJson(entryValue)]),
 		);
 	}
@@ -171,16 +187,23 @@ export type CompileRulePackInput = Readonly<{
 export const compileRulePack = async ({
 	manifest,
 }: CompileRulePackInput): Promise<CompiledRulePack> => {
+	const minimumEngineContractVersion = requireNonEmpty(
+		manifest.engineContractVersion,
+		"engine contract version",
+	);
+	if (!supportedEngineContractVersions.includes(minimumEngineContractVersion)) {
+		throw new Error(
+			`Incompatible engine contract version: ${minimumEngineContractVersion}. This compiler supports: ${supportedEngineContractVersions.join(", ")}`,
+		);
+	}
+
 	const identityWithoutHashes = {
 		id: parseRulePackId(requireNonEmpty(manifest.rulePackId, "rule-pack ID")),
 		form: parseTaxFormId(manifest.form),
 		financialYear: parseFinancialYear(manifest.financialYear),
 		assessmentYear: parseAssessmentYear(manifest.assessmentYear),
 		revision: requireNonEmpty(manifest.packRevision, "pack revision"),
-		minimumEngineContractVersion: requireNonEmpty(
-			manifest.engineContractVersion,
-			"engine contract version",
-		),
+		minimumEngineContractVersion,
 	};
 
 	if (manifest.officialSources.length === 0) {
@@ -222,7 +245,7 @@ export const compileRulePack = async ({
 	}
 
 	const sortedRules = [...manifest.supportedRules].sort((left, right) =>
-		left.id < right.id ? -1 : 1,
+		compareStrings(left.id, right.id),
 	);
 	const supportedRuleIds = sortedRules.map((record) => parseRuleId(record.id));
 
@@ -309,7 +332,7 @@ export const compileRulePack = async ({
 
 	const officialSources = deepFreeze(
 		[...sourcesById.values()].sort((left, right) =>
-			left.id < right.id ? -1 : 1,
+			compareStrings(left.id, right.id),
 		),
 	);
 
@@ -317,32 +340,30 @@ export const compileRulePack = async ({
 		await sha256Hex(canonicalJson(officialSources)),
 	);
 
-	const compiledPayload = deepFreeze({
-		identity: { ...identityWithoutHashes, sourceManifestSha256 },
-		officialSources,
-		supportedRuleIds: deepFreeze(supportedRuleIds),
-		ruleCitations: deepFreeze(ruleCitations),
-		scopeCheck: deepFreeze({ question, results }),
-	});
-
 	const compiledPackSha256 = parseSha256Digest(
-		await sha256Hex(canonicalJson(compiledPayload)),
+		await sha256Hex(
+			canonicalJson({
+				identity: { ...identityWithoutHashes, sourceManifestSha256 },
+				officialSources,
+				supportedRuleIds,
+				ruleCitations,
+				scopeCheck: { question, results },
+			}),
+		),
 	);
 
-	const identity: RulePackIdentity = deepFreeze({
-		...identityWithoutHashes,
-		officialSourceRevisionIds: deepFreeze(
-			officialSources.map((source) => source.id),
-		),
-		sourceManifestSha256,
-		compiledPackSha256,
-	});
-
 	return deepFreeze({
-		identity,
+		identity: {
+			...identityWithoutHashes,
+			officialSourceRevisionIds: officialSources.map(
+				(source) => source.id,
+			),
+			sourceManifestSha256,
+			compiledPackSha256,
+		},
 		officialSources,
-		supportedRuleIds: deepFreeze(supportedRuleIds),
-		ruleCitations: deepFreeze(ruleCitations),
-		scopeCheck: compiledPayload.scopeCheck,
+		supportedRuleIds,
+		ruleCitations,
+		scopeCheck: { question, results },
 	});
 };
