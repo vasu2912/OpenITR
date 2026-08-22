@@ -1,4 +1,7 @@
-import type { EligibilityAnswerValue } from "@openitr/model";
+import type {
+	EligibilityAnswerValue,
+	EligibilityQuestion,
+} from "@openitr/model";
 import {
 	Alert,
 	Button,
@@ -11,6 +14,10 @@ import {
 	MastheadBrand,
 	MastheadContent,
 	MastheadMain,
+	Modal,
+	ModalBody,
+	ModalFooter,
+	ModalHeader,
 	Page,
 	PageSection,
 	PageSidebar,
@@ -47,7 +54,9 @@ const workflowStatePresentation: Readonly<
 	blocked: Object.freeze({ marker: "!", label: "Blocked" }),
 });
 
-const AppMasthead = () => (
+const AppMasthead = ({
+	sessionActions,
+}: Readonly<{ sessionActions?: ReactNode }>) => (
 	<Masthead className="openitr-masthead">
 		<MastheadMain>
 			<MastheadBrand>
@@ -59,6 +68,7 @@ const AppMasthead = () => (
 				{activeAnalysisRelease.form} · AY{" "}
 				{activeAnalysisRelease.assessmentYear} · In-browser session
 			</span>
+			{sessionActions}
 		</MastheadContent>
 	</Masthead>
 );
@@ -97,14 +107,19 @@ const WorkflowSidebar = ({
 
 const AppFrame = ({
 	children,
+	sessionActions,
 	workflowState,
-}: Readonly<{ children: ReactNode; workflowState: WorkflowState }>) => (
+}: Readonly<{
+	children: ReactNode;
+	sessionActions?: ReactNode;
+	workflowState: WorkflowState;
+}>) => (
 	<Page
 		className="openitr-page"
 		defaultManagedSidebarIsOpen
 		isManagedSidebar
 		mainContainerId="openitr-main"
-		masthead={<AppMasthead />}
+		masthead={<AppMasthead sessionActions={sessionActions} />}
 		sidebar={<WorkflowSidebar workflowState={workflowState} />}
 	>
 		<PageSection className="openitr-content" isFilled>
@@ -138,11 +153,102 @@ const AppFrame = ({
 
 				<footer className="openitr-session-note">
 					<strong>No account is required.</strong> Your answer stays in this
-					tab's memory and disappears when you refresh or close the tab.
+					tab's memory and disappears when you refresh, reset, or close the
+					tab.
 				</footer>
 			</div>
 		</PageSection>
 	</Page>
+);
+
+const ScopeQuestionCard = ({
+	question,
+	onSubmitAnswer,
+}: Readonly<{
+	question: EligibilityQuestion;
+	onSubmitAnswer: (answer: EligibilityAnswerValue) => void;
+}>) => {
+	const [answer, setAnswer] = useState<EligibilityAnswerValue>();
+	const helpTextId = `${question.id}-help`;
+
+	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		if (answer === undefined) {
+			return;
+		}
+		onSubmitAnswer(answer);
+	};
+
+	return (
+		<Card className="openitr-question-card" component="section">
+			<CardTitle>
+				<Title headingLevel="h2" size="lg">
+					Residential status
+				</Title>
+			</CardTitle>
+			<CardBody>
+				<Form onSubmit={handleSubmit}>
+					<fieldset className="openitr-question-fieldset">
+						<legend>{question.prompt}</legend>
+						<p id={helpTextId}>{question.helpText}</p>
+						<div className="openitr-answer-options">
+							{question.answers.map((option) => (
+								<Radio
+									aria-describedby={helpTextId}
+									id={`${question.id}-${option.value}`}
+									isChecked={answer === option.value}
+									key={option.value}
+									label={option.label}
+									name={question.id}
+									onChange={() => setAnswer(option.value)}
+								/>
+							))}
+						</div>
+					</fieldset>
+					<Button isDisabled={answer === undefined} type="submit" variant="primary">
+						Check scope
+					</Button>
+				</Form>
+			</CardBody>
+			<CardFooter>
+				Rule pack revision {activeAnalysisRelease.rulePackRevision}
+			</CardFooter>
+		</Card>
+	);
+};
+
+const ResetSessionDialog = ({
+	isOpen,
+	onCancel,
+	onConfirmReset,
+}: Readonly<{
+	isOpen: boolean;
+	onCancel: () => void;
+	onConfirmReset: () => void;
+}>) => (
+	<Modal
+		aria-label="Reset this session?"
+		isOpen={isOpen}
+		onClose={onCancel}
+		variant="small"
+	>
+		<ModalHeader title="Reset this session?" titleIconVariant="warning" />
+		<ModalBody>
+			<p>
+				Resetting discards your answer and the scope-check result from this
+				tab's memory. OpenITR keeps session data nowhere else, so you cannot
+				undo a reset.
+			</p>
+		</ModalBody>
+		<ModalFooter>
+			<Button key="cancel" onClick={onCancel} variant="link">
+				Cancel
+			</Button>
+			<Button key="confirm-reset" onClick={onConfirmReset} variant="danger">
+				Reset session
+			</Button>
+		</ModalFooter>
+	</Modal>
 );
 
 const ScopeInteraction = ({
@@ -153,71 +259,39 @@ const ScopeInteraction = ({
 		session.getSnapshot,
 		session.getSnapshot,
 	);
-	const [answer, setAnswer] = useState<EligibilityAnswerValue>();
-
-	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-		event.preventDefault();
-		if (snapshot.kind !== "awaiting-scope-answer" || answer === undefined) {
-			return;
-		}
-
-		session.send({
-			kind: "answer-eligibility-question",
-			questionId: snapshot.question.id,
-			answer,
-			executionContext: { answerTime: new Date().toISOString() },
-		});
-	};
+	const [isResetConfirmationOpen, setResetConfirmationOpen] =
+		useState(false);
 
 	if (snapshot.kind === "awaiting-scope-answer") {
 		return (
 			<AppFrame workflowState="in-progress">
-				<Card className="openitr-question-card" component="section">
-					<CardTitle>
-						<Title headingLevel="h2" size="lg">
-							Residential status
-						</Title>
-					</CardTitle>
-					<CardBody>
-						<Form onSubmit={handleSubmit}>
-							<fieldset className="openitr-question-fieldset">
-								<legend>{snapshot.question.prompt}</legend>
-								<p id="residential-status-help">
-									{snapshot.question.helpText}
-								</p>
-								<div className="openitr-answer-options">
-									{snapshot.question.answers.map((option) => (
-										<Radio
-											aria-describedby="residential-status-help"
-											id={`residential-status-${option.value}`}
-											isChecked={answer === option.value}
-											key={option.value}
-											label={option.label}
-											name="residential-status"
-											onChange={() => setAnswer(option.value)}
-										/>
-									))}
-								</div>
-							</fieldset>
-							<Button
-								isDisabled={answer === undefined}
-								type="submit"
-								variant="primary"
-							>
-								Check scope
-							</Button>
-						</Form>
-					</CardBody>
-					<CardFooter>
-						Rule pack revision {activeAnalysisRelease.rulePackRevision}
-					</CardFooter>
-				</Card>
+				<ScopeQuestionCard
+					onSubmitAnswer={(answer) =>
+						session.send({
+							kind: "answer-eligibility-question",
+							questionId: snapshot.question.id,
+							answer,
+							executionContext: { answerTime: new Date().toISOString() },
+						})
+					}
+					question={snapshot.question}
+				/>
 			</AppFrame>
 		);
 	}
 
 	return (
-		<AppFrame workflowState="complete">
+		<AppFrame
+			sessionActions={
+				<Button
+					onClick={() => setResetConfirmationOpen(true)}
+					variant="secondary"
+				>
+					Reset session
+				</Button>
+			}
+			workflowState="complete"
+		>
 			<Card
 				aria-live="polite"
 				className="openitr-result-card"
@@ -275,6 +349,14 @@ const ScopeInteraction = ({
 					</p>
 				</CardBody>
 			</Card>
+			<ResetSessionDialog
+				isOpen={isResetConfirmationOpen}
+				onCancel={() => setResetConfirmationOpen(false)}
+				onConfirmReset={() => {
+					setResetConfirmationOpen(false);
+					session.send({ kind: "reset" });
+				}}
+			/>
 		</AppFrame>
 	);
 };
