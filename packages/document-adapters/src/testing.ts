@@ -6,6 +6,13 @@ import { PRIVATE_STATEMENT_SENTINEL_HEADER } from "./private-statements/private-
 
 export { PRIVATE_STATEMENT_SENTINEL_HEADER };
 
+export const utf8Bytes = (text: string): Uint8Array<ArrayBuffer> => {
+	const encoded = new TextEncoder().encode(text);
+	const buffer = new ArrayBuffer(encoded.length);
+	new Uint8Array(buffer).set(encoded);
+	return new Uint8Array(buffer);
+};
+
 const AIS_JSON_FIXTURE_MARKERS = {
 	documentType: "AIS",
 	schemaVersion: "2026-27",

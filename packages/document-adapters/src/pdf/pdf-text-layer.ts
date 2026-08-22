@@ -10,8 +10,13 @@ const normalizeWhitespace = (text: string): string =>
 
 const PDF_HEADER = "%PDF-";
 
+// The PDF specification permits junk before the "%PDF-" signature, so detect
+// the header anywhere in a small leading window instead of requiring offset
+// zero. This is format detection, not a processing limit.
+const PDF_HEADER_SCAN_WINDOW = 1024;
+
 const hasPdfHeader = (bytes: Uint8Array): boolean => {
-	const windowSize = Math.min(bytes.length, 1024);
+	const windowSize = Math.min(bytes.length, PDF_HEADER_SCAN_WINDOW);
 	let headerIndex = 0;
 	for (let index = 0; index < windowSize; index += 1) {
 		const byte = bytes[index];
@@ -62,17 +67,27 @@ export const extractPdfTextLayer = async (
 		data: privateCopy,
 		useSystemFonts: false,
 	});
+	// A cancel that arrives while pdf.js is still parsing must stop the parse.
+	const abortDuringLoad = (): void => {
+		void loadingTask.destroy();
+	};
+	signal?.addEventListener("abort", abortDuringLoad, { once: true });
 	let doc: Awaited<typeof loadingTask.promise> | undefined;
 	try {
 		doc = await loadingTask.promise;
-	} catch (error: unknown) {
-		if (error instanceof Error && error.name === "AbortError") {
-			throw error;
+	} catch (loadError: unknown) {
+		if (signal?.aborted) {
+			throw new DOMException("Inspection cancelled", "AbortError");
 		}
-		if (error instanceof Error && error.name === "PasswordException") {
+		if (
+			loadError instanceof Error &&
+			loadError.name === "PasswordException"
+		) {
 			return { outcome: "encrypted" };
 		}
 		return { outcome: "damaged" };
+	} finally {
+		signal?.removeEventListener("abort", abortDuringLoad);
 	}
 
 	try {

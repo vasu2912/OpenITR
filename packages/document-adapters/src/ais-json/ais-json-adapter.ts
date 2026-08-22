@@ -16,19 +16,15 @@ export const AIS_JSON_MANIFEST: DocumentAdapterManifest = Object.freeze({
 	templateRevision: parseTemplateRevision("2026-27"),
 });
 
-type AisJsonStructure = Readonly<{
-	documentType: unknown;
-	schemaVersion: unknown;
-}>;
-
 const matchesAisJsonSignature = (value: unknown): boolean => {
 	if (typeof value !== "object" || value === null) {
 		return false;
 	}
-	const record = value as AisJsonStructure;
 	return (
-		record.documentType === "AIS" &&
-		record.schemaVersion === "2026-27"
+		"documentType" in value &&
+		value.documentType === "AIS" &&
+		"schemaVersion" in value &&
+		value.schemaVersion === "2026-27"
 	);
 };
 

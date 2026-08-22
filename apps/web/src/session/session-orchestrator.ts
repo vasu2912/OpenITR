@@ -110,6 +110,16 @@ const replaceCandidate = (
 			: candidate,
 	);
 
+const withStatus = (
+	candidate: CandidateDocument,
+	status: "queued" | "inspecting" | "cancelled" | "removed",
+): CandidateDocument => ({
+	candidateKey: candidate.candidateKey,
+	documentId: candidate.documentId,
+	displayName: candidate.displayName,
+	status,
+});
+
 const createSessionMachine = ({
 	rulePack,
 }: Readonly<{ rulePack: ScopeRulePack }>) => {
@@ -190,10 +200,7 @@ const createSessionMachine = ({
 								return replaceCandidate(
 									context.documents,
 									event.candidateKey,
-									(candidate) => ({
-										...candidate,
-										status: "inspecting",
-									}),
+									(candidate) => withStatus(candidate, "inspecting"),
 								);
 							},
 						}),
@@ -217,9 +224,11 @@ const createSessionMachine = ({
 									(candidate) => {
 										if (event.outcome.kind === "identified") {
 											return {
-												...candidate,
+												candidateKey: candidate.candidateKey,
+												documentId: candidate.documentId,
+												displayName: candidate.displayName,
 												status: "identified",
-												identified: {
+												identification: {
 													documentKind:
 														event.outcome.document.documentKind,
 													templateRevision:
@@ -229,14 +238,16 @@ const createSessionMachine = ({
 													adapterVersion:
 														event.outcome.adapter.adapterVersion,
 												},
-											};
+											} satisfies CandidateDocument;
 										}
 										return {
-											...candidate,
+											candidateKey: candidate.candidateKey,
+											documentId: candidate.documentId,
+											displayName: candidate.displayName,
 											status: "rejected",
 											rejection: event.outcome.rejection,
 											issue: event.outcome.issue,
-										};
+										} satisfies CandidateDocument;
 									},
 								);
 							},
@@ -259,10 +270,7 @@ const createSessionMachine = ({
 								return replaceCandidate(
 									context.documents,
 									event.candidateKey,
-									(candidate) => ({
-										...candidate,
-										status: "cancelled",
-									}),
+									(candidate) => withStatus(candidate, "cancelled"),
 								);
 							},
 						}),
@@ -283,12 +291,7 @@ const createSessionMachine = ({
 								return replaceCandidate(
 									context.documents,
 									event.candidateKey,
-									(candidate) => ({
-										candidateKey: candidate.candidateKey,
-										documentId: candidate.documentId,
-										displayName: candidate.displayName,
-										status: "removed",
-									}),
+									(candidate) => withStatus(candidate, "removed"),
 								);
 							},
 						}),
@@ -413,11 +416,19 @@ export const createSessionOrchestrator = ({
 			type: "document-inspection-started",
 			candidateKey,
 		});
-		const input: InspectableSourceDocument = {
-			identity: documentId,
-			displayName: file.displayName,
-			bytes: file.bytes,
-		};
+		const input: InspectableSourceDocument =
+			file.suppliedMediaType === undefined
+				? {
+						identity: documentId,
+						displayName: file.displayName,
+						bytes: file.bytes,
+					}
+				: {
+						identity: documentId,
+						displayName: file.displayName,
+						suppliedMediaType: file.suppliedMediaType,
+						bytes: file.bytes,
+					};
 		void inspection
 			.inspect(input, controller.signal)
 			.then((outcome) => {

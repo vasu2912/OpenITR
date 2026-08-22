@@ -2,13 +2,7 @@ import type { Sha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { createDocumentInspectionRegistry } from "./registry";
-
-const asciiBytes = (text: string): Uint8Array<ArrayBuffer> => {
-	const encoded = new TextEncoder().encode(text);
-	const buffer = new ArrayBuffer(encoded.length);
-	new Uint8Array(buffer).set(encoded);
-	return new Uint8Array(buffer);
-};
+import { utf8Bytes } from "./testing";
 
 const identityOf = async (
 	bytes: Uint8Array<ArrayBuffer>,
@@ -20,7 +14,7 @@ const identityOf = async (
 describe("document inspection registry", () => {
 	test("identifies a synthetic AIS JSON document exactly", async () => {
 		const registry = createDocumentInspectionRegistry();
-		const bytes = asciiBytes(
+		const bytes = utf8Bytes(
 			JSON.stringify({
 				documentType: "AIS",
 				schemaVersion: "2026-27",
@@ -46,7 +40,7 @@ describe("document inspection registry", () => {
 
 	test("rejects bytes that no adapter matches as unknown format", async () => {
 		const registry = createDocumentInspectionRegistry();
-		const bytes = asciiBytes("definitely not any reviewed document");
+		const bytes = utf8Bytes("definitely not any reviewed document");
 
 		const outcome = await registry.inspect({
 			identity: await identityOf(bytes),

@@ -2,21 +2,15 @@ import { parseSha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { createDocumentInspectionRegistry } from "./registry";
+import { utf8Bytes } from "./testing";
 import {
 	PRIVATE_STATEMENT_SENTINEL_HEADER,
 	createPrivateStatementDetector,
 } from "./private-statements/private-statement-detector";
 
-const asciiBytes = (text: string): Uint8Array<ArrayBuffer> => {
-	const encoded = new TextEncoder().encode(text);
-	const buffer = new ArrayBuffer(encoded.length);
-	new Uint8Array(buffer).set(encoded);
-	return new Uint8Array(buffer);
-};
-
 describe("private-institution statement detection", () => {
 	test("rejects a private bank statement layout as private-institution", async () => {
-		const bytes = asciiBytes(
+		const bytes = utf8Bytes(
 			[
 				PRIVATE_STATEMENT_SENTINEL_HEADER,
 				"01-Jan-2026,Opening balance,,, ,",
@@ -45,7 +39,7 @@ describe("private-institution statement detection", () => {
 	});
 
 	test("does not reject ordinary CSV content that lacks the private header", async () => {
-		const bytes = asciiBytes("name,amount\nsynthetic,100\n");
+		const bytes = utf8Bytes("name,amount\nsynthetic,100\n");
 
 		const outcome = await createDocumentInspectionRegistry(
 			[],

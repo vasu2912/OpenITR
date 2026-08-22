@@ -211,7 +211,8 @@ test.describe("source document inspection", () => {
 					continue;
 				}
 				try {
-					await button.click({ timeout: 500 });
+					await button.focus({ timeout: 500 });
+					await page.keyboard.press("Enter");
 					cancelledSome = true;
 					break;
 				} catch {
