@@ -6,7 +6,7 @@ import {
 	createSyntheticRulePack,
 	firstSyntheticRevision,
 	secondSyntheticRevision,
-} from "./synthetic-rule-packs";
+} from "./synthetic-rule-pack-fixtures";
 import { createSessionOrchestrator } from "./session-orchestrator";
 import type { SessionCommand } from "./session-orchestrator";
 
@@ -325,7 +325,9 @@ describe("rule-pack revision pinning", () => {
 		const activeSnapshot = activeSession.getSnapshot();
 		const newSnapshot = newSession.getSnapshot();
 
-		expect(activeSession.getSnapshot().rulePackId).toBe(
+		expect(activeSnapshot.kind).toBe("scope-check-complete");
+		expect(newSnapshot.kind).toBe("scope-check-complete");
+		expect(activeSnapshot.rulePackId).toBe(
 			firstSyntheticRevision.rulePackId,
 		);
 		expect(newSnapshot.rulePackId).toBe(secondSyntheticRevision.rulePackId);
@@ -371,7 +373,6 @@ describe("rule-pack revision pinning", () => {
 			);
 			expect(snapshot.answer.rulePackId).not.toBe(second.identity.id);
 		}
-
 		activeSession.stop();
 	});
 });

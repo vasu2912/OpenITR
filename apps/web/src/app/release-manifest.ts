@@ -24,6 +24,7 @@ export type AnalysisRelease = Readonly<{
 	financialYear: FinancialYear;
 	assessmentYear: AssessmentYear;
 	rulePackRevision: string;
+	engineContractVersion: string;
 }>;
 
 export const activeAnalysisRelease: AnalysisRelease = Object.freeze({
@@ -46,4 +47,5 @@ export const activeAnalysisRelease: AnalysisRelease = Object.freeze({
 	financialYear: parseFinancialYear("2025-26"),
 	assessmentYear: parseAssessmentYear("2026-27"),
 	rulePackRevision: "2026-08-22",
+	engineContractVersion: "1",
 });

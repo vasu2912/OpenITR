@@ -272,6 +272,10 @@ export type TaxAnalysisModuleArtifactIdentity = Readonly<{
 	compiledModuleSha256: Sha256Digest;
 }>;
 
+export type RedistributionStatus =
+	| "not-redistributed"
+	| "redistributed-with-permission";
+
 export type RulePackManifestSourceRecord = Readonly<{
 	id: string;
 	title: string;
@@ -280,7 +284,7 @@ export type RulePackManifestSourceRecord = Readonly<{
 	releaseDate: string;
 	retrievedDate: string;
 	contentSha256: string;
-	redistributionStatus: OfficialSource["redistributionStatus"];
+	redistributionStatus: RedistributionStatus;
 }>;
 
 export type RulePackManifestRuleRecord = Readonly<{
