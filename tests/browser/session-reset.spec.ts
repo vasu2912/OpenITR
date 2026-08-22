@@ -33,7 +33,7 @@ test.describe("OpenITR session lifecycle", () => {
 		await expectScopeResult(page, "Not supported by this scope check");
 
 		await page
-			.getByRole("main")
+			.getByRole("banner")
 			.getByRole("button", { name: "Reset session" })
 			.click();
 
@@ -64,7 +64,7 @@ test.describe("OpenITR session lifecycle", () => {
 		await expectScopeResult(page, "Supported by this scope check");
 
 		await page
-			.getByRole("main")
+			.getByRole("banner")
 			.getByRole("button", { name: "Reset session" })
 			.click();
 

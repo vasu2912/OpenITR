@@ -138,6 +138,11 @@ export const createSessionOrchestrator = ({
 
 	startSessionActor();
 
+	const stopCurrentActor = () => {
+		actorSubscription.unsubscribe();
+		actor.stop();
+	};
+
 	const getSnapshot = () => sessionSnapshot;
 	const subscribe = (listener: () => void) => {
 		listeners.add(listener);
@@ -150,31 +155,38 @@ export const createSessionOrchestrator = ({
 			if (isStopped) {
 				return;
 			}
-			if (command.kind === "reset") {
-				actorSubscription.unsubscribe();
-				actor.stop();
-				startSessionActor();
-				return;
-			}
+			switch (command.kind) {
+				case "reset":
+					stopCurrentActor();
+					startSessionActor();
+					return;
+				case "answer-eligibility-question": {
+					const snapshot = getSnapshot();
+					if (snapshot.kind !== "awaiting-scope-answer") {
+						return;
+					}
+					if (snapshot.question.id !== command.questionId) {
+						throw new Error(
+							`Unknown eligibility question: ${command.questionId}`,
+						);
+					}
 
-			const snapshot = getSnapshot();
-			if (snapshot.kind !== "awaiting-scope-answer") {
-				return;
+					actor.send({
+						type: "answer-eligibility-question",
+						answer: command.answer,
+						answeredAt: parseIsoTimestamp(command.executionContext.answerTime),
+					});
+					return;
+				}
+				default: {
+					const _exhaustive: never = command;
+					return _exhaustive;
+				}
 			}
-			if (snapshot.question.id !== command.questionId) {
-				throw new Error(`Unknown eligibility question: ${command.questionId}`);
-			}
-
-			actor.send({
-				type: "answer-eligibility-question",
-				answer: command.answer,
-				answeredAt: parseIsoTimestamp(command.executionContext.answerTime),
-			});
 		},
 		stop: () => {
 			isStopped = true;
-			actorSubscription.unsubscribe();
-			actor.stop();
+			stopCurrentActor();
 			listeners.clear();
 		},
 		subscribe,
