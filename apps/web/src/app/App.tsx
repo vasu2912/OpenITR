@@ -284,7 +284,6 @@ const ScopeInteraction = ({
 		<AppFrame
 			sessionActions={
 				<Button
-					className="openitr-masthead-reset"
 					onClick={() => setResetConfirmationOpen(true)}
 					variant="secondary"
 				>

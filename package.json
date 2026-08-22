@@ -3,7 +3,9 @@
 	"private": true,
 	"packageManager": "pnpm@11.19.0",
 	"scripts": {
+		"dev": "pnpm --filter @openitr/web dev",
 		"build": "pnpm --filter @openitr/web build",
+		"preview": "pnpm --filter @openitr/web build && pnpm --filter @openitr/web preview",
 		"test": "vitest run",
 		"test:browser": "playwright test",
 		"typecheck": "pnpm --recursive --if-present typecheck",
