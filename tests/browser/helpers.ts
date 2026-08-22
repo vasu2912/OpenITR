@@ -4,6 +4,11 @@ import type { Page } from "@playwright/test";
 export const privacySentinel = "openitr-privacy-sentinel-f21a3c";
 export const seededStorageJson = `{"visitor-seed":"${privacySentinel}"}`;
 
+type CrossTabChannelProbe = Readonly<{
+	broadcastChannels: number;
+	sharedWorkers: number;
+}>;
+
 type BrowserStorageSnapshot = Readonly<{
 	localStorageJson: string;
 	sessionStorageJson: string;
@@ -16,6 +21,39 @@ export const seedVisitorStorage = (page: Page): void => {
 		([sentinel]) => {
 			localStorage.setItem("visitor-seed", sentinel);
 			sessionStorage.setItem("visitor-seed", sentinel);
+			const probe: {
+				broadcastChannels: number;
+				sharedWorkers: number;
+			} = { broadcastChannels: 0, sharedWorkers: 0 };
+			(globalThis as Record<string, unknown>).openitrCrossTabProbe = probe;
+
+			const OriginalBroadcastChannel = globalThis.BroadcastChannel;
+			if (OriginalBroadcastChannel) {
+				class CountingBroadcastChannel extends OriginalBroadcastChannel {
+					constructor(...channelArgs: ConstructorParameters<typeof BroadcastChannel>) {
+						super(...channelArgs);
+						probe.broadcastChannels += 1;
+					}
+				}
+				globalThis.BroadcastChannel = CountingBroadcastChannel;
+			}
+
+			const OriginalSharedWorker = (
+				globalThis as Record<string, unknown>
+			).SharedWorker;
+			if (typeof OriginalSharedWorker === "function") {
+				const SharedWorkerConstructor = OriginalSharedWorker as new (
+					...workerArgs: unknown[]
+				) => unknown;
+				class CountingSharedWorker extends SharedWorkerConstructor {
+					constructor(...workerArgs: unknown[]) {
+						super(...workerArgs);
+						probe.sharedWorkers += 1;
+					}
+				}
+				(globalThis as Record<string, unknown>).SharedWorker =
+					CountingSharedWorker;
+			}
 		},
 		[privacySentinel] as const,
 	);
@@ -79,6 +117,15 @@ export const expectNoStoredSessionData = async (
 		),
 	).toBe(0);
 	expect(await page.evaluate(() => navigator.serviceWorker.controller)).toBeNull();
+	expect(
+		await page.evaluate(
+			() =>
+				(globalThis as Record<string, unknown>).openitrCrossTabProbe ?? {
+					broadcastChannels: -1,
+					sharedWorkers: -1,
+				},
+		),
+	).toEqual({ broadcastChannels: 0, sharedWorkers: 0 });
 	const snapshotUrl = new URL(snapshot.url);
 	expect(snapshotUrl.search).toBe("");
 	expect(snapshotUrl.hash).toBe("");

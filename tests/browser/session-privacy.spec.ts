@@ -42,7 +42,7 @@ test.describe("OpenITR browser privacy boundary", () => {
 		await expectScopeResult(page, "Not supported by this scope check");
 
 		await page
-			.getByRole("main")
+			.getByRole("banner")
 			.getByRole("button", { name: "Reset session" })
 			.click();
 		await page

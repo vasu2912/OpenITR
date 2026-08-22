@@ -54,7 +54,9 @@ const workflowStatePresentation: Readonly<
 	blocked: Object.freeze({ marker: "!", label: "Blocked" }),
 });
 
-const AppMasthead = () => (
+const AppMasthead = ({
+	sessionActions,
+}: Readonly<{ sessionActions?: ReactNode }>) => (
 	<Masthead className="openitr-masthead">
 		<MastheadMain>
 			<MastheadBrand>
@@ -66,6 +68,7 @@ const AppMasthead = () => (
 				{activeAnalysisRelease.form} · AY{" "}
 				{activeAnalysisRelease.assessmentYear} · In-browser session
 			</span>
+			{sessionActions}
 		</MastheadContent>
 	</Masthead>
 );
@@ -104,14 +107,19 @@ const WorkflowSidebar = ({
 
 const AppFrame = ({
 	children,
+	sessionActions,
 	workflowState,
-}: Readonly<{ children: ReactNode; workflowState: WorkflowState }>) => (
+}: Readonly<{
+	children: ReactNode;
+	sessionActions?: ReactNode;
+	workflowState: WorkflowState;
+}>) => (
 	<Page
 		className="openitr-page"
 		defaultManagedSidebarIsOpen
 		isManagedSidebar
 		mainContainerId="openitr-main"
-		masthead={<AppMasthead />}
+		masthead={<AppMasthead sessionActions={sessionActions} />}
 		sidebar={<WorkflowSidebar workflowState={workflowState} />}
 	>
 		<PageSection className="openitr-content" isFilled>
@@ -161,6 +169,7 @@ const ScopeQuestionCard = ({
 	onSubmitAnswer: (answer: EligibilityAnswerValue) => void;
 }>) => {
 	const [answer, setAnswer] = useState<EligibilityAnswerValue>();
+	const helpTextId = `${question.id}-help`;
 
 	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -181,16 +190,16 @@ const ScopeQuestionCard = ({
 				<Form onSubmit={handleSubmit}>
 					<fieldset className="openitr-question-fieldset">
 						<legend>{question.prompt}</legend>
-						<p id="residential-status-help">{question.helpText}</p>
+						<p id={helpTextId}>{question.helpText}</p>
 						<div className="openitr-answer-options">
 							{question.answers.map((option) => (
 								<Radio
-									aria-describedby="residential-status-help"
-									id={`residential-status-${option.value}`}
+									aria-describedby={helpTextId}
+									id={`${question.id}-${option.value}`}
 									isChecked={answer === option.value}
 									key={option.value}
 									label={option.label}
-									name="residential-status"
+									name={question.id}
 									onChange={() => setAnswer(option.value)}
 								/>
 							))}
@@ -272,7 +281,18 @@ const ScopeInteraction = ({
 	}
 
 	return (
-		<AppFrame workflowState="complete">
+		<AppFrame
+			sessionActions={
+				<Button
+					className="openitr-masthead-reset"
+					onClick={() => setResetConfirmationOpen(true)}
+					variant="secondary"
+				>
+					Reset session
+				</Button>
+			}
+			workflowState="complete"
+		>
 			<Card
 				aria-live="polite"
 				className="openitr-result-card"
@@ -330,18 +350,6 @@ const ScopeInteraction = ({
 					</p>
 				</CardBody>
 			</Card>
-			<div className="openitr-session-actions">
-				<Button
-					onClick={() => setResetConfirmationOpen(true)}
-					variant="danger"
-				>
-					Reset session
-				</Button>
-				<p className="openitr-session-actions-note">
-					Resetting discards this analysis from the tab. You will start with
-					an empty session.
-				</p>
-			</div>
 			<ResetSessionDialog
 				isOpen={isResetConfirmationOpen}
 				onCancel={() => setResetConfirmationOpen(false)}
