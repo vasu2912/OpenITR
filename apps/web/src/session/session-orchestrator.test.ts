@@ -1,6 +1,12 @@
 import { itr1Ay202627RulePack } from "@openitr/itr1-ay2026-27";
+import { parseRulePackId } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
+import {
+	createSyntheticRulePack,
+	firstSyntheticRevision,
+	secondSyntheticRevision,
+} from "./synthetic-rule-packs";
 import { createSessionOrchestrator } from "./session-orchestrator";
 import type { SessionCommand } from "./session-orchestrator";
 
@@ -276,5 +282,96 @@ describe("ITR-1 session reset", () => {
 
 		unsubscribe();
 		session.stop();
+	});
+});
+
+describe("rule-pack revision pinning", () => {
+	const answerCommandFor = (
+		rulePack: Awaited<ReturnType<typeof createSyntheticRulePack>>,
+		answer: "yes" | "no",
+	): SessionCommand => ({
+		kind: "answer-eligibility-question",
+		questionId: rulePack.question.id,
+		answer,
+		executionContext: { answerTime: fixedAnswerTime },
+	});
+
+	test("keeps an active session pinned to its original revision after another revision becomes available", async () => {
+		const first = await createSyntheticRulePack(firstSyntheticRevision);
+		const activeSession = createSessionOrchestrator({ rulePack: first });
+		activeSession.send(answerCommandFor(first, "yes"));
+		const pinnedSnapshot = activeSession.getSnapshot();
+
+		const second = await createSyntheticRulePack(secondSyntheticRevision);
+		createSessionOrchestrator({ rulePack: second }).stop();
+
+		expect(activeSession.getSnapshot()).toEqual(pinnedSnapshot);
+		expect(activeSession.getSnapshot().rulePackId).toBe(
+			firstSyntheticRevision.rulePackId,
+		);
+
+		activeSession.stop();
+	});
+
+	test("selects the newer revision for a new session while the active session stays on its own", async () => {
+		const first = await createSyntheticRulePack(firstSyntheticRevision);
+		const second = await createSyntheticRulePack(secondSyntheticRevision);
+		const activeSession = createSessionOrchestrator({ rulePack: first });
+		activeSession.send(answerCommandFor(first, "yes"));
+
+		const newSession = createSessionOrchestrator({ rulePack: second });
+		newSession.send(answerCommandFor(second, "yes"));
+
+		const activeSnapshot = activeSession.getSnapshot();
+		const newSnapshot = newSession.getSnapshot();
+
+		expect(activeSession.getSnapshot().rulePackId).toBe(
+			firstSyntheticRevision.rulePackId,
+		);
+		expect(newSnapshot.rulePackId).toBe(secondSyntheticRevision.rulePackId);
+		if (activeSnapshot.kind === "scope-check-complete") {
+			expect(activeSnapshot.result.title).toBe(
+				`Supported by ${firstSyntheticRevision.packRevision}`,
+			);
+		}
+		if (newSnapshot.kind === "scope-check-complete") {
+			expect(newSnapshot.result.title).toBe(
+				`Supported by ${secondSyntheticRevision.packRevision}`,
+			);
+		}
+
+		activeSession.stop();
+		newSession.stop();
+	});
+
+	test("produces identical scope results for identical facts, execution context, and revision", async () => {
+		const runPinnedScopeCheck = async () => {
+			const rulePack = await createSyntheticRulePack(secondSyntheticRevision);
+			const session = createSessionOrchestrator({ rulePack });
+			session.send(answerCommandFor(rulePack, "yes"));
+			const snapshot = session.getSnapshot();
+			session.stop();
+			return snapshot;
+		};
+
+		expect(await runPinnedScopeCheck()).toEqual(await runPinnedScopeCheck());
+	});
+
+	test("answers recorded in a session always carry that session's pinned rule-pack identity", async () => {
+		const first = await createSyntheticRulePack(firstSyntheticRevision);
+		const second = await createSyntheticRulePack(secondSyntheticRevision);
+		const activeSession = createSessionOrchestrator({ rulePack: first });
+
+		activeSession.send(answerCommandFor(first, "yes"));
+		const snapshot = activeSession.getSnapshot();
+		expect(snapshot.kind).toBe("scope-check-complete");
+		if (snapshot.kind === "scope-check-complete") {
+			expect(snapshot.answer.rulePackId).toBe(
+				parseRulePackId(firstSyntheticRevision.rulePackId),
+			);
+			expect(snapshot.answer.rulePackId).not.toBe(second.identity.id);
+		}
+
+		activeSession.stop();
 	});
 });
