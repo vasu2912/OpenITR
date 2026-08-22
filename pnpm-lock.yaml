@@ -38,6 +38,9 @@ importers:
       '@openitr/model':
         specifier: workspace:*
         version: link:../../packages/model
+      '@openitr/rulepack-compiler':
+        specifier: workspace:*
+        version: link:../../tools/rulepack-compiler
       '@patternfly/react-core':
         specifier: 6.6.1
         version: 6.6.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -58,6 +61,15 @@ importers:
       '@openitr/model':
         specifier: workspace:*
         version: link:../../model
+      '@openitr/rulepack-compiler':
+        specifier: workspace:*
+        version: link:../../../tools/rulepack-compiler
+
+  tools/rulepack-compiler:
+    dependencies:
+      '@openitr/model':
+        specifier: workspace:*
+        version: link:../../packages/model
 
 packages:
 

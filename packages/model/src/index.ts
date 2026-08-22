@@ -253,7 +253,6 @@ export type OfficialSource = Readonly<{
 	retrievedDate: string;
 	contentSha256: Sha256Digest;
 	redistributionStatus: "not-redistributed";
-	location: string;
 }>;
 
 export type ScopeRulePack = Readonly<{
@@ -273,9 +272,114 @@ export type TaxAnalysisModuleArtifactIdentity = Readonly<{
 	compiledModuleSha256: Sha256Digest;
 }>;
 
+export type RulePackManifestSourceRecord = Readonly<{
+	id: string;
+	title: string;
+	authority: string;
+	url: string;
+	releaseDate: string;
+	retrievedDate: string;
+	contentSha256: string;
+	redistributionStatus: OfficialSource["redistributionStatus"];
+}>;
+
+export type RulePackManifestRuleRecord = Readonly<{
+	id: string;
+	citation: string;
+	sourceId: string;
+	sourceLocation: string;
+}>;
+
+export type RulePackManifestScopeCheckRecord = Readonly<{
+	questionId: string;
+	prompt: string;
+	helpText: string;
+	requiresRuleId: string;
+	suppliesFactKey: string;
+	blockingIssueCode: string;
+	supportedResult: Readonly<{
+		title: string;
+		explanation: string;
+	}>;
+	unsupportedResult: Readonly<{
+		title: string;
+		explanation: string;
+		recoveryAction: string;
+	}>;
+}>;
+
+export type RulePackManifest = Readonly<{
+	rulePackId: string;
+	form: string;
+	financialYear: string;
+	assessmentYear: string;
+	packRevision: string;
+	engineContractVersion: string;
+	officialSources: readonly RulePackManifestSourceRecord[];
+	supportedRules: readonly RulePackManifestRuleRecord[];
+	scopeCheck: RulePackManifestScopeCheckRecord;
+}>;
+
+export type CompiledRulePack = Readonly<{
+	identity: RulePackIdentity;
+	officialSources: readonly OfficialSource[];
+	supportedRuleIds: readonly RuleId[];
+	ruleCitations: Readonly<Record<RuleId, RuleCitation>>;
+	scopeCheck: Readonly<{
+		question: EligibilityQuestion;
+		results: Readonly<
+			Record<EligibilityAnswerValue, ScopeCheckResult>
+		>;
+	}>;
+}>;
+
+export type RulePackRevisionEntry = Readonly<{
+	identity: RulePackIdentity;
+	load(): Promise<ScopeRulePack>;
+}>;
+
+export type RulePackRevisionRegistry = Readonly<{
+	moduleId: TaxAnalysisModuleId;
+	revisions: readonly RulePackRevisionEntry[];
+	select(rulePackId: RulePackId): Promise<ScopeRulePack>;
+}>;
+
+export const createRulePackRevisionRegistry = ({
+	moduleId,
+	revisions,
+}: Readonly<{
+	moduleId: TaxAnalysisModuleId;
+	revisions: readonly RulePackRevisionEntry[];
+}>): RulePackRevisionRegistry => {
+	const seenRulePackIds = new Set<string>();
+	for (const revision of revisions) {
+		if (seenRulePackIds.has(revision.identity.id)) {
+			throw new Error(
+				`Duplicate rule-pack revision in registry: ${revision.identity.id}`,
+			);
+		}
+		seenRulePackIds.add(revision.identity.id);
+	}
+
+	const frozenRevisions = Object.freeze([...revisions]);
+	return Object.freeze({
+		moduleId,
+		revisions: frozenRevisions,
+		select: async (rulePackId) => {
+			const revision = frozenRevisions.find(
+				(candidate) => candidate.identity.id === rulePackId,
+			);
+			if (revision === undefined) {
+				throw new Error(`Unknown rule-pack revision: ${rulePackId}`);
+			}
+			return revision.load();
+		},
+	});
+};
+
 export type TaxAnalysisModuleArtifact = Readonly<{
 	identity: TaxAnalysisModuleArtifactIdentity;
-	rulePack: ScopeRulePack;
+	rulePackRevisions: RulePackRevisionRegistry;
 }>;
 
 export type ScopeCheckSessionSnapshot =

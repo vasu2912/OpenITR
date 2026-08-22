@@ -43,7 +43,10 @@ export const loadRulePack = async (
 		);
 	}
 
-	const { identity } = moduleArtifact.rulePack;
+	const rulePack = await moduleArtifact.rulePackRevisions.select(
+		release.rulePack.id,
+	);
+	const { identity } = rulePack;
 	if (
 		identity.id !== release.rulePack.id ||
 		identity.sourceManifestSha256 !== release.rulePack.sourceManifestSha256 ||
@@ -51,5 +54,5 @@ export const loadRulePack = async (
 	) {
 		throw new Error(`Rule-pack identity mismatch: ${release.rulePack.id}`);
 	}
-	return moduleArtifact.rulePack;
+	return rulePack;
 };

@@ -1,4 +1,4 @@
-import { parseSha256Digest } from "@openitr/model";
+import { parseRulePackId, parseSha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { activeAnalysisRelease } from "../app/release-manifest";
@@ -36,6 +36,20 @@ describe("rule-pack loading", () => {
 
 		await expect(loadRulePack(mismatchedRelease)).rejects.toThrow(
 			"Rule-pack identity mismatch",
+		);
+	});
+
+	test("rejects a release that selects a revision absent from the registry", async () => {
+		const unknownRevisionRelease = {
+			...activeAnalysisRelease,
+			rulePack: {
+				...activeAnalysisRelease.rulePack,
+				id: parseRulePackId("itr1-ay2026-27.2099-01-01"),
+			},
+		};
+
+		await expect(loadRulePack(unknownRevisionRelease)).rejects.toThrow(
+			"Unknown rule-pack revision",
 		);
 	});
 });
