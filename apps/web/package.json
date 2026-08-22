@@ -9,6 +9,7 @@
 		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
+		"@openitr/document-adapters": "workspace:*",
 		"@openitr/itr1-ay2026-27": "workspace:*",
 		"@openitr/model": "workspace:*",
 		"@patternfly/react-core": "6.6.1",
