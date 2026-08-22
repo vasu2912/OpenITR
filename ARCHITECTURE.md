@@ -389,6 +389,7 @@ apps/web
 
 packages/document-adapters --> packages/model
 packages/tax-analysis-modules --> packages/model
+packages/tax-analysis-modules/itr1-ay2026-27 --> tools/rulepack-compiler
 packages/engine            --> packages/model
 packages/ui                --> packages/model
 
@@ -396,6 +397,8 @@ tools/rulepack-compiler --> packages/model
 ```
 
 `packages/model` contains shared domain types and invariants. It imports no browser, React, PDF, or spreadsheet library.
+
+The rule-pack compiler is a pure build-tooling-grade library. Tax-analysis modules depend on it so their authored manifests are validated and hashed wherever the module loads; the web application never imports the compiler at runtime.
 
 `packages/engine` imports no React or PatternFly code. A test can call the analysis engine without a browser.
 
@@ -523,7 +526,11 @@ OpenITR treats a default as documentary evidence about an official artifact, not
 
 An update creates a new immutable revision. The release process retains the previous revision for replay and audit tests.
 
+A static build-time registry holds the immutable revisions that a tax-analysis module ships. A new session selects one revision through the registry or through the release manifest, and pins the complete rule-pack identity when it starts. An active session keeps its pinned revision after another revision becomes available.
+
 The [ITR-1 schema change document for AY 2026-27](https://www.incometax.gov.in/iec/foportal/sites/default/files/2026-07/ITR%201_Schema%20change%20document_AY2026-27_V1.1.pdf) demonstrates why a form and assessment year can have several source revisions.
+
+In this slice the compiler runs deterministically when a module initializes (and in every test and build that imports it), so an invalid manifest fails fast instead of shipping. The release manifest records the generated identity hashes for verification. Moving compilation into a separate pre-release generation step remains future work once packs grow beyond trivial size.
 
 ## Document ingestion
 

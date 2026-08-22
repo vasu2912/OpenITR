@@ -1,5 +1,5 @@
 {
-	"name": "@openitr/itr1-ay2026-27",
+	"name": "@openitr/rulepack-compiler",
 	"private": true,
 	"type": "module",
 	"exports": "./src/index.ts",
@@ -7,8 +7,6 @@
 		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
-		"@openitr/model": "workspace:*",
-		"@openitr/rulepack-compiler": "workspace:*"
+		"@openitr/model": "workspace:*"
 	}
 }
-

@@ -1,0 +1,48 @@
+import type {
+	CompiledRulePack,
+	CompletedScopeCheck,
+	EligibilityAnswerValue,
+	ScopeRulePack,
+} from "@openitr/model";
+
+const answerLabel = (
+	answer: EligibilityAnswerValue,
+	compiled: CompiledRulePack,
+): string => {
+	const option = compiled.scopeCheck.question.answers.find(
+		(candidate) => candidate.value === answer,
+	);
+	if (option === undefined) {
+		throw new Error(`Unknown eligibility answer: ${answer}`);
+	}
+	return option.label;
+};
+
+export const createScopeRulePack = ({
+	compiled,
+}: Readonly<{ compiled: CompiledRulePack }>): ScopeRulePack => {
+	const { scopeCheck } = compiled;
+
+	const evaluate: ScopeRulePack["evaluate"] = ({ answer, answeredAt }) =>
+		Object.freeze({
+			question: Object.freeze({
+				id: scopeCheck.question.id,
+				prompt: scopeCheck.question.prompt,
+			}),
+			answer: Object.freeze({
+				questionId: scopeCheck.question.id,
+				value: answer,
+				label: answerLabel(answer, compiled),
+				answeredAt,
+				rulePackId: compiled.identity.id,
+			}),
+			result: scopeCheck.results[answer],
+		}) satisfies CompletedScopeCheck;
+
+	return Object.freeze({
+		identity: compiled.identity,
+		officialSources: compiled.officialSources,
+		question: scopeCheck.question,
+		evaluate,
+	});
+};

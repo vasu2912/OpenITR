@@ -50,6 +50,10 @@ importers:
       xstate:
         specifier: 5.32.5
         version: 5.32.5
+    devDependencies:
+      '@openitr/rulepack-compiler':
+        specifier: workspace:*
+        version: link:../../tools/rulepack-compiler
 
   packages/model: {}
 
@@ -58,6 +62,15 @@ importers:
       '@openitr/model':
         specifier: workspace:*
         version: link:../../model
+      '@openitr/rulepack-compiler':
+        specifier: workspace:*
+        version: link:../../../tools/rulepack-compiler
+
+  tools/rulepack-compiler:
+    dependencies:
+      '@openitr/model':
+        specifier: workspace:*
+        version: link:../../packages/model
 
 packages:
 
