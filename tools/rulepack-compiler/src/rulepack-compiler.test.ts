@@ -314,3 +314,194 @@ describe("rule-pack compiler", () => {
 		);
 	});
 });
+
+describe("rule-pack compiler tax constants", () => {
+	const syntheticTaxConstants = {
+		newRegime: {
+			slabBands: [
+				{ upperBoundWholeRupees: 400000, ratePercent: 0 },
+				{ upperBoundWholeRupees: 800000, ratePercent: 5 },
+				{ upperBoundWholeRupees: null, ratePercent: 30 },
+			],
+			slabRuleId: "TEST-EXAMPLE-RULE",
+			standardDeductionWholeRupees: 75000,
+			standardDeductionRuleId: "TEST-EXAMPLE-RULE",
+			rebateMaxTotalIncomeWholeRupees: 1200000,
+			rebateMaxAmountWholeRupees: 60000,
+			rebateRuleId: "TEST-EXAMPLE-RULE",
+			rebateMarginalReliefRuleId: "TEST-EXAMPLE-RULE",
+			surchargeTiers: [
+				{ exceedsTotalIncomeWholeRupees: 5000000, ratePercent: 10 },
+			],
+			surchargeRuleId: "TEST-EXAMPLE-RULE",
+			cessRatePercent: 4,
+			cessRuleId: "TEST-EXAMPLE-RULE",
+			totalIncomeRoundingBaseWholeRupees: 10,
+			totalIncomeRoundingRuleId: "TEST-EXAMPLE-RULE",
+			taxRoundingBaseWholeRupees: 10,
+			taxRoundingRuleId: "TEST-EXAMPLE-RULE",
+		},
+	} satisfies RulePackManifest["taxConstants"];
+
+	const manifestWithTaxConstants = (
+		mutate?: (
+			constants: NonNullable<RulePackManifest["taxConstants"]>,
+		) => NonNullable<RulePackManifest["taxConstants"]>,
+	): RulePackManifest =>
+		syntheticManifest((manifest) => ({
+			...manifest,
+			taxConstants:
+				mutate === undefined
+					? syntheticTaxConstants
+					: mutate(syntheticTaxConstants),
+		}));
+
+	test("compiles declared tax constants into the frozen pack with resolved rules", async () => {
+		const compiled = await compileRulePack({
+			manifest: manifestWithTaxConstants(),
+		});
+
+		expect(compiled.taxConstants).toEqual({
+			newRegime: {
+				...syntheticTaxConstants.newRegime,
+				slabRuleId: parseRuleId("TEST-EXAMPLE-RULE"),
+				standardDeductionRuleId: parseRuleId("TEST-EXAMPLE-RULE"),
+				rebateRuleId: parseRuleId("TEST-EXAMPLE-RULE"),
+				rebateMarginalReliefRuleId: parseRuleId("TEST-EXAMPLE-RULE"),
+				surchargeRuleId: parseRuleId("TEST-EXAMPLE-RULE"),
+				cessRuleId: parseRuleId("TEST-EXAMPLE-RULE"),
+				totalIncomeRoundingRuleId: parseRuleId("TEST-EXAMPLE-RULE"),
+				taxRoundingRuleId: parseRuleId("TEST-EXAMPLE-RULE"),
+			},
+		});
+		expect(Object.isFrozen(compiled.taxConstants?.newRegime ?? false)).toBe(
+			true,
+		);
+	});
+
+	test("changes the compiled-pack hash when a constant changes", async () => {
+		const original = await compileRulePack({
+			manifest: manifestWithTaxConstants(),
+		});
+		const revised = await compileRulePack({
+			manifest: manifestWithTaxConstants((constants) => ({
+				newRegime: {
+					...constants.newRegime,
+					rebateMaxAmountWholeRupees: 61000,
+				},
+			})),
+		});
+
+		expect(revised.identity.compiledPackSha256).not.toBe(
+			original.identity.compiledPackSha256,
+		);
+		expect(revised.identity.sourceManifestSha256).toBe(
+			original.identity.sourceManifestSha256,
+		);
+	});
+
+	test("rejects slab bands whose upper bounds do not strictly ascend", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithTaxConstants((constants) => ({
+					newRegime: {
+						...constants.newRegime,
+						slabBands: [
+							{ upperBoundWholeRupees: 800000, ratePercent: 0 },
+							{ upperBoundWholeRupees: 400000, ratePercent: 5 },
+							{ upperBoundWholeRupees: null, ratePercent: 30 },
+						],
+					},
+				})),
+			}),
+		).rejects.toThrow(/band 2 upper bound must exceed/);
+	});
+
+	test("rejects an open-ended band that is not last", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithTaxConstants((constants) => ({
+					newRegime: {
+						...constants.newRegime,
+						slabBands: [
+							{ upperBoundWholeRupees: null, ratePercent: 0 },
+							{ upperBoundWholeRupees: 800000, ratePercent: 5 },
+							{ upperBoundWholeRupees: 1200000, ratePercent: 30 },
+						],
+					},
+				})),
+			}),
+		).rejects.toThrow("Only the last slab band may be open-ended");
+	});
+
+	test("requires the final band of the schedule to be open-ended", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithTaxConstants((constants) => ({
+					newRegime: {
+						...constants.newRegime,
+						slabBands: [
+							{ upperBoundWholeRupees: 400000, ratePercent: 0 },
+							{ upperBoundWholeRupees: 800000, ratePercent: 5 },
+						],
+					},
+				})),
+			}),
+		).rejects.toThrow("The last slab band must be open-ended");
+	});
+
+	test("rejects a fractional or out-of-range rate", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithTaxConstants((constants) => ({
+					newRegime: {
+						...constants.newRegime,
+						cessRatePercent: 4.5,
+					},
+				})),
+			}),
+		).rejects.toThrow(/whole percentage/);
+	});
+
+	test("rejects a negative money constant", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithTaxConstants((constants) => ({
+					newRegime: {
+						...constants.newRegime,
+						standardDeductionWholeRupees: -1,
+					},
+				})),
+			}),
+		).rejects.toThrow(/non-negative whole rupee amount/);
+	});
+
+	test("rejects a surcharge tier schedule that does not ascend", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithTaxConstants((constants) => ({
+					newRegime: {
+						...constants.newRegime,
+						surchargeTiers: [
+							{ exceedsTotalIncomeWholeRupees: 10000000, ratePercent: 15 },
+							{ exceedsTotalIncomeWholeRupees: 5000000, ratePercent: 10 },
+						],
+					},
+				})),
+			}),
+		).rejects.toThrow(/tier 2 threshold must exceed/);
+	});
+
+	test("rejects a tax constant that cites an undeclared rule", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithTaxConstants((constants) => ({
+					newRegime: {
+						...constants.newRegime,
+						cessRuleId: "TEST-UNDECLARED-RULE",
+					},
+				})),
+			}),
+		).rejects.toThrow('undeclared rule "TEST-UNDECLARED-RULE"');
+	});
+});

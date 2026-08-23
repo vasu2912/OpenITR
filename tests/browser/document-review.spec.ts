@@ -93,6 +93,45 @@ test.describe("Form 16 salary observation review", () => {
 		await expect(page.locator(".openitr-review-card")).toHaveCount(0);
 	});
 
+	test("shows the new-regime scenario with an inspectable trace", async ({
+		page,
+	}) => {
+		await openDocumentIntake(page);
+		await selectForm16(page);
+
+		const reviewSection = page.locator(".openitr-review-card");
+		await expect(reviewSection.getByText("salary.taxable-total")).toBeVisible({
+			timeout: 30_000,
+		});
+
+		const computation = page.locator(".openitr-computation-card");
+		await expect(computation).toBeVisible();
+		await expect(
+			computation.getByText("New-regime salary scenario"),
+		).toBeVisible();
+
+		const summary = computation.locator(".openitr-result-details");
+		await expect(summary).toContainText("Salary total");
+		await expect(summary).toContainText("₹ 12,00,000");
+		await expect(summary).toContainText("Taxable income");
+		await expect(summary).toContainText("₹ 9,75,000");
+		await expect(summary).toContainText("Final tax liability");
+		await expect(summary).toContainText("₹ 0");
+
+		const rebateNode = computation.locator(
+			'.openitr-trace-node summary:has-text("derived.rebate-section-87a")',
+		);
+		await rebateNode.click();
+		const expanded = computation
+			.locator(
+				'.openitr-trace-node:has(summary:has-text("derived.rebate-section-87a"))',
+			)
+			.first();
+		await expect(expanded).toContainText("ITR1-NR-REBATE-SECTION-87A");
+		await expect(expanded).toContainText("Unrounded");
+		await expect(expanded).toContainText("37,500");
+	});
+
 	test("selection triggers no request carrying document data", async ({
 		page,
 	}) => {

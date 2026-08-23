@@ -12,8 +12,14 @@ import type {
 	TaxAnalysisModuleId,
 	TaxFormId,
 } from "./primitives";
+import type {
+	CompiledTaxConstants,
+	RulePackManifestTaxConstants,
+} from "./rules/tax-constants";
 
 export * from "./primitives";
+export * from "./money/exact-money";
+export * from "./rules/tax-constants";
 export * from "./documents/compute-source-document-id";
 export * from "./documents/inspection-outcome";
 export * from "./documents/candidate-document";
@@ -124,6 +130,7 @@ export type ScopeRulePack = Readonly<{
 	identity: RulePackIdentity;
 	officialSources: readonly OfficialSource[];
 	question: EligibilityQuestion;
+	taxConstants: CompiledTaxConstants | undefined;
 	evaluate(
 		input: Readonly<{
 			answer: EligibilityAnswerValue;
@@ -187,6 +194,7 @@ export type RulePackManifest = Readonly<{
 	officialSources: readonly RulePackManifestSourceRecord[];
 	supportedRules: readonly RulePackManifestRuleRecord[];
 	scopeCheck: RulePackManifestScopeCheckRecord;
+	taxConstants?: RulePackManifestTaxConstants;
 }>;
 
 export type CompiledRulePack = Readonly<{
@@ -200,6 +208,7 @@ export type CompiledRulePack = Readonly<{
 			Record<EligibilityAnswerValue, ScopeCheckResult>
 		>;
 	}>;
+	taxConstants?: CompiledTaxConstants;
 }>;
 
 export type RulePackRevisionEntry = Readonly<{

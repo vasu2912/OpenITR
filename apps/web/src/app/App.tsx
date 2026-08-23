@@ -35,6 +35,7 @@ import type { SessionOrchestrator } from "../session/session-orchestrator";
 	import { activeAnalysisRelease } from "./release-manifest";
 	import { DocumentsIntakeView } from "../views/documents-intake";
 import { SalaryReviewView } from "../views/salary-review";
+import { SalaryComputationView } from "../views/salary-computation";
 
 type SessionLoadState =
 	| Readonly<{ kind: "loading" }>
@@ -291,6 +292,10 @@ const ScopeInteraction = ({
 		snapshot.kind === "document-intake" ? snapshot.documents : [];
 	const extractions =
 		snapshot.kind === "document-intake" ? snapshot.extractions : [];
+	const salaryComputation =
+		snapshot.kind === "document-intake"
+			? snapshot.salaryComputation
+			: undefined;
 
 	return (
 		<AppFrame
@@ -367,6 +372,7 @@ const ScopeInteraction = ({
 				session={session}
 			/>
 			<SalaryReviewView extractions={extractions} />
+			<SalaryComputationView computation={salaryComputation} />
 			<ResetSessionDialog
 				isOpen={isResetConfirmationOpen}
 				onCancel={() => setResetConfirmationOpen(false)}

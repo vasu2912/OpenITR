@@ -19,6 +19,8 @@ import type {
 	SelectedSourceFile,
 	Sha256Digest,
 } from "@openitr/model";
+import { computeNewRegimeSalaryScenario } from "@openitr/itr1-ay2026-27";
+import type { NewRegimeSalaryComputation } from "@openitr/itr1-ay2026-27";
 import { createActor, setup } from "xstate";
 import type { Subscription } from "xstate";
 
@@ -58,6 +60,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	completedScopeCheck: CompletedScopeCheck;
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
+	salaryComputation: NewRegimeSalaryComputation | undefined;
 }>;
 
 export type SessionOrchestratorSnapshot =
@@ -82,7 +85,46 @@ type SessionContext = Readonly<{
 	documentsStageEntered: boolean;
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
+	salaryComputation: NewRegimeSalaryComputation | undefined;
 }>;
+
+// Only observations that no review issue disputes are accepted facts. The
+// computation itself re-validates everything and fails closed on gaps.
+const computeSalaryScenario = ({
+	rulePack,
+	scopeCheck,
+	extractions,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	scopeCheck: SessionContext["scopeCheck"];
+	extractions: readonly DocumentExtractionRecord[];
+}>): NewRegimeSalaryComputation | undefined => {
+	if (scopeCheck.kind !== "complete") {
+		return undefined;
+	}
+	const doneRecords = extractions.filter(
+		(record) => record.status === "done",
+	);
+	if (doneRecords.length === 0) {
+		return undefined;
+	}
+	const salaryDocuments = doneRecords.map((record) => {
+		const disputedFactKeys = new Set(
+			record.issues.flatMap((issue) => [...issue.affectedFactKeys]),
+		);
+		return {
+			documentId: record.documentId,
+			observations: record.observations.filter(
+				(observation) => !disputedFactKeys.has(observation.factKey),
+			),
+		};
+	});
+	return computeNewRegimeSalaryScenario({
+		rulePack,
+		residentAnswer: scopeCheck.completion.answer,
+		salaryDocuments,
+	});
+};
 
 const buildInspectableInput = (
 	file: SelectedSourceFile,
@@ -182,6 +224,7 @@ const createSessionMachine = ({
 			documentsStageEntered: false,
 			documents: [],
 			extractions: [],
+			salaryComputation: undefined,
 		},
 		initial: "awaiting-answer",
 		states: {
@@ -349,6 +392,19 @@ const createSessionMachine = ({
 									(record) => record.candidateKey !== event.candidateKey,
 								);
 							},
+							salaryComputation: ({ context, event }) => {
+								if (event.type !== "document-removed") {
+									return context.salaryComputation;
+								}
+								return computeSalaryScenario({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: context.extractions.filter(
+										(record) =>
+											record.candidateKey !== event.candidateKey,
+									),
+								});
+							},
 						}),
 					},
 					"document-extraction-started": {
@@ -412,6 +468,35 @@ const createSessionMachine = ({
 												} satisfies DocumentExtractionRecord,
 								);
 							},
+							salaryComputation: ({ context, event }) => {
+								if (event.type !== "document-extraction-settled") {
+									return context.salaryComputation;
+								}
+								return computeSalaryScenario({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: replaceExtractionRecord(
+										context.extractions,
+										event.candidateKey,
+										(record) =>
+											event.outcome.kind === "extracted"
+												? {
+														candidateKey: record.candidateKey,
+														documentId: record.documentId,
+														status: "done",
+														observations: event.outcome.observations,
+														issues: event.outcome.issues,
+														pages: event.outcome.pages,
+													} satisfies DocumentExtractionRecord
+												: {
+														candidateKey: record.candidateKey,
+														documentId: record.documentId,
+														status: "failed",
+														issue: event.outcome.issue,
+													} satisfies DocumentExtractionRecord,
+									),
+								});
+							},
 						}),
 					},
 					"document-extraction-cancelled": {
@@ -430,6 +515,18 @@ const createSessionMachine = ({
 								return context.extractions.filter(
 									(record) => record.candidateKey !== event.candidateKey,
 								);
+							},
+							salaryComputation: ({ context, event }) => {
+								if (event.type !== "document-extraction-cancelled") {
+									return context.salaryComputation;
+								}
+								return computeSalaryScenario({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: context.extractions.filter(
+										(record) => record.candidateKey !== event.candidateKey,
+									),
+								});
 							},
 						}),
 					},
@@ -470,6 +567,7 @@ const toSessionSnapshot = (
 			completedScopeCheck: context.scopeCheck.completion,
 			documents: context.documents,
 			extractions: context.extractions,
+			salaryComputation: context.salaryComputation,
 		};
 		default: {
 			const _exhaustive: never = context.scopeCheck;
