@@ -609,6 +609,15 @@ export const createSessionOrchestrator = ({
 		});
 		void (async () => {
 			const bytes = await file.readBytes();
+			const rereadIdentity = await computeSourceDocumentIdentity({ bytes });
+			if (rereadIdentity.contentSha256 !== documentId) {
+				// The file changed between inspection and extraction; its
+				// observations could never match the inspected identity.
+				return createExtractionRejectionOutcome(
+					"content-mismatch",
+					documentId,
+				);
+			}
 			return facility.extract(
 				buildInspectableInput(file, documentId, bytes),
 				controller.signal,
@@ -633,7 +642,7 @@ export const createSessionOrchestrator = ({
 					type: "document-extraction-settled",
 					candidateKey,
 					outcome: createExtractionRejectionOutcome(
-						"inspection-failed",
+						"extraction-failed",
 						documentId,
 					),
 				});

@@ -33,6 +33,9 @@ const ObservationEvidencePanel = ({
 			id={`evidence-${observation.observationId}`}
 			role="region"
 		>
+			<p className="openitr-evidence-heading">
+				Evidence — Page {observation.evidence.page}
+			</p>
 			<p className="openitr-evidence-locator">
 				Evidence location: Page {observation.evidence.page} · x{" "}
 				{observation.evidence.x} · y {observation.evidence.y} · width{" "}

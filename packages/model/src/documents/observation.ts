@@ -13,15 +13,11 @@ export type PdfEvidenceLocator = Readonly<{
 
 export type EvidenceLocator = PdfEvidenceLocator;
 
-export const OBSERVATION_TRANSFORMATION_OPERATIONS = [
-	"trim-whitespace",
-	"strip-currency-prefix",
-	"remove-indian-digit-grouping",
-	"parse-whole-rupees",
-] as const;
-
 export type ObservationTransformationOperation =
-	(typeof OBSERVATION_TRANSFORMATION_OPERATIONS)[number];
+	| "trim-whitespace"
+	| "strip-currency-prefix"
+	| "remove-indian-digit-grouping"
+	| "parse-whole-rupees";
 
 export type ObservationTransformationStep = Readonly<{
 	order: number;
@@ -34,15 +30,6 @@ export type ExtractionRuleCitation = Readonly<{
 	ruleId: RuleId;
 	description: string;
 }>;
-
-// Deterministic per source document and fact key:
-// `${factKey}@${sourceDocumentId}`.
-export const parseObservationId = (value: string): string => {
-	if (!/^[a-z0-9.-]+@[a-f0-9]{64}$/.test(value)) {
-		throw new Error(`Invalid observation id: ${value}`);
-	}
-	return value;
-};
 
 export type SalaryObservation = Readonly<{
 	observationId: string;

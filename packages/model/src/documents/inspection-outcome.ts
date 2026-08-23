@@ -40,9 +40,11 @@ export const DOCUMENT_ISSUE_CODES = Object.freeze({
 	),
 	documentUnknownFormat: parseIssueCode("DOCUMENT_UNKNOWN_FORMAT"),
 	documentInspectionFailed: parseIssueCode("DOCUMENT_INSPECTION_FAILED"),
+	documentExtractionFailed: parseIssueCode("DOCUMENT_EXTRACTION_FAILED"),
 	documentExtractionUnsupported: parseIssueCode(
 		"DOCUMENT_EXTRACTION_UNSUPPORTED",
 	),
+	documentContentMismatch: parseIssueCode("DOCUMENT_CONTENT_MISMATCH"),
 });
 
 export const INSPECTION_FAILED_RECOVERY_ACTION =
@@ -69,7 +71,9 @@ export type DocumentRejection =
 	| "private-institution"
 	| "unknown-format"
 	| "extraction-unsupported"
-	| "inspection-failed";
+	| "extraction-failed"
+	| "inspection-failed"
+	| "content-mismatch";
 
 const DOCUMENT_REJECTION_RECOVERY_ACTIONS: Readonly<
 	Record<DocumentRejection, string>
@@ -88,6 +92,10 @@ const DOCUMENT_REJECTION_RECOVERY_ACTIONS: Readonly<
 		"Select a supported source document, or continue with a permitted attested answer.",
 	"extraction-unsupported":
 		"This revision supports inspection only. Observation extraction is not available for it yet.",
+	"extraction-failed":
+		"Select the document again. If the same document fails every time, report the incident code shown with this message.",
+	"content-mismatch":
+		"Select the document again so OpenITR can verify that its contents match the inspected copy.",
 	"inspection-failed": INSPECTION_FAILED_RECOVERY_ACTION,
 });
 
@@ -101,7 +109,19 @@ const DOCUMENT_REJECTION_ISSUE_CODES: Readonly<
 	"private-institution": DOCUMENT_ISSUE_CODES.documentPrivateInstitutionTemplate,
 	"unknown-format": DOCUMENT_ISSUE_CODES.documentUnknownFormat,
 	"extraction-unsupported": DOCUMENT_ISSUE_CODES.documentExtractionUnsupported,
+	"extraction-failed": DOCUMENT_ISSUE_CODES.documentExtractionFailed,
+	"content-mismatch": DOCUMENT_ISSUE_CODES.documentContentMismatch,
 	"inspection-failed": DOCUMENT_ISSUE_CODES.documentInspectionFailed,
+});
+
+const rejectionIssue = (
+	rejection: DocumentRejection,
+	identity: Sha256Digest,
+): DocumentInspectionIssue => ({
+	code: DOCUMENT_REJECTION_ISSUE_CODES[rejection],
+	severity: "blocking",
+	affectedDocumentIds: [identity],
+	recoveryAction: DOCUMENT_REJECTION_RECOVERY_ACTIONS[rejection],
 });
 
 export const createDocumentRejectionOutcome = (
@@ -110,12 +130,7 @@ export const createDocumentRejectionOutcome = (
 ): DocumentInspectionOutcome => ({
 	kind: "rejected",
 	rejection,
-	issue: {
-		code: DOCUMENT_REJECTION_ISSUE_CODES[rejection],
-		severity: "blocking",
-		affectedDocumentIds: [identity],
-		recoveryAction: DOCUMENT_REJECTION_RECOVERY_ACTIONS[rejection],
-	},
+	issue: rejectionIssue(rejection, identity),
 });
 
 export const createExtractionRejectionOutcome = (
@@ -124,12 +139,7 @@ export const createExtractionRejectionOutcome = (
 ): DocumentExtractionOutcome => ({
 	kind: "rejected",
 	rejection,
-	issue: {
-		code: DOCUMENT_REJECTION_ISSUE_CODES[rejection],
-		severity: "blocking",
-		affectedDocumentIds: [identity],
-		recoveryAction: DOCUMENT_REJECTION_RECOVERY_ACTIONS[rejection],
-	},
+	issue: rejectionIssue(rejection, identity),
 });
 
 export type DocumentInspectionIssue = Readonly<{

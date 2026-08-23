@@ -79,7 +79,7 @@ workerScope.addEventListener("message", (event) => {
 					message.type === "inspect"
 						? createInspectionFailedOutcome(message.input.identity)
 						: createExtractionRejectionOutcome(
-								"inspection-failed",
+								"extraction-failed",
 								message.input.identity,
 							),
 			});

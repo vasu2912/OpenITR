@@ -133,17 +133,20 @@ describe("Form 16 Part A salary extraction", () => {
 		const sharedIdentity = await identityOf(bytes);
 
 		const first: DocumentExtractionOutcome = await extractForm16({
-			identity: sharedIdentity as never,
+			identity: sharedIdentity,
 			displayName: "a.pdf",
 			bytes,
 		});
 		const second = await extractForm16({
-			identity: sharedIdentity as never,
+			identity: sharedIdentity,
 			displayName: "totally-different-name.pdf",
 			bytes,
 		});
 
 		expect(JSON.stringify(first)).toBe(JSON.stringify(second));
+		// A structured clone is exactly what a worker boundary does to the
+		// outcome; determinism must survive it.
+		expect(structuredClone(first)).toEqual(second);
 	});
 
 	test("ignores a misleading filename and MIME type", async () => {
@@ -221,4 +224,27 @@ describe("Form 16 Part A salary extraction", () => {
 			},
 		]);
 	});
+});
+
+test("reports every field missing for a changed template without inventing facts", async () => {
+	const testing = await import("../testing");
+	const allOmitted = testing.createForm16SalaryPdfFixture({
+		omitLabel: "",
+	});
+	const outcome = await extractForm16({
+		identity: await identityOf(allOmitted),
+		displayName: "changed-template.pdf",
+		bytes: allOmitted,
+	});
+
+	expect(outcome.kind).toBe("extracted");
+	if (outcome.kind !== "extracted") {
+		return;
+	}
+	expect(outcome.observations).toHaveLength(0);
+	expect(outcome.issues.map((issue) => issue.code)).toEqual([
+		DOCUMENT_REVIEW_ISSUE_CODES.salaryFieldMissing,
+		DOCUMENT_REVIEW_ISSUE_CODES.salaryFieldMissing,
+		DOCUMENT_REVIEW_ISSUE_CODES.salaryFieldMissing,
+	]);
 });

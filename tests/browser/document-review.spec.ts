@@ -1,4 +1,7 @@
-import { createForm16SalaryPdfFixture } from "@openitr/document-adapters/testing";
+import {
+	createForm16SalaryPdfFixture,
+	FORM16_SALARY_FIXTURE_SENTINEL_AMOUNT,
+} from "@openitr/document-adapters/testing";
 import { expect, test } from "@playwright/test";
 import type { Request } from "@playwright/test";
 
@@ -100,7 +103,7 @@ test.describe("Form 16 salary observation review", () => {
 		await openDocumentIntake(page);
 		const baseline = requests.length;
 
-		const sentinelAmount = "12,00,000";
+		const sentinelAmount = FORM16_SALARY_FIXTURE_SENTINEL_AMOUNT;
 		const sentinelEmployee = "OpenITR Synthetic Employee";
 		await selectForm16(page);
 

@@ -149,11 +149,27 @@ export const DocumentsIntakeView = ({
 					/>
 				</form>
 
-				<p aria-live="polite" className="openitr-document-live">
-					{activeCount > 0
-						? `Inspecting ${activeCount} document${activeCount === 1 ? "" : "s"}`
-						: "No inspections running"}
-				</p>
+				{(() => {
+					const extractingCount = extractions.filter(
+						(record) => record.status === "extracting",
+					).length;
+					const doneCount = extractions.filter(
+						(record) => record.status === "done",
+					).length;
+					return (
+						<p aria-live="polite" className="openitr-document-live">
+							{activeCount > 0
+								? `Inspecting ${activeCount} document${activeCount === 1 ? "" : "s"}`
+								: "No inspections running"}
+							{extractingCount > 0
+								? ` · Extracting observations from ${extractingCount}`
+								: ""}
+							{doneCount > 0
+								? ` · ${doneCount} document${doneCount === 1 ? "" : "s"} ready for review`
+								: ""}
+						</p>
+					);
+				})()}
 
 				<ul className="openitr-document-list">
 					{documents.map((candidate) => {

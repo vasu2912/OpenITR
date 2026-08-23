@@ -354,3 +354,8 @@ body,
 .openitr-evidence-marker {
 	min-width: 1ch;
 }
+
+.openitr-evidence-heading {
+	font-weight: 700;
+	margin: 0;
+}

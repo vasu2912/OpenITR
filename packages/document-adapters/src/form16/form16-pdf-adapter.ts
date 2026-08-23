@@ -13,17 +13,16 @@ import {
 } from "@openitr/model";
 import { parseDocumentKind, parseTemplateRevision } from "@openitr/model";
 
+import type { PdfLineGeometry } from "../pdf/pdf-text-layer";
+import {
+	extractPdfLines,
+	normalizedTextContainsAll,
+} from "../pdf/pdf-text-layer";
 import type {
 	AdapterVerdict,
 	DocumentAdapterManifest,
 	SourceDocumentAdapter,
 } from "../registry";
-import { extractPdfLines } from "../pdf/pdf-text-layer";
-import type { PdfLineGeometry } from "../pdf/pdf-text-layer";
-import {
-	extractPdfTextLayer,
-	normalizedTextContainsAll,
-} from "../pdf/pdf-text-layer";
 import { FORM16_SALARY_FIELD_DEFINITIONS } from "./form16-field-definitions";
 
 const FORM16_REQUIRED_MARKERS = [
@@ -41,32 +40,28 @@ export const FORM16_PDF_MANIFEST: DocumentAdapterManifest = Object.freeze({
 const normalizeWhitespace = (text: string): string =>
 	text.replace(/\s+/g, " ").trim();
 
-const inspectForm16 = async (
-	input: InspectableSourceDocument,
-	options?: Readonly<{ signal?: AbortSignal }>,
-): Promise<AdapterVerdict> => {
-	const extraction = await extractPdfTextLayer(input.bytes, options);
-	switch (extraction.outcome) {
-		case "encrypted":
-			return { verdict: "rejected", rejection: "encrypted" };
-		case "not-a-pdf":
-			return { verdict: "no-match" };
-		case "damaged":
-			return { verdict: "rejected", rejection: "damaged" };
-		case "no-text-layer":
-			return { verdict: "rejected", rejection: "image-only" };
-		case "text": {
-			const fullText = extraction.pageTexts.join("\n");
-			return normalizedTextContainsAll(fullText, FORM16_REQUIRED_MARKERS)
-				? { verdict: "exact-match" }
-				: { verdict: "no-match" };
-		}
-		default: {
-			const _exhaustive: never = extraction;
-			return _exhaustive;
-		}
-	}
-};
+// Inspection reports a bare PDF as no-match; extraction reports it as an
+// unknown-format rejection.
+const INSPECTION_REJECTIONS = {
+	encrypted: "encrypted",
+	damaged: "damaged",
+	"no-text-layer": "image-only",
+} as const;
+
+const EXTRACTION_REJECTIONS = {
+	encrypted: "encrypted",
+	damaged: "damaged",
+	"not-a-pdf": "unknown-format",
+	"no-text-layer": "image-only",
+} as const;
+
+const form16MarkersPresent = (
+	pages: readonly (readonly PdfLineGeometry[])[],
+): boolean =>
+	normalizedTextContainsAll(
+		pages.map((lines) => lines.map((line) => line.text).join("\n")).join("\n"),
+		FORM16_REQUIRED_MARKERS,
+	);
 
 // Every step of the rupee normalization is recorded in order. A step that
 // changes nothing is still recorded so the review screen can show the whole
@@ -78,11 +73,11 @@ const parseRupeeAmount = (
 ): { steps: ObservationTransformationStep[]; value: number } | undefined => {
 	const trimmed = normalizeWhitespace(raw);
 	const withoutCurrency = trimmed.replace(RUPEE_CURRENCY_PREFIX, "");
-	const grouped = withoutCurrency.replace(/,/g, "");
-	if (!/^[0-9]+$/.test(grouped)) {
+	const digitsWithoutGrouping = withoutCurrency.replace(/,/g, "");
+	if (!/^[0-9]+$/.test(digitsWithoutGrouping)) {
 		return undefined;
 	}
-	const value = Number.parseInt(grouped, 10);
+	const value = Number.parseInt(digitsWithoutGrouping, 10);
 	if (!Number.isSafeInteger(value) || value < 0) {
 		return undefined;
 	}
@@ -105,12 +100,12 @@ const parseRupeeAmount = (
 				order: 3,
 				operation: "remove-indian-digit-grouping",
 				input: withoutCurrency,
-				output: grouped,
+				output: digitsWithoutGrouping,
 			},
 			{
 				order: 4,
 				operation: "parse-whole-rupees",
-				input: grouped,
+				input: digitsWithoutGrouping,
 				output: String(value),
 			},
 		],
@@ -147,10 +142,12 @@ const extractSalaryObservations = (
 		}
 
 		const line = matches[0];
-		const amountStart = line?.text.lastIndexOf(":");
+		// The reviewed revision prints "label: Rs amount"; a row without the
+		// separator carries no parseable amount and is reported missing.
+		const amountSeparator = line?.text.lastIndexOf(":") ?? -1;
 		const parsed =
-			line !== undefined && amountStart !== undefined
-				? parseRupeeAmount(line.text.slice(amountStart + 1))
+			line !== undefined && amountSeparator >= 0
+				? parseRupeeAmount(line.text.slice(amountSeparator + 1))
 				: undefined;
 
 		if (line === undefined || parsed === undefined) {
@@ -187,34 +184,42 @@ const extractSalaryObservations = (
 		});
 	}
 
-	observations.sort((first, second) => first.factKey.localeCompare(second.factKey));
+	observations.sort((first, second) =>
+		first.factKey.localeCompare(second.factKey),
+	);
 	return { observations, issues };
 };
 
 export const createForm16PdfAdapter = (): SourceDocumentAdapter => ({
 	manifest: FORM16_PDF_MANIFEST,
-	inspect: inspectForm16,
+	inspect: async (input, options = {}): Promise<AdapterVerdict> => {
+		const linesOutcome = await extractPdfLines(input.bytes, options);
+		if (linesOutcome.outcome === "not-a-pdf") {
+			return { verdict: "no-match" };
+		}
+		if (linesOutcome.outcome !== "text") {
+			return {
+				verdict: "rejected",
+				rejection:
+					INSPECTION_REJECTIONS[
+						linesOutcome.outcome as keyof typeof INSPECTION_REJECTIONS
+					],
+			};
+		}
+		return form16MarkersPresent(linesOutcome.pages)
+			? { verdict: "exact-match" }
+			: { verdict: "no-match" };
+	},
 	extract: async (input, options = {}): Promise<DocumentExtractionOutcome> => {
-		const verdict = await inspectForm16(input, options);
-		if (verdict.verdict === "rejected") {
-			return createExtractionRejectionOutcome(verdict.rejection, input.identity);
-		}
-		if (verdict.verdict === "no-match") {
-			return createExtractionRejectionOutcome("unknown-format", input.identity);
-		}
-
 		const linesOutcome = await extractPdfLines(input.bytes, options);
 		if (linesOutcome.outcome !== "text") {
-			const rejectionByOutcome = {
-				encrypted: "encrypted",
-				damaged: "damaged",
-				"not-a-pdf": "unknown-format",
-				"no-text-layer": "image-only",
-			} as const;
 			return createExtractionRejectionOutcome(
-				rejectionByOutcome[linesOutcome.outcome],
+				EXTRACTION_REJECTIONS[linesOutcome.outcome],
 				input.identity,
 			);
+		}
+		if (!form16MarkersPresent(linesOutcome.pages)) {
+			return createExtractionRejectionOutcome("unknown-format", input.identity);
 		}
 
 		const { observations, issues } = extractSalaryObservations(
