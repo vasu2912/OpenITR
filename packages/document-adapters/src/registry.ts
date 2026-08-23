@@ -1,9 +1,10 @@
+import type { DocumentRejection } from "@openitr/model";
 import {
-	DOCUMENT_ISSUE_CODES,
-	INSPECTION_FAILED_RECOVERY_ACTION,
+	createDocumentRejectionOutcome,
+	createExtractionRejectionOutcome,
+	type DocumentExtractionOutcome,
 	type DocumentInspectionOutcome,
 	type DocumentKind,
-	type DocumentRejection,
 	type InspectableSourceDocument,
 	type TemplateRevision,
 } from "@openitr/model";
@@ -43,6 +44,10 @@ export interface SourceDocumentAdapter {
 		input: InspectableSourceDocument,
 		options?: InspectionOptions,
 	): Promise<AdapterVerdict>;
+	extract?(
+		input: InspectableSourceDocument,
+		options?: InspectionOptions,
+	): Promise<DocumentExtractionOutcome>;
 }
 
 export type PrivateTemplateDetector = Readonly<{
@@ -50,52 +55,9 @@ export type PrivateTemplateDetector = Readonly<{
 	match(input: InspectableSourceDocument): boolean;
 }>;
 
-type RejectionClass = DocumentRejection;
+type AdapterFailure = DocumentRejection;
 
-type AdapterFailure = Extract<AdapterVerdict, { verdict: "rejected" }>["rejection"];
-
-const RECOVERY_ACTIONS: Readonly<Record<RejectionClass, string>> =
-	Object.freeze({
-		encrypted:
-			"Select an unlocked copy of the document without a password. OpenITR cannot prompt for or remove passwords.",
-		damaged:
-			"Select a readable copy of the document. OpenITR does not repair damaged files.",
-		"image-only":
-			"Select a text-based export of the same statement. OpenITR does not read scanned images.",
-		ambiguous:
-			"Select the official download of the one document you want analysed.",
-		"private-institution":
-			"Use a permitted official source such as AIS, Form 26AS, Form 16, or a challan receipt instead.",
-		"unknown-format":
-			"Select a supported source document, or continue with a permitted attested answer.",
-		"inspection-failed": INSPECTION_FAILED_RECOVERY_ACTION,
-	});
-
-const ISSUE_CODE_FOR_REJECTION: Readonly<
-	Record<RejectionClass, (typeof DOCUMENT_ISSUE_CODES)[keyof typeof DOCUMENT_ISSUE_CODES]>
-> = Object.freeze({
-	encrypted: DOCUMENT_ISSUE_CODES.fileEncrypted,
-	damaged: DOCUMENT_ISSUE_CODES.documentDamaged,
-	"image-only": DOCUMENT_ISSUE_CODES.documentImageOnly,
-	ambiguous: DOCUMENT_ISSUE_CODES.documentAmbiguousMatch,
-	"private-institution": DOCUMENT_ISSUE_CODES.documentPrivateInstitutionTemplate,
-	"unknown-format": DOCUMENT_ISSUE_CODES.documentUnknownFormat,
-	"inspection-failed": DOCUMENT_ISSUE_CODES.documentInspectionFailed,
-});
-
-const rejectedOutcome = (
-	rejection: RejectionClass,
-	identity: InspectableSourceDocument["identity"],
-): DocumentInspectionOutcome => ({
-	kind: "rejected",
-	rejection,
-	issue: {
-		code: ISSUE_CODE_FOR_REJECTION[rejection],
-		severity: "blocking",
-		affectedDocumentIds: [identity],
-		recoveryAction: RECOVERY_ACTIONS[rejection],
-	},
-});
+const rejectedOutcome = createDocumentRejectionOutcome;
 
 const FAILURE_PRIORITY = ["encrypted", "damaged", "image-only"] as const;
 
@@ -114,13 +76,19 @@ export const createDocumentInspectionRegistry = (
 	privateTemplateDetectors: readonly PrivateTemplateDetector[] =
 		defaultPrivateTemplateDetectors(),
 ) => {
-	const inspect = async (
+	type AdapterMatch =
+		| Readonly<{ kind: "rejected"; rejection: AdapterFailure }>
+		| Readonly<{ kind: "unique"; adapter: SourceDocumentAdapter }>
+		| Readonly<{ kind: "ambiguous" }>
+		| Readonly<{ kind: "unmatched" }>;
+
+	const matchAdapters = async (
 		input: InspectableSourceDocument,
-		options: InspectionOptions = {},
-	): Promise<DocumentInspectionOutcome> => {
+		options: InspectionOptions,
+	): Promise<AdapterMatch> => {
 		const { signal } = options;
 		if (privateTemplateDetectors.some((detector) => detector.match(input))) {
-			return rejectedOutcome("private-institution", input.identity);
+			return { kind: "rejected", rejection: "private-institution" };
 		}
 
 		const exactMatches: SourceDocumentAdapter[] = [];
@@ -136,34 +104,76 @@ export const createDocumentInspectionRegistry = (
 		}
 
 		if (exactMatches.length > 1) {
-			return rejectedOutcome("ambiguous", input.identity);
+			return { kind: "ambiguous" };
 		}
-		if (exactMatches.length === 1) {
-			const adapter = exactMatches[0];
-			if (adapter === undefined) {
-				return rejectedOutcome("unknown-format", input.identity);
-			}
-			return {
-				kind: "identified",
-				document: {
-					documentKind: adapter.manifest.documentKind,
-					templateRevision: adapter.manifest.templateRevision,
-				},
-				adapter: {
-					adapterId: adapter.manifest.adapterId,
-					adapterVersion: adapter.manifest.adapterVersion,
-				},
-			};
+		const adapter = exactMatches[0];
+		if (adapter !== undefined) {
+			return { kind: "unique", adapter };
 		}
-
 		for (const failure of FAILURE_PRIORITY) {
 			if (failures.has(failure)) {
-				return rejectedOutcome(failure, input.identity);
+				return { kind: "rejected", rejection: failure };
 			}
 		}
-
-		return rejectedOutcome("unknown-format", input.identity);
+		return { kind: "unmatched" };
 	};
 
-	return Object.freeze({ inspect });
+	const inspect = async (
+		input: InspectableSourceDocument,
+		options: InspectionOptions = {},
+	): Promise<DocumentInspectionOutcome> => {
+		const match = await matchAdapters(input, options);
+		switch (match.kind) {
+			case "rejected":
+				return rejectedOutcome(match.rejection, input.identity);
+			case "ambiguous":
+				return rejectedOutcome("ambiguous", input.identity);
+			case "unmatched":
+				return rejectedOutcome("unknown-format", input.identity);
+			case "unique":
+				return {
+					kind: "identified",
+					document: {
+						documentKind: match.adapter.manifest.documentKind,
+						templateRevision: match.adapter.manifest.templateRevision,
+					},
+					adapter: {
+						adapterId: match.adapter.manifest.adapterId,
+						adapterVersion: match.adapter.manifest.adapterVersion,
+					},
+				};
+			default: {
+				const _exhaustive: never = match;
+				return _exhaustive;
+			}
+		}
+	};
+
+	const extractDocument = async (
+		input: InspectableSourceDocument,
+		options: InspectionOptions = {},
+	): Promise<DocumentExtractionOutcome> => {
+		// Full matching runs first, so private-template, ambiguous, and
+		// fail-closed classes guard extraction exactly as they guard
+		// identification.
+		const match = await matchAdapters(input, options);
+		if (match.kind === "rejected") {
+			return createExtractionRejectionOutcome(match.rejection, input.identity);
+		}
+		if (match.kind === "ambiguous") {
+			return createExtractionRejectionOutcome("ambiguous", input.identity);
+		}
+		if (match.kind === "unmatched") {
+			return createExtractionRejectionOutcome("unknown-format", input.identity);
+		}
+		if (match.adapter.extract === undefined) {
+			return createExtractionRejectionOutcome(
+				"extraction-unsupported",
+				input.identity,
+			);
+		}
+		return match.adapter.extract(input, options);
+	};
+
+	return Object.freeze({ inspect, extractDocument });
 };

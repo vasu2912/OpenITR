@@ -1,5 +1,6 @@
 import type {
 	CandidateDocument,
+	DocumentExtractionRecord,
 	DocumentKind,
 	TemplateRevision,
 } from "@openitr/model";
@@ -55,12 +56,34 @@ const candidateDetailLine = (candidate: CandidateDocument): string => {
 	}
 };
 
+const extractionStatusLine = (
+	record: DocumentExtractionRecord | undefined,
+): string => {
+	switch (record?.status) {
+		case "extracting":
+			return "Extracting salary observations…";
+		case "done": {
+			const issueNote =
+				record.issues.length > 0
+					? `, ${record.issues.length} review item${record.issues.length === 1 ? "" : "s"}`
+					: "";
+			return `${record.observations.length} salary observation${record.observations.length === 1 ? "" : "s"}${issueNote}`;
+		}
+		case "failed":
+			return `Observation extraction failed (${String(record.issue.code)})`;
+		default:
+			return "";
+	}
+};
+
 export const DocumentsIntakeView = ({
 	session,
 	documents,
+	extractions,
 }: Readonly<{
 	session: SessionOrchestrator;
 	documents: readonly CandidateDocument[];
+	extractions: readonly DocumentExtractionRecord[];
 }>) => {
 	const handleFiles = async (
 		event: ChangeEvent<HTMLInputElement>,
@@ -75,7 +98,10 @@ export const DocumentsIntakeView = ({
 				...(file.type === ""
 					? {}
 					: { suppliedMediaType: file.type }),
-				bytes: new Uint8Array(await file.arrayBuffer()),
+				readBytes: () =>
+					file.arrayBuffer().then(
+						(buffer) => new Uint8Array(buffer) as Uint8Array<ArrayBuffer>,
+					),
 			})),
 		);
 		event.target.value = "";
@@ -169,6 +195,19 @@ export const DocumentsIntakeView = ({
 										Cancel inspection
 									</Button>
 								)}
+												{(() => {
+									const extractionLine = extractionStatusLine(
+										extractions.find(
+											(record) =>
+												record.candidateKey === candidate.candidateKey,
+										),
+									);
+									return extractionLine ? (
+										<small className="openitr-extraction-status">
+											{extractionLine}
+										</small>
+									) : null;
+								})()}
 								{candidate.status !== "removed" && (
 									<Button
 										onClick={() =>

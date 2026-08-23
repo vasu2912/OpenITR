@@ -31,9 +31,10 @@ import type { FormEvent, ReactNode } from "react";
 import { loadRulePack } from "../session/load-rule-pack";
 import { createSessionOrchestrator } from "../session/session-orchestrator";
 import type { SessionOrchestrator } from "../session/session-orchestrator";
-import { workerInspectionFacility } from "../session/worker-inspection-facility";
-import { activeAnalysisRelease } from "./release-manifest";
-import { DocumentsIntakeView } from "../views/documents-intake";
+	import { workerInspectionFacility } from "../session/worker-inspection-facility";
+	import { activeAnalysisRelease } from "./release-manifest";
+	import { DocumentsIntakeView } from "../views/documents-intake";
+import { SalaryReviewView } from "../views/salary-review";
 
 type SessionLoadState =
 	| Readonly<{ kind: "loading" }>
@@ -288,6 +289,8 @@ const ScopeInteraction = ({
 			: snapshot.completedScopeCheck;
 	const documents =
 		snapshot.kind === "document-intake" ? snapshot.documents : [];
+	const extractions =
+		snapshot.kind === "document-intake" ? snapshot.extractions : [];
 
 	return (
 		<AppFrame
@@ -358,7 +361,12 @@ const ScopeInteraction = ({
 					</p>
 				</CardBody>
 			</Card>
-			<DocumentsIntakeView documents={documents} session={session} />
+			<DocumentsIntakeView
+				documents={documents}
+				extractions={extractions}
+				session={session}
+			/>
+			<SalaryReviewView extractions={extractions} />
 			<ResetSessionDialog
 				isOpen={isResetConfirmationOpen}
 				onCancel={() => setResetConfirmationOpen(false)}
@@ -387,7 +395,7 @@ export const App = () => {
 				}
 				sessionToStop = createSessionOrchestrator({
 					rulePack,
-					inspection: workerInspectionFacility(),
+					documents: workerInspectionFacility(),
 				});
 				setLoadState({ kind: "ready", session: sessionToStop });
 			})

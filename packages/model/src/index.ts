@@ -17,6 +17,8 @@ export * from "./primitives";
 export * from "./documents/compute-source-document-id";
 export * from "./documents/inspection-outcome";
 export * from "./documents/candidate-document";
+export * from "./documents/observation";
+export * from "./documents/extraction";
 
 export type EligibilityAnswerValue = "yes" | "no";
 

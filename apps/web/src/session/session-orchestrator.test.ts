@@ -15,7 +15,7 @@ const fixedAnswerTime = "2026-08-22T00:00:00.000Z";
 const createSession = () =>
 	createSessionOrchestrator({
 		rulePack: itr1Ay202627RulePack,
-		inspection: inProcessInspectionFacility(),
+		documents: inProcessInspectionFacility(),
 	});
 const expectedInitialSnapshot = {
 	kind: "awaiting-scope-answer",
@@ -304,7 +304,7 @@ describe("rule-pack revision pinning", () => {
 		const first = await createSyntheticRulePack(firstSyntheticRevision);
 		const activeSession = createSessionOrchestrator({
 			rulePack: first,
-			inspection: inProcessInspectionFacility(),
+			documents: inProcessInspectionFacility(),
 		});
 		activeSession.send(answerCommandFor(first, "yes"));
 		const pinnedSnapshot = activeSession.getSnapshot();
@@ -312,7 +312,7 @@ describe("rule-pack revision pinning", () => {
 		const second = await createSyntheticRulePack(secondSyntheticRevision);
 		createSessionOrchestrator({
 			rulePack: second,
-			inspection: inProcessInspectionFacility(),
+			documents: inProcessInspectionFacility(),
 		}).stop();
 
 		expect(activeSession.getSnapshot()).toEqual(pinnedSnapshot);
@@ -328,13 +328,13 @@ describe("rule-pack revision pinning", () => {
 		const second = await createSyntheticRulePack(secondSyntheticRevision);
 		const activeSession = createSessionOrchestrator({
 			rulePack: first,
-			inspection: inProcessInspectionFacility(),
+			documents: inProcessInspectionFacility(),
 		});
 		activeSession.send(answerCommandFor(first, "yes"));
 
 		const newSession = createSessionOrchestrator({
 			rulePack: second,
-			inspection: inProcessInspectionFacility(),
+			documents: inProcessInspectionFacility(),
 		});
 		newSession.send(answerCommandFor(second, "yes"));
 
@@ -367,7 +367,7 @@ describe("rule-pack revision pinning", () => {
 			const rulePack = await createSyntheticRulePack(secondSyntheticRevision);
 			const session = createSessionOrchestrator({
 				rulePack,
-				inspection: inProcessInspectionFacility(),
+				documents: inProcessInspectionFacility(),
 			});
 			session.send(answerCommandFor(rulePack, "yes"));
 			const snapshot = session.getSnapshot();
@@ -383,7 +383,7 @@ describe("rule-pack revision pinning", () => {
 		const second = await createSyntheticRulePack(secondSyntheticRevision);
 		const activeSession = createSessionOrchestrator({
 			rulePack: first,
-			inspection: inProcessInspectionFacility(),
+			documents: inProcessInspectionFacility(),
 		});
 
 		activeSession.send(answerCommandFor(first, "yes"));
