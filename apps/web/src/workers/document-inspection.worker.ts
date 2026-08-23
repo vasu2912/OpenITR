@@ -1,15 +1,17 @@
 import type {
+	DocumentExtractionOutcome,
 	DocumentInspectionOutcome,
 	InspectableSourceDocument,
 } from "@openitr/model";
 import {
+	createExtractionRejectionOutcome,
 	createInspectionFailedOutcome,
 } from "@openitr/model";
 import { createDocumentInspectionRegistry } from "@openitr/document-adapters";
 
 export type InspectionWorkerRequest =
 	| Readonly<{
-			type: "inspect";
+			type: "inspect" | "extract";
 			requestId: number;
 			input: InspectableSourceDocument;
 	  }>
@@ -17,9 +19,11 @@ export type InspectionWorkerRequest =
 
 export type InspectionWorkerResponse =
 	| Readonly<{
-			type: "outcome";
+			type: "outcome" | "observations";
 			requestId: number;
-			outcome: DocumentInspectionOutcome;
+			payload:
+				| DocumentInspectionOutcome
+				| DocumentExtractionOutcome;
 	  }>
 	| Readonly<{ type: "cancelled"; requestId: number }>;
 
@@ -46,13 +50,18 @@ workerScope.addEventListener("message", (event) => {
 	}
 	const controller = new AbortController();
 	active.set(message.requestId, controller);
-	registry
-		.inspect(message.input, { signal: controller.signal })
-		.then((outcome) => {
+	const run =
+		message.type === "inspect"
+			? registry.inspect(message.input, { signal: controller.signal })
+			: registry.extractDocument(message.input, {
+					signal: controller.signal,
+				});
+	run
+		.then((payload) => {
 			workerScope.postMessage({
-				type: "outcome",
+				type: message.type === "inspect" ? "outcome" : "observations",
 				requestId: message.requestId,
-				outcome,
+				payload,
 			});
 		})
 		.catch((error: unknown) => {
@@ -64,9 +73,15 @@ workerScope.addEventListener("message", (event) => {
 				return;
 			}
 			workerScope.postMessage({
-				type: "outcome",
+				type: message.type === "inspect" ? "outcome" : "observations",
 				requestId: message.requestId,
-				outcome: createInspectionFailedOutcome(message.input.identity),
+				payload:
+					message.type === "inspect"
+						? createInspectionFailedOutcome(message.input.identity)
+						: createExtractionRejectionOutcome(
+								"extraction-failed",
+								message.input.identity,
+							),
 			});
 		})
 		.finally(() => {

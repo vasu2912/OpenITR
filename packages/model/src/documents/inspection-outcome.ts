@@ -1,5 +1,6 @@
 import type { IssueCode, Sha256Digest } from "../primitives";
 import { parseIssueCode } from "../primitives";
+import type { DocumentExtractionOutcome } from "./extraction";
 
 export type DocumentKind = string & {
 	readonly __brand: "DocumentKind";
@@ -39,6 +40,11 @@ export const DOCUMENT_ISSUE_CODES = Object.freeze({
 	),
 	documentUnknownFormat: parseIssueCode("DOCUMENT_UNKNOWN_FORMAT"),
 	documentInspectionFailed: parseIssueCode("DOCUMENT_INSPECTION_FAILED"),
+	documentExtractionFailed: parseIssueCode("DOCUMENT_EXTRACTION_FAILED"),
+	documentExtractionUnsupported: parseIssueCode(
+		"DOCUMENT_EXTRACTION_UNSUPPORTED",
+	),
+	documentContentMismatch: parseIssueCode("DOCUMENT_CONTENT_MISMATCH"),
 });
 
 export const INSPECTION_FAILED_RECOVERY_ACTION =
@@ -64,7 +70,77 @@ export type DocumentRejection =
 	| "ambiguous"
 	| "private-institution"
 	| "unknown-format"
-	| "inspection-failed";
+	| "extraction-unsupported"
+	| "extraction-failed"
+	| "inspection-failed"
+	| "content-mismatch";
+
+const DOCUMENT_REJECTION_RECOVERY_ACTIONS: Readonly<
+	Record<DocumentRejection, string>
+> = Object.freeze({
+	encrypted:
+		"Select an unlocked copy of the document without a password. OpenITR cannot prompt for or remove passwords.",
+	damaged:
+		"Select a readable copy of the document. OpenITR does not repair damaged files.",
+	"image-only":
+		"Select a text-based export of the same statement. OpenITR does not read scanned images.",
+	ambiguous:
+		"Select the official download of the one document you want analysed.",
+	"private-institution":
+		"Use a permitted official source such as AIS, Form 26AS, Form 16, or a challan receipt instead.",
+	"unknown-format":
+		"Select a supported source document, or continue with a permitted attested answer.",
+	"extraction-unsupported":
+		"This revision supports inspection only. Observation extraction is not available for it yet.",
+	"extraction-failed":
+		"Select the document again. If the same document fails every time, report the incident code shown with this message.",
+	"content-mismatch":
+		"Select the document again so OpenITR can verify that its contents match the inspected copy.",
+	"inspection-failed": INSPECTION_FAILED_RECOVERY_ACTION,
+});
+
+const DOCUMENT_REJECTION_ISSUE_CODES: Readonly<
+	Record<DocumentRejection, IssueCode>
+> = Object.freeze({
+	encrypted: DOCUMENT_ISSUE_CODES.fileEncrypted,
+	damaged: DOCUMENT_ISSUE_CODES.documentDamaged,
+	"image-only": DOCUMENT_ISSUE_CODES.documentImageOnly,
+	ambiguous: DOCUMENT_ISSUE_CODES.documentAmbiguousMatch,
+	"private-institution": DOCUMENT_ISSUE_CODES.documentPrivateInstitutionTemplate,
+	"unknown-format": DOCUMENT_ISSUE_CODES.documentUnknownFormat,
+	"extraction-unsupported": DOCUMENT_ISSUE_CODES.documentExtractionUnsupported,
+	"extraction-failed": DOCUMENT_ISSUE_CODES.documentExtractionFailed,
+	"content-mismatch": DOCUMENT_ISSUE_CODES.documentContentMismatch,
+	"inspection-failed": DOCUMENT_ISSUE_CODES.documentInspectionFailed,
+});
+
+const rejectionIssue = (
+	rejection: DocumentRejection,
+	identity: Sha256Digest,
+): DocumentInspectionIssue => ({
+	code: DOCUMENT_REJECTION_ISSUE_CODES[rejection],
+	severity: "blocking",
+	affectedDocumentIds: [identity],
+	recoveryAction: DOCUMENT_REJECTION_RECOVERY_ACTIONS[rejection],
+});
+
+export const createDocumentRejectionOutcome = (
+	rejection: DocumentRejection,
+	identity: Sha256Digest,
+): DocumentInspectionOutcome => ({
+	kind: "rejected",
+	rejection,
+	issue: rejectionIssue(rejection, identity),
+});
+
+export const createExtractionRejectionOutcome = (
+	rejection: DocumentRejection,
+	identity: Sha256Digest,
+): DocumentExtractionOutcome => ({
+	kind: "rejected",
+	rejection,
+	issue: rejectionIssue(rejection, identity),
+});
 
 export type DocumentInspectionIssue = Readonly<{
 	code: IssueCode;

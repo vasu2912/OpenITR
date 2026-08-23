@@ -1,8 +1,16 @@
 import type {
 	CandidateDocument,
+	DocumentExtractionOutcome,
 	DocumentInspectionOutcome,
+	SalaryObservation,
+	Sha256Digest,
 } from "@openitr/model";
-import { parseDocumentKind, parseTemplateRevision } from "@openitr/model";
+import {
+	parseDocumentKind,
+	parseFactKey,
+	parseRuleId,
+	parseTemplateRevision,
+} from "@openitr/model";
 import {
 	createAisJsonFixture,
 	createAmbiguousPdfFixture,
@@ -11,6 +19,7 @@ import {
 	createForm16PdfFixture,
 	createImageOnlyPdfFixture,
 	createPrivateStatementCsvFixture,
+	createForm16SalaryPdfFixture,
 	createUnknownBytesFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
@@ -19,6 +28,7 @@ import { describe, expect, test } from "vitest";
 import {
 	createSessionOrchestrator,
 } from "./session-orchestrator";
+import type { DocumentProcessingFacility } from "./session-orchestrator";
 import type {
 	SessionCommand,
 	SessionOrchestrator,
@@ -28,10 +38,13 @@ import { itr1Ay202627RulePack } from "@openitr/itr1-ay2026-27";
 
 const fixedAnswerTime = "2026-08-22T00:00:00.000Z";
 
+const readerOf = (bytes: Uint8Array<ArrayBuffer>) => (): Promise<Uint8Array<ArrayBuffer>> =>
+		Promise.resolve(bytes);
+
 const createEligibleSession = () => {
 	const session = createSessionOrchestrator({
 		rulePack: itr1Ay202627RulePack,
-		inspection: inProcessInspectionFacility(),
+		documents: inProcessInspectionFacility(),
 	});
 	session.send({
 		kind: "answer-eligibility-question",
@@ -50,7 +63,13 @@ const selectCommand = (
 	}[],
 ): SessionCommand => ({
 	kind: "select-source-documents",
-	documents: files,
+	documents: files.map((file) => ({
+		displayName: file.displayName,
+		...(file.suppliedMediaType === undefined
+			? {}
+			: { suppliedMediaType: file.suppliedMediaType }),
+		readBytes: readerOf(file.bytes),
+	})),
 });
 
 const intakeDocuments = (
@@ -58,6 +77,11 @@ const intakeDocuments = (
 ): readonly CandidateDocument[] => {
 	const snapshot = session.getSnapshot();
 	return snapshot.kind === "document-intake" ? snapshot.documents : [];
+};
+
+const extractionRecords = (session: SessionOrchestrator) => {
+	const snapshot = session.getSnapshot();
+	return snapshot.kind === "document-intake" ? snapshot.extractions : [];
 };
 
 const identifiedKindOf = (candidate: CandidateDocument | undefined): string => {
@@ -364,39 +388,86 @@ describe("every rejection class reaches the session snapshot distinctly", () => 
 	}
 });
 
-describe("cancellation and removal timing", () => {
-	type GatedCall = Readonly<{
-		resolve: (outcome: DocumentInspectionOutcome) => void;
-	}>;
+type GatedCall = Readonly<{
+	stage: "inspect" | "extract";
+	signal: AbortSignal;
+	resolve: (outcome: DocumentInspectionOutcome | DocumentExtractionOutcome) => void;
+}>;
 
-	const createGatedFacility = () => {
-		const calls: GatedCall[] = [];
-		return {
-			facility: {
-				inspect: (): Promise<DocumentInspectionOutcome> =>
-					new Promise<DocumentInspectionOutcome>((resolve) => {
-						calls.push({ resolve });
-					}),
+const createGatedFacility = (): {
+	facility: DocumentProcessingFacility;
+	calls: GatedCall[];
+} => {
+	const calls: GatedCall[] = [];
+	const gated =
+		(stage: "inspect" | "extract") =>
+		(
+			_input: unknown,
+			signal: AbortSignal,
+		): Promise<DocumentInspectionOutcome | DocumentExtractionOutcome> =>
+			new Promise((resolve, reject) => {
+				calls.push({ stage, signal, resolve });
+				if (signal.aborted) {
+					reject(new DOMException("Inspection cancelled", "AbortError"));
+					return;
+				}
+				signal.addEventListener("abort", () => {
+					reject(new DOMException("Inspection cancelled", "AbortError"));
+				});
+			});
+	return {
+		facility: {
+			inspect: gated("inspect") as DocumentProcessingFacility["inspect"],
+			extract: gated("extract") as DocumentProcessingFacility["extract"],
+		},
+		calls,
+	};
+};
+
+const createGatedSession = () => {
+	const { facility, calls } = createGatedFacility();
+	const session = createSessionOrchestrator({
+		rulePack: itr1Ay202627RulePack,
+		documents: facility,
+	});
+	session.send({
+		kind: "answer-eligibility-question",
+		questionId: itr1Ay202627RulePack.question.id,
+		answer: "yes",
+		executionContext: { answerTime: fixedAnswerTime },
+	});
+	return { session, calls };
+};
+
+const createIdentifiedGatedSession = async () => {
+	const { session, calls } = createGatedSession();
+
+	session.send(
+		selectCommand([
+			{
+				displayName: "openitr-sentinel-form16.pdf",
+				bytes: utf8Bytes("irrelevant-for-gated"),
 			},
-			calls,
-		};
-	};
+		]),
+	);
+	await waitFor(() => calls.some((call) => call.stage === "inspect"));
 
-	const createGatedSession = () => {
-		const { facility, calls } = createGatedFacility();
-		const session = createSessionOrchestrator({
-			rulePack: itr1Ay202627RulePack,
-			inspection: facility,
-		});
-		session.send({
-			kind: "answer-eligibility-question",
-			questionId: itr1Ay202627RulePack.question.id,
-			answer: "yes",
-			executionContext: { answerTime: fixedAnswerTime },
-		});
-		return { session, calls };
-	};
+	calls
+		.filter((call) => call.stage === "inspect")
+		.forEach((call) =>
+			call.resolve({
+				kind: "identified",
+				document: {
+					documentKind: parseDocumentKind("form16-pdf"),
+					templateRevision: parseTemplateRevision("2026-27"),
+				},
+				adapter: { adapterId: "form16-pdf", adapterVersion: "1" },
+			} satisfies DocumentInspectionOutcome),
+		);
+	return { session, calls };
+};
 
+describe("cancellation and removal timing", () => {
 	test("cancelling active inspection ignores any late inspection result", async () => {
 		const { session, calls } = createGatedSession();
 
@@ -529,3 +600,138 @@ describe("selection order independence", () => {
 		}
 	});
 });
+
+describe("observation extraction lifecycle", () => {
+	test("extracts salary observations automatically after identification", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => extractionRecords(session)[0]?.status === "done");
+
+		const record = extractionRecords(session)[0];
+		expect(record?.status).toBe("done");
+		if (record?.status !== "done") {
+			throw new Error("extraction did not complete");
+		}
+		expect(record.observations.map((o) => o.normalizedValue)).toEqual([
+			150000,
+			1200000,
+			1050000,
+		]);
+		expect(record.issues).toEqual([]);
+		expect(record.pages[0]?.lines.length).toBe(8);
+
+		session.stop();
+	});
+
+	test("a rejected file produces no extraction record or observations", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{ displayName: "unknown.bin", bytes: createUnknownBytesFixture() },
+			]),
+		);
+		await waitUntilSettled(session);
+
+		expect(intakeDocuments(session)[0]?.status).toBe("rejected");
+		expect(extractionRecords(session)).toEqual([]);
+
+		session.stop();
+	});
+
+	test("cancelling during extraction ignores a late worker response", async () => {
+		const { session, calls } = await createIdentifiedGatedSession();
+
+		await waitFor(() => calls.some((call) => call.stage === "extract"));
+		await waitFor(
+			() => extractionRecords(session)[0]?.status === "extracting",
+		);
+
+		const documentId = intakeDocuments(session)[0]?.documentId;
+		if (documentId === undefined) {
+			throw new Error("candidate missing");
+		}
+		session.send({ kind: "cancel-document-inspection", documentId });
+		await waitFor(() => extractionRecords(session).length === 0);
+
+		calls
+			.filter((call) => call.stage === "extract")
+			.forEach((call) =>
+				call.resolve({
+					kind: "extracted",
+					observations: [
+						fakeObservation(documentId, "salary.section-17-1", 1),
+					],
+					issues: [],
+					pages: [],
+				} satisfies DocumentExtractionOutcome),
+			);
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		expect(extractionRecords(session)).toEqual([]);
+
+		session.stop();
+	});
+
+	test("removing an extracting candidate ignores a late worker response", async () => {
+		const { session, calls } = await createIdentifiedGatedSession();
+
+		await waitFor(() => calls.some((call) => call.stage === "extract"));
+		const documentId = intakeDocuments(session)[0]?.documentId;
+		if (documentId === undefined) {
+			throw new Error("candidate missing");
+		}
+
+		session.send({ kind: "remove-source-document", documentId });
+		await waitFor(() => extractionRecords(session).length === 0);
+
+		calls
+			.filter((call) => call.stage === "extract")
+			.forEach((call) =>
+				call.resolve({
+					kind: "extracted",
+					observations: [
+						fakeObservation(documentId, "salary.section-17-1", 1),
+					],
+					issues: [],
+					pages: [],
+				} satisfies DocumentExtractionOutcome),
+			);
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		expect(extractionRecords(session)).toEqual([]);
+		expect(intakeDocuments(session)[0]?.status).toBe("removed");
+
+		session.stop();
+	});
+});
+
+const createForm16SalaryPdfFixtureBytes = (): Uint8Array<ArrayBuffer> =>
+	createForm16SalaryPdfFixture();
+
+const fakeObservation = (
+	documentId: Sha256Digest,
+	factKey: string,
+	value: number,
+): SalaryObservation => ({
+	observationId: `${factKey}@${documentId}`,
+	factKey: parseFactKey(factKey),
+	sourceDocumentId: documentId,
+	adapterId: "form16-pdf",
+	adapterVersion: "1",
+	originalText: "x",
+	normalizedValue: value,
+	transformationSteps: [],
+	evidence: { kind: "pdf-page-region", page: 1, x: 0, y: 0, width: 1, height: 1 },
+	ruleCitation: { ruleId: parseRuleId("FORM16-PARTA-TAXABLE-SALARY"), description: "d" },
+});
+

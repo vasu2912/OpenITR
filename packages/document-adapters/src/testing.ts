@@ -69,6 +69,58 @@ export const createImageOnlyPdfFixture = (): Uint8Array<ArrayBuffer> =>
 		pages: [{ imageOnly: true }],
 	});
 
+const FORM16_SALARY_ROW_AMOUNTS: Readonly<Record<string, string>> =
+	Object.freeze({
+		"Salary as per provisions contained in section 17(1)": "12,00,000",
+		"Less: Allowance to the extent exempt u/s 10": "1,50,000",
+		"Taxable salary": "10,50,000",
+	});
+
+export const FORM16_SALARY_FIXTURE_SENTINEL_AMOUNT = "12,00,000";
+
+export type Form16SalaryFixtureOptions = Readonly<{
+	omitLabel?: string;
+	duplicateLabel?: string;
+}>;
+
+// Machine-generated synthetic Form 16 Part A salary detail page. One content
+// stream line per printed row, so every row's evidence locator follows the
+// generator layout: x=72, baseline y = 720 - 16 * rowIndex, height = 12.
+export const createForm16SalaryPdfFixture = (
+	options: Form16SalaryFixtureOptions = {},
+): Uint8Array<ArrayBuffer> => {
+	const rows: readonly string[] = [
+		`Salary as per provisions contained in section 17(1): Rs ${FORM16_SALARY_ROW_AMOUNTS["Salary as per provisions contained in section 17(1)"]}`,
+		`Less: Allowance to the extent exempt u/s 10: Rs ${FORM16_SALARY_ROW_AMOUNTS["Less: Allowance to the extent exempt u/s 10"]}`,
+		`Taxable salary: Rs ${FORM16_SALARY_ROW_AMOUNTS["Taxable salary"]}`,
+	];
+	const filteredRows = rows.filter(
+		(row) => options.omitLabel === undefined || !row.startsWith(options.omitLabel),
+	);
+	const duplicatedRows =
+		options.duplicateLabel === undefined
+			? []
+			: [
+					`${options.duplicateLabel}: Rs 99,99,999`,
+				];
+
+	return buildSyntheticPdf({
+		pages: [
+			{
+				textLines: [
+					"PART A",
+					"Certificate under section 203 of the Income-tax Act, 1961",
+					"Assessment Year 2026-27",
+					"Permanent Account Number of Deductor (TAN): SYNTO1234E",
+					"Name and address of the Employee: OpenITR Synthetic Employee",
+					...filteredRows,
+					...duplicatedRows,
+				],
+			},
+		],
+	});
+};
+
 export const createUnknownBytesFixture = (): Uint8Array<ArrayBuffer> => {
 	const text =
 		"openitr-synthetic-unknown-document-bytes that no reviewed adapter claims";

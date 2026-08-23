@@ -1,5 +1,6 @@
 import type {
 	CandidateDocument,
+	DocumentExtractionRecord,
 	DocumentKind,
 	TemplateRevision,
 } from "@openitr/model";
@@ -55,12 +56,34 @@ const candidateDetailLine = (candidate: CandidateDocument): string => {
 	}
 };
 
+const extractionStatusLine = (
+	record: DocumentExtractionRecord | undefined,
+): string => {
+	switch (record?.status) {
+		case "extracting":
+			return "Extracting salary observations…";
+		case "done": {
+			const issueNote =
+				record.issues.length > 0
+					? `, ${record.issues.length} review item${record.issues.length === 1 ? "" : "s"}`
+					: "";
+			return `${record.observations.length} salary observation${record.observations.length === 1 ? "" : "s"}${issueNote}`;
+		}
+		case "failed":
+			return `Observation extraction failed (${String(record.issue.code)})`;
+		default:
+			return "";
+	}
+};
+
 export const DocumentsIntakeView = ({
 	session,
 	documents,
+	extractions,
 }: Readonly<{
 	session: SessionOrchestrator;
 	documents: readonly CandidateDocument[];
+	extractions: readonly DocumentExtractionRecord[];
 }>) => {
 	const handleFiles = async (
 		event: ChangeEvent<HTMLInputElement>,
@@ -75,7 +98,10 @@ export const DocumentsIntakeView = ({
 				...(file.type === ""
 					? {}
 					: { suppliedMediaType: file.type }),
-				bytes: new Uint8Array(await file.arrayBuffer()),
+				readBytes: () =>
+					file.arrayBuffer().then(
+						(buffer) => new Uint8Array(buffer) as Uint8Array<ArrayBuffer>,
+					),
 			})),
 		);
 		event.target.value = "";
@@ -123,11 +149,27 @@ export const DocumentsIntakeView = ({
 					/>
 				</form>
 
-				<p aria-live="polite" className="openitr-document-live">
-					{activeCount > 0
-						? `Inspecting ${activeCount} document${activeCount === 1 ? "" : "s"}`
-						: "No inspections running"}
-				</p>
+				{(() => {
+					const extractingCount = extractions.filter(
+						(record) => record.status === "extracting",
+					).length;
+					const doneCount = extractions.filter(
+						(record) => record.status === "done",
+					).length;
+					return (
+						<p aria-live="polite" className="openitr-document-live">
+							{activeCount > 0
+								? `Inspecting ${activeCount} document${activeCount === 1 ? "" : "s"}`
+								: "No inspections running"}
+							{extractingCount > 0
+								? ` · Extracting observations from ${extractingCount}`
+								: ""}
+							{doneCount > 0
+								? ` · ${doneCount} document${doneCount === 1 ? "" : "s"} ready for review`
+								: ""}
+						</p>
+					);
+				})()}
 
 				<ul className="openitr-document-list">
 					{documents.map((candidate) => {
@@ -169,6 +211,19 @@ export const DocumentsIntakeView = ({
 										Cancel inspection
 									</Button>
 								)}
+												{(() => {
+									const extractionLine = extractionStatusLine(
+										extractions.find(
+											(record) =>
+												record.candidateKey === candidate.candidateKey,
+										),
+									);
+									return extractionLine ? (
+										<small className="openitr-extraction-status">
+											{extractionLine}
+										</small>
+									) : null;
+								})()}
 								{candidate.status !== "removed" && (
 									<Button
 										onClick={() =>

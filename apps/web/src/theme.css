@@ -292,3 +292,70 @@ body,
 	gap: var(--pf-t--global--spacer--4xs);
 	min-width: 12rem;
 }
+
+.openitr-extraction-status {
+	color: var(--pf-t--global--text--color--subtle);
+	display: block;
+}
+
+.openitr-review-card {
+	border-top: var(--pf-t--global--border--width--extra-strong) solid
+		var(--pf-t--global--border--color--brand--default);
+	margin-top: var(--pf-t--global--spacer--md);
+	max-width: 46rem;
+}
+
+.openitr-review-document {
+	display: grid;
+	gap: var(--pf-t--global--spacer--sm);
+}
+
+.openitr-observation {
+	border: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	display: grid;
+	gap: var(--pf-t--global--spacer--xs);
+	padding: var(--pf-t--global--spacer--sm);
+}
+
+.openitr-observation-header {
+	align-items: baseline;
+	display: flex;
+	gap: var(--pf-t--global--spacer--sm);
+	justify-content: space-between;
+}
+
+.openitr-evidence-panel {
+	background: var(--pf-t--global--background--color--secondary--default);
+	border: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	display: grid;
+	gap: var(--pf-t--global--spacer--sm);
+	padding: var(--pf-t--global--spacer--sm);
+}
+
+.openitr-evidence-lines {
+	font-family: monospace;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.openitr-evidence-line {
+	display: flex;
+	gap: var(--pf-t--global--spacer--sm);
+	white-space: pre-wrap;
+}
+
+.openitr-evidence-line[data-evidence-current="true"] .openitr-evidence-text {
+	text-decoration: underline;
+}
+
+.openitr-evidence-marker {
+	min-width: 1ch;
+}
+
+.openitr-evidence-heading {
+	font-weight: 700;
+	margin: 0;
+}

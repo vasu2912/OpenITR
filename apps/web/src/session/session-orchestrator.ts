@@ -1,11 +1,14 @@
 import {
 	computeSourceDocumentIdentity,
+	createExtractionRejectionOutcome,
 	createInspectionFailedOutcome,
 	parseIsoTimestamp,
 } from "@openitr/model";
 import type {
 	CandidateDocument,
 	CompletedScopeCheck,
+	DocumentExtractionOutcome,
+	DocumentExtractionRecord,
 	DocumentInspectionOutcome,
 	EligibilityAnswerValue,
 	InspectableSourceDocument,
@@ -34,11 +37,18 @@ export type SessionCommand =
 	| Readonly<{ kind: "cancel-document-inspection"; documentId: Sha256Digest }>
 	| Readonly<{ kind: "reset" }>;
 
-export type SourceDocumentInspectionFacility = Readonly<{
+// One facility runs both worker-backed stages for a candidate document:
+// inspection (identify or reject) and, for supported revisions, observation
+// extraction.
+export type DocumentProcessingFacility = Readonly<{
 	inspect(
 		input: InspectableSourceDocument,
 		signal: AbortSignal,
 	): Promise<DocumentInspectionOutcome>;
+	extract(
+		input: InspectableSourceDocument,
+		signal: AbortSignal,
+	): Promise<DocumentExtractionOutcome>;
 }>;
 
 export type DocumentIntakeSnapshot = Readonly<{
@@ -47,6 +57,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	rulePackId: ScopeRulePack["identity"]["id"];
 	completedScopeCheck: CompletedScopeCheck;
 	documents: readonly CandidateDocument[];
+	extractions: readonly DocumentExtractionRecord[];
 }>;
 
 export type SessionOrchestratorSnapshot =
@@ -70,7 +81,22 @@ type SessionContext = Readonly<{
 		  }>;
 	documentsStageEntered: boolean;
 	documents: readonly CandidateDocument[];
+	extractions: readonly DocumentExtractionRecord[];
 }>;
+
+const buildInspectableInput = (
+	file: SelectedSourceFile,
+	identity: Sha256Digest,
+	bytes: Uint8Array<ArrayBuffer>,
+): InspectableSourceDocument =>
+	file.suppliedMediaType === undefined
+		? { identity, displayName: file.displayName, bytes }
+		: {
+				identity,
+				displayName: file.displayName,
+				suppliedMediaType: file.suppliedMediaType,
+				bytes,
+			};
 
 type SessionEvent =
 	| Readonly<{
@@ -97,7 +123,27 @@ type SessionEvent =
 			type: "document-inspection-cancelled";
 			candidateKey: number;
 	  }>
-	| Readonly<{ type: "document-removed"; candidateKey: number }>;
+	| Readonly<{ type: "document-removed"; candidateKey: number }>
+	| Readonly<{
+			type: "document-extraction-started";
+			candidateKey: number;
+			documentId: Sha256Digest;
+	  }>
+	| Readonly<{
+			type: "document-extraction-settled";
+			candidateKey: number;
+			outcome: DocumentExtractionOutcome;
+	  }>
+	| Readonly<{ type: "document-extraction-cancelled"; candidateKey: number }>;
+
+const replaceExtractionRecord = (
+	extractions: readonly DocumentExtractionRecord[],
+	candidateKey: number,
+	update: (record: DocumentExtractionRecord) => DocumentExtractionRecord,
+): readonly DocumentExtractionRecord[] =>
+	extractions.map((record) =>
+		record.candidateKey === candidateKey ? update(record) : record,
+	);
 
 const replaceCandidate = (
 	documents: readonly CandidateDocument[],
@@ -135,6 +181,7 @@ const createSessionMachine = ({
 			scopeCheck: { kind: "awaiting-answer" },
 			documentsStageEntered: false,
 			documents: [],
+			extractions: [],
 		},
 		initial: "awaiting-answer",
 		states: {
@@ -294,6 +341,96 @@ const createSessionMachine = ({
 									(candidate) => withStatus(candidate, "removed"),
 								);
 							},
+							extractions: ({ context, event }) => {
+								if (event.type !== "document-removed") {
+									return context.extractions;
+								}
+								return context.extractions.filter(
+									(record) => record.candidateKey !== event.candidateKey,
+								);
+							},
+						}),
+					},
+					"document-extraction-started": {
+						guard: ({ context, event }) =>
+							event.type === "document-extraction-started" &&
+							context.documents.some(
+								(candidate) =>
+									candidate.candidateKey === event.candidateKey &&
+									candidate.status === "identified",
+							) &&
+							!context.extractions.some(
+								(record) => record.candidateKey === event.candidateKey,
+							),
+						actions: sessionSetup.assign({
+							extractions: ({ context, event }) => {
+								if (event.type !== "document-extraction-started") {
+									return context.extractions;
+								}
+								return [
+									...context.extractions,
+									{
+										candidateKey: event.candidateKey,
+										documentId: event.documentId,
+										status: "extracting",
+									} satisfies DocumentExtractionRecord,
+								];
+							},
+						}),
+					},
+					"document-extraction-settled": {
+						guard: ({ context, event }) =>
+							event.type === "document-extraction-settled" &&
+							context.extractions.some(
+								(record) =>
+									record.candidateKey === event.candidateKey &&
+									record.status === "extracting",
+							),
+						actions: sessionSetup.assign({
+							extractions: ({ context, event }) => {
+								if (event.type !== "document-extraction-settled") {
+									return context.extractions;
+								}
+								return replaceExtractionRecord(
+									context.extractions,
+									event.candidateKey,
+									(record) =>
+										event.outcome.kind === "extracted"
+											? {
+													candidateKey: record.candidateKey,
+													documentId: record.documentId,
+													status: "done",
+													observations: event.outcome.observations,
+													issues: event.outcome.issues,
+													pages: event.outcome.pages,
+												} satisfies DocumentExtractionRecord
+											: {
+													candidateKey: record.candidateKey,
+													documentId: record.documentId,
+													status: "failed",
+													issue: event.outcome.issue,
+												} satisfies DocumentExtractionRecord,
+								);
+							},
+						}),
+					},
+					"document-extraction-cancelled": {
+						guard: ({ context, event }) =>
+							event.type === "document-extraction-cancelled" &&
+							context.extractions.some(
+								(record) =>
+									record.candidateKey === event.candidateKey &&
+									record.status === "extracting",
+							),
+						actions: sessionSetup.assign({
+							extractions: ({ context, event }) => {
+								if (event.type !== "document-extraction-cancelled") {
+									return context.extractions;
+								}
+								return context.extractions.filter(
+									(record) => record.candidateKey !== event.candidateKey,
+								);
+							},
 						}),
 					},
 				},
@@ -326,13 +463,14 @@ const toSessionSnapshot = (
 					...context.scopeCheck.completion,
 				};
 			}
-			return {
-				kind: "document-intake",
-				workflow: "documents",
-				rulePackId: context.rulePack.identity.id,
-				completedScopeCheck: context.scopeCheck.completion,
-				documents: context.documents,
-			};
+		return {
+			kind: "document-intake",
+			workflow: "documents",
+			rulePackId: context.rulePack.identity.id,
+			completedScopeCheck: context.scopeCheck.completion,
+			documents: context.documents,
+			extractions: context.extractions,
+		};
 		default: {
 			const _exhaustive: never = context.scopeCheck;
 			return _exhaustive;
@@ -345,13 +483,14 @@ const isAbortError = (error: unknown): boolean =>
 
 export const createSessionOrchestrator = ({
 	rulePack,
-	inspection,
+	documents: facility,
 }: Readonly<{
 	rulePack: ScopeRulePack;
-	inspection: SourceDocumentInspectionFacility;
+	documents: DocumentProcessingFacility;
 }>): SessionOrchestrator => {
 	const listeners = new Set<() => void>();
 	const activeControllers = new Map<number, AbortController>();
+	const activeExtractionControllers = new Map<number, AbortController>();
 	let nextCandidateKey = 1;
 	let actor: SessionActor;
 	let actorSubscription: Subscription;
@@ -397,12 +536,14 @@ export const createSessionOrchestrator = ({
 		return () => listeners.delete(listener);
 	};
 
-	const releaseInspection = (candidateKey: number) => {
-		const controller = activeControllers.get(candidateKey);
-		if (controller !== undefined) {
-			controller.abort();
+	const releaseCandidate = (candidateKey: number) => {
+		for (const controllers of [activeControllers, activeExtractionControllers]) {
+			const controller = controllers.get(candidateKey);
+			if (controller !== undefined) {
+				controller.abort();
+			}
+			controllers.delete(candidateKey);
 		}
-		activeControllers.delete(candidateKey);
 	};
 
 	const startInspection = (
@@ -416,27 +557,22 @@ export const createSessionOrchestrator = ({
 			type: "document-inspection-started",
 			candidateKey,
 		});
-		const input: InspectableSourceDocument =
-			file.suppliedMediaType === undefined
-				? {
-						identity: documentId,
-						displayName: file.displayName,
-						bytes: file.bytes,
-					}
-				: {
-						identity: documentId,
-						displayName: file.displayName,
-						suppliedMediaType: file.suppliedMediaType,
-						bytes: file.bytes,
-					};
-		void inspection
-			.inspect(input, controller.signal)
+		void (async () => {
+			const bytes = await file.readBytes();
+			return facility.inspect(
+				buildInspectableInput(file, documentId, bytes),
+				controller.signal,
+			);
+		})()
 			.then((outcome) => {
 				actor.send({
 					type: "document-inspection-settled",
 					candidateKey,
 					outcome,
 				});
+				if (outcome.kind === "identified") {
+					startExtraction(file, documentId, candidateKey);
+				}
 			})
 			.catch((error: unknown) => {
 				if (isAbortError(error)) {
@@ -459,6 +595,65 @@ export const createSessionOrchestrator = ({
 			});
 	};
 
+	const startExtraction = (
+		file: SelectedSourceFile,
+		documentId: Sha256Digest,
+		candidateKey: number,
+	) => {
+		const controller = new AbortController();
+		activeExtractionControllers.set(candidateKey, controller);
+		actor.send({
+			type: "document-extraction-started",
+			candidateKey,
+			documentId,
+		});
+		void (async () => {
+			const bytes = await file.readBytes();
+			const rereadIdentity = await computeSourceDocumentIdentity({ bytes });
+			if (rereadIdentity.contentSha256 !== documentId) {
+				// The file changed between inspection and extraction; its
+				// observations could never match the inspected identity.
+				return createExtractionRejectionOutcome(
+					"content-mismatch",
+					documentId,
+				);
+			}
+			return facility.extract(
+				buildInspectableInput(file, documentId, bytes),
+				controller.signal,
+			);
+		})()
+			.then((outcome) => {
+				actor.send({
+					type: "document-extraction-settled",
+					candidateKey,
+					outcome,
+				});
+			})
+			.catch((error: unknown) => {
+				if (isAbortError(error)) {
+					actor.send({
+						type: "document-extraction-cancelled",
+						candidateKey,
+					});
+					return;
+				}
+				actor.send({
+					type: "document-extraction-settled",
+					candidateKey,
+					outcome: createExtractionRejectionOutcome(
+						"extraction-failed",
+						documentId,
+					),
+				});
+			})
+			.finally(() => {
+				if (activeExtractionControllers.get(candidateKey) === controller) {
+					activeExtractionControllers.delete(candidateKey);
+				}
+			});
+	};
+
 	const handleSelectDocuments = (files: readonly SelectedSourceFile[]) => {
 		const current = getSnapshot();
 		if (
@@ -469,8 +664,9 @@ export const createSessionOrchestrator = ({
 		}
 		void (async () => {
 			for (const file of files) {
+				const identityBytes = await file.readBytes();
 				const identity = await computeSourceDocumentIdentity({
-					bytes: file.bytes,
+					bytes: identityBytes,
 				});
 				const latest = getSnapshot();
 				const alreadyPresent =
@@ -518,8 +714,11 @@ export const createSessionOrchestrator = ({
 			}
 			switch (command.kind) {
 				case "reset":
-					for (const candidateKey of [...activeControllers.keys()]) {
-						releaseInspection(candidateKey);
+					for (const candidateKey of [
+						...activeControllers.keys(),
+						...activeExtractionControllers.keys(),
+					]) {
+						releaseCandidate(candidateKey);
 					}
 					stopCurrentActor();
 					startSessionActor();
@@ -552,7 +751,7 @@ export const createSessionOrchestrator = ({
 					if (candidateKey === undefined) {
 						return;
 					}
-					releaseInspection(candidateKey);
+					releaseCandidate(candidateKey);
 					actor.send({ type: "document-removed", candidateKey });
 					return;
 				}
@@ -563,7 +762,7 @@ export const createSessionOrchestrator = ({
 					if (candidateKey === undefined) {
 						return;
 					}
-					releaseInspection(candidateKey);
+					releaseCandidate(candidateKey);
 					actor.send({
 						type: "document-inspection-cancelled",
 						candidateKey,
@@ -578,8 +777,11 @@ export const createSessionOrchestrator = ({
 		},
 		stop: () => {
 			isStopped = true;
-			for (const candidateKey of [...activeControllers.keys()]) {
-				releaseInspection(candidateKey);
+			for (const candidateKey of [
+				...activeControllers.keys(),
+				...activeExtractionControllers.keys(),
+			]) {
+				releaseCandidate(candidateKey);
 			}
 			stopCurrentActor();
 			listeners.clear();

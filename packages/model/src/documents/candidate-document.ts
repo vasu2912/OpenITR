@@ -52,5 +52,8 @@ export type CandidateDocument =
 export type SelectedSourceFile = Readonly<{
 	displayName: string;
 	suppliedMediaType?: string;
-	bytes: Uint8Array<ArrayBuffer>;
+	// Reads a fresh copy of the document bytes. The browser passes the
+	// selected File's arrayBuffer reader so each worker stage can transfer its
+	// own buffer without the session retaining one.
+	readBytes: () => Promise<Uint8Array<ArrayBuffer>>;
 }>;
