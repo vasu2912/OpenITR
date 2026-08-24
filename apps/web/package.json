@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build",
+		"build": "vite build && node ../../tools/release-guard/scan-release.mjs dist",
 		"preview": "vite preview",
 		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
@@ -18,7 +18,7 @@
 		"xstate": "5.32.5"
 	},
 	"devDependencies": {
+		"@openitr/contribution-gate": "workspace:*",
 		"@openitr/rulepack-compiler": "workspace:*"
 	}
 }
-

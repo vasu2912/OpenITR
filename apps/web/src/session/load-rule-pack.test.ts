@@ -1,4 +1,8 @@
-import { parseRulePackId, parseSha256Digest } from "@openitr/model";
+import {
+	parseRulePackId,
+	parseSha256Digest,
+	parseTaxAnalysisModuleId,
+} from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { activeAnalysisRelease } from "../app/release-manifest";
@@ -56,6 +60,20 @@ describe("rule-pack loading", () => {
 
 		await expect(loadRulePack(unknownRevisionRelease)).rejects.toThrow(
 			"Unknown rule-pack revision",
+		);
+	});
+
+	test("rejects an unregistered runtime plugin module", async () => {
+		const unregisteredPluginRelease = {
+			...activeAnalysisRelease,
+			taxAnalysisModule: {
+				id: parseTaxAnalysisModuleId("community-plugin-ay2099"),
+				compiledModuleSha256: parseSha256Digest("ab".repeat(32)),
+			},
+		};
+
+		await expect(loadRulePack(unregisteredPluginRelease)).rejects.toThrow(
+			"Unknown tax-analysis module",
 		);
 	});
 

@@ -6,6 +6,7 @@ import {
 import type { TaxAnalysisModuleArtifact } from "@openitr/model";
 
 import { itr1Ay202627RulePack } from "./rule-pack";
+import { itr1Ay202627RulePack20260824 } from "./revisions/2026-08-24/rule-pack";
 
 const moduleId = parseTaxAnalysisModuleId("itr1-ay2026-27");
 
@@ -22,6 +23,10 @@ export const itr1Ay202627TaxAnalysisModuleArtifact = Object.freeze({
 			Object.freeze({
 				identity: itr1Ay202627RulePack.identity,
 				load: async () => itr1Ay202627RulePack,
+			}),
+			Object.freeze({
+				identity: itr1Ay202627RulePack20260824.identity,
+				load: async () => itr1Ay202627RulePack20260824,
 			}),
 		],
 	}),

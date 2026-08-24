@@ -1,5 +1,10 @@
 export { itr1Ay202627RulePackManifest } from "./manifest";
 export {
+	itr1Ay202627CompiledRulePack20260824,
+	itr1Ay202627RulePack20260824,
+} from "./revisions/2026-08-24/rule-pack";
+export { itr1Ay202627RulePackManifest20260824 } from "./revisions/2026-08-24/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
