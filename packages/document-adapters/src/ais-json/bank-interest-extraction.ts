@@ -1,8 +1,6 @@
 import type {
 	BankInterestObservation,
 	DocumentReviewIssue,
-	ExactMoney,
-	ObservationTransformationStep,
 	Sha256Digest,
 } from "@openitr/model";
 import {
@@ -11,13 +9,16 @@ import {
 	BANK_INTEREST_RECORD_MALFORMED_RECOVERY_ACTION,
 	BANK_INTEREST_SECTION_MISSING_RECOVERY_ACTION,
 	DOCUMENT_REVIEW_ISSUE_CODES,
-	parseExactMoney,
 	parseFactKey,
 	parseRuleId,
 } from "@openitr/model";
 
 import type { AisJsonRevisionDocument } from "./ais-json-revision";
 import { isRecordObject } from "./ais-json-revision";
+import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
+import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
+import type { AdapterIdentity } from "../extraction-support";
+import { compareByCodepoint } from "../extraction-support";
 
 export type BankInterestCategoryDefinition = Readonly<{
 	category: string;
@@ -50,54 +51,6 @@ const categoryByCategoryName = new Map(
 	]),
 );
 
-const normalizeWhitespace = (text: string): string =>
-	text.replace(/\s+/g, " ").trim();
-
-type ParsedAmount = Readonly<{
-	steps: readonly ObservationTransformationStep[];
-	value: ExactMoney;
-}>;
-
-const parseAmount = (raw: unknown): ParsedAmount | undefined => {
-	if (typeof raw !== "string") {
-		return undefined;
-	}
-	const trimmed = normalizeWhitespace(raw);
-	const digitsWithoutGrouping = trimmed.replace(/,/g, "");
-	if (!/^[0-9]+(?:\.[0-9]+)?$/.test(digitsWithoutGrouping)) {
-		return undefined;
-	}
-	let value: ExactMoney;
-	try {
-		value = parseExactMoney(digitsWithoutGrouping);
-	} catch {
-		return undefined;
-	}
-	return {
-		value,
-		steps: [
-			{
-				order: 1,
-				operation: "trim-whitespace",
-				input: raw,
-				output: trimmed,
-			},
-			{
-				order: 2,
-				operation: "remove-indian-digit-grouping",
-				input: trimmed,
-				output: digitsWithoutGrouping,
-			},
-			{
-				order: 3,
-				operation: "parse-exact-rupees",
-				input: digitsWithoutGrouping,
-				output: value,
-			},
-		],
-	};
-};
-
 const BANK_INTEREST_RECORD_POINTER_PREFIX = "/interestInformation/bankInterest";
 
 const pointerForRecord = (recordIndex: number): string =>
@@ -108,7 +61,7 @@ type ParsedBankInterestRecord = Readonly<{
 	categoryDefinition: BankInterestCategoryDefinition;
 	institutionName: string;
 	maskedAccountNumber: string;
-	amount: ParsedAmount;
+	amount: GroupedRupeeAmount;
 	originalValue: string;
 	recordIndex: number;
 }>;
@@ -137,7 +90,7 @@ const parseBankInterestRecord = (
 	}
 
 	const { institutionName, maskedAccountNumber } = record;
-	const amount = parseAmount(record.interestAmount);
+	const amount = parseGroupedRupeeAmount(record.interestAmount);
 	if (
 		typeof institutionName !== "string" ||
 		typeof maskedAccountNumber !== "string" ||
@@ -166,13 +119,6 @@ const parseBankInterestRecord = (
 	};
 };
 
-const compareByCodepoint = (left: string, right: string): number => {
-	if (left < right) {
-		return -1;
-	}
-	return left > right ? 1 : 0;
-};
-
 const sectionMissingIssue = (): DocumentReviewIssue => ({
 	code: DOCUMENT_REVIEW_ISSUE_CODES.bankInterestSectionMissing,
 	severity: "review",
@@ -181,11 +127,6 @@ const sectionMissingIssue = (): DocumentReviewIssue => ({
 	),
 	recoveryAction: BANK_INTEREST_SECTION_MISSING_RECOVERY_ACTION,
 });
-
-export type AdapterIdentity = Readonly<{
-	adapterId: string;
-	adapterVersion: string;
-}>;
 
 export type BankInterestExtraction = Readonly<{
 	observations: readonly BankInterestObservation[];

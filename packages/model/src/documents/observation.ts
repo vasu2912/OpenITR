@@ -19,9 +19,18 @@ export type JsonPointerEvidenceLocator = Readonly<{
 	pointer: string;
 }>;
 
+// A 1-based inclusive line range into a plain-text source document, so a
+// text export can point at the exact record its values were read from.
+export type TextLineRangeEvidenceLocator = Readonly<{
+	kind: "text-line-range";
+	firstLine: number;
+	lastLine: number;
+}>;
+
 export type EvidenceLocator =
 	| PdfEvidenceLocator
-	| JsonPointerEvidenceLocator;
+	| JsonPointerEvidenceLocator
+	| TextLineRangeEvidenceLocator;
 
 export type ObservationTransformationOperation =
 	| "trim-whitespace"
@@ -66,4 +75,33 @@ export type BankInterestObservation = Readonly<{
 	transformationSteps: readonly ObservationTransformationStep[];
 	evidence: JsonPointerEvidenceLocator;
 	ruleCitation: ExtractionRuleCitation;
+}>;
+
+// The source-record details of one Form 26AS Part I record, exactly as the
+// export printed them. An undefined raw value means the export printed no
+// cell; an empty string means it printed a blank one. Both states stay
+// unknown and never become zero.
+export type TdsSourceRecord = Readonly<{
+	serialNumber: string;
+	deductorName: string;
+	deductorTan: string;
+	firstLine: number;
+	lastLine: number;
+	amountPaidCreditedRaw: string | undefined;
+	taxDeductedRaw: string | undefined;
+	tdsDepositedRaw: string | undefined;
+}>;
+
+export type TdsObservation = Readonly<{
+	observationId: string;
+	factKey: FactKey;
+	sourceDocumentId: Sha256Digest;
+	adapterId: string;
+	adapterVersion: string;
+	originalValue: string;
+	normalizedValue: ExactMoney;
+	transformationSteps: readonly ObservationTransformationStep[];
+	evidence: TextLineRangeEvidenceLocator;
+	ruleCitation: ExtractionRuleCitation;
+	record: TdsSourceRecord;
 }>;

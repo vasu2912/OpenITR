@@ -22,6 +22,7 @@ import {
 	createImageOnlyPdfFixture,
 	createPrivateStatementCsvFixture,
 	createForm16SalaryPdfFixture,
+	createForm26AsTextFixture,
 	createUnknownBytesFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
@@ -677,6 +678,45 @@ describe("observation extraction lifecycle", () => {
 		session.stop();
 	});
 
+	test("extracts tax-deducted-at-source observations from an identified Form 26AS text document", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-26as-export.txt",
+					bytes: utf8Bytes(createForm26AsTextFixture()),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => extractionRecords(session)[0]?.status === "done");
+
+		const record = extractionRecords(session)[0];
+		expect(record?.status).toBe("done");
+		if (record?.status !== "done") {
+			throw new Error("extraction did not complete");
+		}
+		expect(record.observations).toEqual([]);
+		expect(record.bankInterestObservations).toEqual([]);
+		expect(
+			record.tdsObservations.map((observation) => [
+				observation.factKey,
+				String(observation.normalizedValue),
+				[observation.evidence.firstLine, observation.evidence.lastLine],
+			]),
+		).toEqual([
+			["tds.amount-paid-credited", "1000000", [7, 7]],
+			["tds.tax-deducted", "50000", [7, 7]],
+			["tds.tds-deposited", "48750", [7, 7]],
+			["tds.amount-paid-credited", "250000", [8, 8]],
+			["tds.tds-deposited", "12500", [8, 8]],
+		]);
+		expect(record.issues).toEqual([]);
+
+		session.stop();
+	});
+
 	test("a rejected file produces no extraction record or observations", async () => {
 		const session = createEligibleSession();
 
@@ -717,6 +757,7 @@ describe("observation extraction lifecycle", () => {
 						fakeObservation(documentId, "salary.section-17-1", 1),
 					],
 					bankInterestObservations: [],
+					tdsObservations: [],
 					issues: [],
 					pages: [],
 				} satisfies DocumentExtractionOutcome),
@@ -749,6 +790,7 @@ describe("observation extraction lifecycle", () => {
 						fakeObservation(documentId, "salary.section-17-1", 1),
 					],
 					bankInterestObservations: [],
+					tdsObservations: [],
 					issues: [],
 					pages: [],
 				} satisfies DocumentExtractionOutcome),
@@ -852,6 +894,7 @@ describe("new-regime salary computation exposure", () => {
 						),
 					],
 					bankInterestObservations: [],
+					tdsObservations: [],
 					issues: [
 						{
 							code: DOCUMENT_REVIEW_ISSUE_CODES.salaryFieldAmbiguous,

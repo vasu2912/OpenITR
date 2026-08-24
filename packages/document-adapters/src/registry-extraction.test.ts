@@ -9,6 +9,7 @@ import { buildSyntheticPdf } from "./fixtures/pdf-fixture-builder";
 import {
 	createAisJsonBankInterestFixture,
 	createForm16SalaryPdfFixture,
+	createForm26AsTextFixture,
 	utf8Bytes,
 } from "./testing";
 import { createDocumentInspectionRegistry } from "./registry";
@@ -80,6 +81,48 @@ describe("registry extraction routing", () => {
 				),
 			).toEqual(["ais-json", "ais-json"]);
 		}
+	});
+
+	test("routes an identified Form 26AS revision to its TDS extraction", async () => {
+		const bytes = utf8Bytes(createForm26AsTextFixture());
+		const outcome = await createDocumentInspectionRegistry().extractDocument({
+			identity: await identityOf(bytes),
+			displayName: "synthetic-form26as.txt",
+			bytes,
+		});
+
+		expect(outcome.kind).toBe("extracted");
+		if (outcome.kind === "extracted") {
+			expect(outcome.tdsObservations).toHaveLength(5);
+			expect(
+				outcome.tdsObservations.map(
+					(observation) => observation.adapterId,
+				),
+			).toEqual([
+				"form26as-text",
+				"form26as-text",
+				"form26as-text",
+				"form26as-text",
+				"form26as-text",
+			]);
+			expect(outcome.issues).toEqual([]);
+		}
+	});
+
+	test("rejects an unsupported Form 26AS revision before extracting any fact", async () => {
+		const bytes = utf8Bytes(
+			createForm26AsTextFixture({ assessmentYear: "2027-28" }),
+		);
+		const outcome = await createDocumentInspectionRegistry().extractDocument({
+			identity: await identityOf(bytes),
+			displayName: "synthetic-form26as.txt",
+			bytes,
+		});
+
+		expect(outcome).toMatchObject({
+			kind: "rejected",
+			rejection: "unknown-format",
+		});
 	});
 
 	test("keeps fail-closed outcomes guarding extraction", async () => {

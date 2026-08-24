@@ -177,3 +177,92 @@ export const createPrivateStatementCsvFixture = (): string =>
 		PRIVATE_STATEMENT_SENTINEL_HEADER,
 		"01-Jan-2026,Opening balance,,,,,1000.00",
 	].join("\n");
+
+// Machine-generated synthetic Form 26AS plain-text export. The tab-separated
+// layout below is the exact supported revision: a four-line header block, the
+// Part I section title, one reviewed column header row, and one line per TDS
+// record with six cells, followed by an aggregate row that starts with
+// "Total". Every value is invented; sentinel amounts exist so privacy tests
+// can detect leakage.
+export const FORM26AS_TEXT_ASSESSMENT_YEAR = "2026-27";
+export const FORM26AS_PART_ONE_TITLE = "Part I - Tax Deducted at Source";
+
+export const FORM26AS_COLUMN_HEADER_CELLS = Object.freeze([
+	"Sr. No.",
+	"Name of Deductor",
+	"TAN of Deductor",
+	"Total Amount Paid/Credited",
+	"Total Tax Deducted",
+	"Total TDS Deposited",
+]);
+
+export const FORM26AS_SENTINEL_PAID_CREDITED = "10,00,000.00";
+export const FORM26AS_SENTINEL_TAX_DEDUCTED = "50,000.00";
+export const FORM26AS_SENTINEL_TDS_DEPOSITED = "48,750.00";
+export const FORM26AS_SENTINEL_CONTRACTOR_PAID = "2,50,000.00";
+export const FORM26AS_SENTINEL_CONTRACTOR_DEPOSITED = "12,500.00";
+
+const tdsRecordLine = (cells: readonly string[]): string =>
+	cells.join("\t");
+
+export const FORM26AS_TDS_RECORD_ONE_CELLS = Object.freeze([
+	"1",
+	"OpenITR Synthetic Employer Private Limited",
+	"MUMA12345B",
+	FORM26AS_SENTINEL_PAID_CREDITED,
+	FORM26AS_SENTINEL_TAX_DEDUCTED,
+	FORM26AS_SENTINEL_TDS_DEPOSITED,
+]);
+
+// Record two prints a blank Total Tax Deducted cell so tests can prove that
+// blank cells stay unknown instead of becoming zero.
+export const FORM26AS_TDS_RECORD_TWO_CELLS = Object.freeze([
+	"2",
+	"OpenITR Synthetic Contractor",
+	"PUNE23456C",
+	FORM26AS_SENTINEL_CONTRACTOR_PAID,
+	"",
+	FORM26AS_SENTINEL_CONTRACTOR_DEPOSITED,
+]);
+
+export type Form26AsTextFixtureOptions = Readonly<{
+	partOneRows?: readonly string[];
+	omitPartOne?: boolean;
+	omitColumnHeader?: boolean;
+	assessmentYear?: string;
+}>;
+
+export const createForm26AsTextFixture = (
+	options: Form26AsTextFixtureOptions = {},
+): string => {
+	const partOneRows =
+		options.partOneRows ??
+		[
+			tdsRecordLine(FORM26AS_TDS_RECORD_ONE_CELLS),
+			tdsRecordLine(FORM26AS_TDS_RECORD_TWO_CELLS),
+			tdsRecordLine([
+				"Total",
+				"",
+				"",
+				"12,50,000.00",
+				"50,000.00",
+				"61,250.00",
+			]),
+		];
+	return [
+		"FORM 26AS",
+		"Annual Tax Statement under Section 203AA of the Income Tax Act, 1961",
+		`Permanent Account Number (PAN)\tPANXXXX9999X`,
+		`Assessment Year\t${options.assessmentYear ?? FORM26AS_TEXT_ASSESSMENT_YEAR}`,
+		...(options.omitPartOne
+			? []
+			: [
+					FORM26AS_PART_ONE_TITLE,
+					...(options.omitColumnHeader
+						? []
+						: [tdsRecordLine(FORM26AS_COLUMN_HEADER_CELLS)]),
+					...partOneRows,
+				]),
+		"",
+	].join("\r\n");
+};

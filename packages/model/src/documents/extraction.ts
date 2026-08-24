@@ -8,6 +8,7 @@ import type {
 import type {
 	BankInterestObservation,
 	SalaryObservation,
+	TdsObservation,
 } from "./observation";
 
 export const DOCUMENT_REVIEW_ISSUE_CODES = Object.freeze({
@@ -25,6 +26,11 @@ export const DOCUMENT_REVIEW_ISSUE_CODES = Object.freeze({
 	bankInterestCategoryUnknown: parseIssueCode(
 		"DOCUMENT_BANK_INTEREST_CATEGORY_UNKNOWN",
 	),
+	tdsSectionMissing: parseIssueCode("DOCUMENT_TDS_SECTION_MISSING"),
+	tdsColumnHeaderMalformed: parseIssueCode(
+		"DOCUMENT_TDS_COLUMN_HEADER_MALFORMED",
+	),
+	tdsRecordMalformed: parseIssueCode("DOCUMENT_TDS_RECORD_MALFORMED"),
 });
 
 export type DocumentReviewIssue = Readonly<{
@@ -52,6 +58,15 @@ export const BANK_INTEREST_RECORD_AMBIGUOUS_RECOVERY_ACTION =
 export const BANK_INTEREST_CATEGORY_UNKNOWN_RECOVERY_ACTION =
 	"Select an AIS JSON export whose bank-interest records use the categories this revision defines.";
 
+export const TDS_SECTION_MISSING_RECOVERY_ACTION =
+	"Select a Form 26AS text export of the supported revision that includes Part I - Tax Deducted at Source, or continue without tax-deducted-at-source facts.";
+
+export const TDS_COLUMN_HEADER_MALFORMED_RECOVERY_ACTION =
+	"Select an unmodified official Form 26AS text export so Part I prints the reviewed column header row.";
+
+export const TDS_RECORD_MALFORMED_RECOVERY_ACTION =
+	"Select an unmodified official Form 26AS text export so every Part I record carries its serial number, deductor name, TAN, and amount columns.";
+
 // One snapshot per PDF page, kept in browser memory only. The evidence viewer
 // renders these lines beside the observation's locator.
 export type EvidencePageLine = Readonly<{
@@ -69,6 +84,7 @@ export type DocumentExtractionOutcome =
 			kind: "extracted";
 			observations: readonly SalaryObservation[];
 			bankInterestObservations: readonly BankInterestObservation[];
+			tdsObservations: readonly TdsObservation[];
 			issues: readonly DocumentReviewIssue[];
 			pages: readonly EvidencePage[];
 	  }>
@@ -92,6 +108,7 @@ export type DocumentExtractionRecord =
 			status: "done";
 			observations: readonly SalaryObservation[];
 			bankInterestObservations: readonly BankInterestObservation[];
+			tdsObservations: readonly TdsObservation[];
 			issues: readonly DocumentReviewIssue[];
 			pages: readonly EvidencePage[];
 	  }>
