@@ -45,6 +45,7 @@ export const SALARY_COMPUTATION_ISSUE_CODES = Object.freeze({
 	answerRulePackMismatch: parseIssueCode("QUESTION_RULE_PACK_MISMATCH"),
 	salaryFieldMissing: parseIssueCode("FACT_SALARY_FIELD_MISSING"),
 	salaryFieldDuplicated: parseIssueCode("FACT_SALARY_FIELD_DUPLICATED"),
+	salaryFieldInvalid: parseIssueCode("FACT_SALARY_FIELD_INVALID"),
 	salaryTotalMismatch: parseIssueCode("FACT_SALARY_TOTAL_MISMATCH"),
 });
 
@@ -61,6 +62,8 @@ const RECOVERY_ACTIONS = Object.freeze({
 		"Select the official Form 16 download for the assessment year so every Part A salary field appears once.",
 	salaryFieldDuplicated:
 		"Select the official Form 16 download for the assessment year so each salary field appears exactly once.",
+	salaryFieldInvalid:
+		"Select the document again so a reviewed adapter can re-read this field as whole rupees.",
 	salaryTotalMismatch:
 		"The document's own Part A figures disagree. Re-check the selected pages against the official employer-issued Form 16.",
 });
@@ -304,6 +307,20 @@ export const computeNewRegimeSalaryScenario = ({
 						[requiredKey],
 					),
 				);
+			}
+			for (const candidate of matching) {
+				if (
+					!Number.isSafeInteger(candidate.normalizedValue) ||
+					candidate.normalizedValue < 0
+				) {
+					issues.push(
+						blockingIssue(
+							SALARY_COMPUTATION_ISSUE_CODES.salaryFieldInvalid,
+							RECOVERY_ACTIONS.salaryFieldInvalid,
+							[requiredKey],
+						),
+					);
+				}
 			}
 		}
 	}

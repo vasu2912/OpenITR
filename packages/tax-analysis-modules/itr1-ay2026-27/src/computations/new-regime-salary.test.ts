@@ -351,6 +351,38 @@ describe("accepted-fact enforcement fails closed", () => {
 		]);
 	});
 
+	test("blocks with a typed issue when an observation value is not whole rupees", () => {
+		const malformed = {
+			documentId,
+			observations: [
+				observation({
+					factKey: SALARY_FACT_KEYS.section17_1,
+					wholeRupees: 1200000,
+				}),
+				observation({
+					factKey: SALARY_FACT_KEYS.exemptAllowancesSection10,
+					wholeRupees: 150000,
+				}),
+				{
+					...observation({
+						factKey: SALARY_FACT_KEYS.taxableTotal,
+						wholeRupees: 0,
+					}),
+					normalizedValue: -1050000,
+				},
+			],
+		};
+		const result = computeOneEmployer(malformed);
+
+		expect(result.kind).toBe("blocked");
+		if (result.kind !== "blocked") {
+			return;
+		}
+		expect(
+			result.issues.some((issue) => String(issue.code) === "FACT_SALARY_FIELD_INVALID"),
+		).toBe(true);
+	});
+
 	test("blocks when the printed taxable total contradicts the component facts", () => {
 		const inconsistent = oneEmployerDocument({
 			section17_1: 1200000,
