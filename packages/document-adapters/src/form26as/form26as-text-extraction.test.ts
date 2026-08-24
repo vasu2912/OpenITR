@@ -223,6 +223,19 @@ describe("Form 26AS text TDS extraction", () => {
 		]);
 	});
 
+	test("skips a bare aggregate label line without treating it as a record", async () => {
+		const text = createForm26AsTextFixture({
+			partOneRows: ["Total", FORM26AS_TDS_RECORD_ONE_CELLS.join("\t")],
+		});
+		const outcome = await extractOf(text);
+
+		if (outcome.kind !== "extracted") {
+			throw new Error("expected an extracted outcome");
+		}
+		expect(outcome.issues).toEqual([]);
+		expect(outcome.tdsObservations).toHaveLength(3);
+	});
+
 	test("stops Part I scanning at the next part title without reporting its rows as records", async () => {
 		const text = [
 			"FORM 26AS",

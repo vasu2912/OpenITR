@@ -7,12 +7,9 @@ import type {
 	DocumentAdapterManifest,
 	SourceDocumentAdapter,
 } from "../registry";
-import type { AdapterIdentity } from "../extraction-support";
+import { decodeUtf8Strict } from "../extraction-support";
 import { extractTdsObservations } from "./tds-extraction";
-import {
-	decodeUtf8Strict,
-	parseForm26AsTextRevision,
-} from "./form26as-text-revision";
+import { parseForm26AsTextRevision } from "./form26as-text-revision";
 
 export const FORM26AS_TEXT_MANIFEST: DocumentAdapterManifest = Object.freeze({
 	adapterId: "form26as-text",
@@ -21,14 +18,7 @@ export const FORM26AS_TEXT_MANIFEST: DocumentAdapterManifest = Object.freeze({
 	templateRevision: parseTemplateRevision("2026-27"),
 });
 
-const ADAPTER_IDENTITY: AdapterIdentity = Object.freeze({
-	adapterId: FORM26AS_TEXT_MANIFEST.adapterId,
-	adapterVersion: FORM26AS_TEXT_MANIFEST.adapterVersion,
-});
-
-const decodeOrUndefined = (
-	bytes: Uint8Array,
-): string | undefined => {
+const decodeOrUndefined = (bytes: Uint8Array): string | undefined => {
 	try {
 		return decodeUtf8Strict(bytes);
 	} catch {
@@ -66,7 +56,7 @@ export const createForm26AsTextAdapter = (): SourceDocumentAdapter => ({
 		const { observations, issues } = extractTdsObservations({
 			document: revision.document,
 			sourceDocumentId: input.identity,
-			adapter: ADAPTER_IDENTITY,
+			adapter: FORM26AS_TEXT_MANIFEST,
 		});
 		return {
 			kind: "extracted",

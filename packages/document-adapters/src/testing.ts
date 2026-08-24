@@ -183,7 +183,8 @@ export const createPrivateStatementCsvFixture = (): string =>
 // Part I section title, one reviewed column header row, and one line per TDS
 // record with six cells, followed by an aggregate row that starts with
 // "Total". Every value is invented; sentinel amounts exist so privacy tests
-// can detect leakage.
+// can detect leakage. The layout constants below intentionally mirror the
+// adapter's expectations without importing them, so any drift fails tests.
 export const FORM26AS_TEXT_ASSESSMENT_YEAR = "2026-27";
 export const FORM26AS_PART_ONE_TITLE = "Part I - Tax Deducted at Source";
 
