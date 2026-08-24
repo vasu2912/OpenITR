@@ -10,7 +10,8 @@ import type {
 	DocumentAdapterManifest,
 	SourceDocumentAdapter,
 } from "../registry";
-import { decodeUtf8Strict, parseAisJsonRevision } from "./ais-json-revision";
+import { decodeUtf8Strict } from "../extraction-support";
+import { parseAisJsonRevision } from "./ais-json-revision";
 import { extractBankInterestObservations } from "./bank-interest-extraction";
 
 export const AIS_JSON_MANIFEST: DocumentAdapterManifest = Object.freeze({

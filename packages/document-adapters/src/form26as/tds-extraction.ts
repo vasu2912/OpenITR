@@ -251,15 +251,26 @@ export const extractTdsObservations = ({
 
 	const issues: DocumentReviewIssue[] = [];
 	const records: ParsedTdsRecord[] = [];
-	for (let index = columnHeaderLine + 1; index < document.lines.length; index += 1) {
+	for (
+		let index = columnHeaderLine + 1;
+		index < document.lines.length;
+		index += 1
+	) {
 		const line = document.lines[index];
-		if (line === undefined || line.trim() === "") {
+		if (line === undefined) {
 			continue;
 		}
-		if (NEXT_PART_PATTERN.test(line.trim())) {
+		const trimmedLine = line.trim();
+		if (trimmedLine === "") {
+			continue;
+		}
+		if (NEXT_PART_PATTERN.test(trimmedLine)) {
 			break;
 		}
-		if (line.split("\t")[0]?.trim() === AGGREGATE_ROW_LABEL) {
+		const firstCellEnd = line.indexOf("\t");
+		const firstCell =
+			firstCellEnd < 0 ? line : line.slice(0, firstCellEnd);
+		if (firstCell.trim() === AGGREGATE_ROW_LABEL) {
 			continue;
 		}
 		const outcome = parseTdsRecord(line, index + 1);

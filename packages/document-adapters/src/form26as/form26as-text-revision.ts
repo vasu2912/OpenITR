@@ -1,7 +1,7 @@
 import { parseAssessmentYear } from "@openitr/model";
 import type { AssessmentYear } from "@openitr/model";
 
-export const FORM26AS_SUPPORTED_ASSESSMENT_YEAR = "2026-27";
+const FORM26AS_SUPPORTED_ASSESSMENT_YEAR = "2026-27";
 
 const FORM26AS_TITLE_LINE = "FORM 26AS";
 const FORM26AS_SUBTITLE_LINE =
@@ -20,19 +20,14 @@ export type Form26AsTextRevisionParseOutcome =
 	| Readonly<{ kind: "supported"; document: Form26AsTextDocument }>
 	| Readonly<{ kind: "unsupported" }>;
 
-// A single reusable decoder; decode() is stateless for non-streaming input.
-const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
-
-export const decodeUtf8Strict = (bytes: Uint8Array): string =>
-	utf8Decoder.decode(bytes);
-
 const splitLogicalLines = (text: string): readonly string[] =>
 	text.split(/\r\n|\r|\n/);
 
 // The supported revision is the reviewed plain-text layout whose header
 // block carries the exact title lines plus exactly one PAN line and one
 // assessment-year line for the one supported assessment year. Everything
-// else is an unsupported revision and fails closed.
+// else, including exports that repeat those header lines across pages,
+// is an unsupported revision and fails closed.
 export const parseForm26AsTextRevision = (
 	text: string,
 ): Form26AsTextRevisionParseOutcome => {
@@ -47,12 +42,16 @@ export const parseForm26AsTextRevision = (
 	const panMatches: string[] = [];
 	const assessmentYearMatches: string[] = [];
 	for (const line of lines) {
-		const panMatch = FORM26AS_PAN_LABEL_PATTERN.exec(line.trim());
+		if (panMatches.length > 0 && assessmentYearMatches.length > 0) {
+			break;
+		}
+		const trimmed = line.trim();
+		const panMatch = FORM26AS_PAN_LABEL_PATTERN.exec(trimmed);
 		if (panMatch !== null && panMatch[1] !== undefined) {
 			panMatches.push(panMatch[1]);
 			continue;
 		}
-		const yearMatch = FORM26AS_ASSESSMENT_YEAR_PATTERN.exec(line.trim());
+		const yearMatch = FORM26AS_ASSESSMENT_YEAR_PATTERN.exec(trimmed);
 		if (yearMatch !== null && yearMatch[1] !== undefined) {
 			assessmentYearMatches.push(yearMatch[1]);
 		}
