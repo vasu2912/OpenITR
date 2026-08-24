@@ -43,6 +43,7 @@ export const createScopeRulePack = ({
 		identity: compiled.identity,
 		officialSources: compiled.officialSources,
 		question: scopeCheck.question,
+		taxConstants: compiled.taxConstants,
 		evaluate,
 	});
 };

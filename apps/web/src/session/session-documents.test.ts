@@ -6,6 +6,7 @@ import type {
 	Sha256Digest,
 } from "@openitr/model";
 import {
+	DOCUMENT_REVIEW_ISSUE_CODES,
 	parseDocumentKind,
 	parseFactKey,
 	parseRuleId,
@@ -733,5 +734,129 @@ const fakeObservation = (
 	transformationSteps: [],
 	evidence: { kind: "pdf-page-region", page: 1, x: 0, y: 0, width: 1, height: 1 },
 	ruleCitation: { ruleId: parseRuleId("FORM16-PARTA-TAXABLE-SALARY"), description: "d" },
+});
+
+describe("new-regime salary computation exposure", () => {
+	const salaryComputationOf = (session: SessionOrchestrator) => {
+		const snapshot = session.getSnapshot();
+		return snapshot.kind === "document-intake"
+			? snapshot.salaryComputation
+			: undefined;
+	};
+
+	test("exposes a computed scenario once accepted observations arrive", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => extractionRecords(session)[0]?.status === "done");
+
+		expect(salaryComputationOf(session)?.kind).toBe("computed");
+		const computation = salaryComputationOf(session);
+		if (computation?.kind !== "computed") {
+			throw new Error("expected a computed salary scenario");
+		}
+		expect(computation.scenario).toBe(
+			"one-employer-new-regime-salary-fy-2025-26",
+		);
+		expect(computation.summary.salaryTotal).toBe("1200000");
+		expect(computation.summary.finalTaxLiability).toBe("0");
+		expect(computation.rulePackRevision).toBe(
+			itr1Ay202627RulePack.identity.revision,
+		);
+
+		session.stop();
+	});
+
+	test("stays absent until an extraction record exists", async () => {
+		const { session } = await createIdentifiedGatedSession();
+
+		expect(salaryComputationOf(session)).toBeUndefined();
+
+		session.stop();
+	});
+
+	test("excludes observations under review issues and blocks instead of guessing", async () => {
+		const { session, calls } = await createIdentifiedGatedSession();
+
+		await waitFor(() => calls.some((call) => call.stage === "extract"));
+		const documentId = intakeDocuments(session)[0]?.documentId;
+		if (documentId === undefined) {
+			throw new Error("candidate missing");
+		}
+		calls
+			.filter((call) => call.stage === "extract")
+			.forEach((call) =>
+				call.resolve({
+					kind: "extracted",
+					observations: [
+						fakeObservation(documentId, "salary.section-17-1", 1200000),
+						fakeObservation(documentId, "salary.section-17-1", 1300000),
+						fakeObservation(
+							documentId,
+							"salary.taxable-total",
+							1050000,
+						),
+					],
+					issues: [
+						{
+							code: DOCUMENT_REVIEW_ISSUE_CODES.salaryFieldAmbiguous,
+							severity: "review",
+							affectedFactKeys: [parseFactKey("salary.section-17-1")],
+							recoveryAction: "Select the official Form 16 download.",
+						},
+					],
+					pages: [],
+				} satisfies DocumentExtractionOutcome),
+			);
+		await waitFor(() => salaryComputationOf(session)?.kind === "blocked");
+
+		const computation = salaryComputationOf(session);
+		if (computation?.kind !== "blocked") {
+			throw new Error("expected a blocked salary scenario");
+		}
+		expect(
+			computation.issues.some(
+				(issue) =>
+					String(issue.code) === "FACT_SALARY_FIELD_MISSING" &&
+					issue.affectedFactKeys.includes(parseFactKey("salary.section-17-1")),
+			),
+		).toBe(true);
+
+		session.stop();
+	});
+
+	test("clears the computation when every document is removed", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => extractionRecords(session)[0]?.status === "done");
+
+		const documentId = intakeDocuments(session)[0]?.documentId;
+		if (documentId === undefined) {
+			throw new Error("candidate missing");
+		}
+		session.send({ kind: "remove-source-document", documentId });
+		await waitFor(() => intakeDocuments(session)[0]?.status === "removed");
+
+		expect(salaryComputationOf(session)).toBeUndefined();
+
+		session.stop();
+	});
 });
 

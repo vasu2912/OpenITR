@@ -37,10 +37,10 @@ export const activeAnalysisRelease: AnalysisRelease = Object.freeze({
 	rulePack: Object.freeze({
 		id: parseRulePackId("itr1-ay2026-27.2026-08-22"),
 		sourceManifestSha256: parseSha256Digest(
-			"77ce72a0967166ef0e089d396fa2853784ff3e616032f116348e6a767c7b10a1",
+			"63df0accc6b324bb71463cc554ae02d434822c89c509fab20d9b2c0f99fce6cc",
 		),
 		compiledPackSha256: parseSha256Digest(
-			"99e12ec6a3153c7d9b2fd2a2fd5c3070a5218c39836c0352450a5f6a9a681992",
+			"434426eaab45b627c8082a921aa4a93a32373cd6b09b048964391fdf46c5bfba",
 		),
 	}),
 	form: parseTaxFormId("ITR-1"),

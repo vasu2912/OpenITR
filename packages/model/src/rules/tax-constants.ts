@@ -1,0 +1,66 @@
+import type { RuleId } from "../primitives";
+
+// One progressive-rate band. `upperBoundWholeRupees` is the inclusive top of
+// the band; the final band of every schedule is open-ended (null).
+export type RulePackSlabBand = Readonly<{
+	upperBoundWholeRupees: number | null;
+	ratePercent: number;
+}>;
+
+// Surcharge applies when total income exceeds
+// `exceedsTotalIncomeWholeRupees`.
+export type RulePackSurchargeTier = Readonly<{
+	exceedsTotalIncomeWholeRupees: number;
+	ratePercent: number;
+}>;
+
+// Authored new-regime computation constants. Every group carries the stable
+// identifier of the supported rule that owns it, so each trace node can cite
+// its rule without duplicating a threshold in code.
+export type NewRegimeTaxConstantRecord = Readonly<{
+	slabBands: readonly [RulePackSlabBand, ...RulePackSlabBand[]];
+	slabRuleId: string;
+	standardDeductionWholeRupees: number;
+	standardDeductionRuleId: string;
+	rebateMaxTotalIncomeWholeRupees: number;
+	rebateMaxAmountWholeRupees: number;
+	rebateRuleId: string;
+	rebateMarginalReliefRuleId: string;
+	surchargeTiers: readonly RulePackSurchargeTier[];
+	surchargeRuleId: string;
+	cessRatePercent: number;
+	cessRuleId: string;
+	totalIncomeRoundingBaseWholeRupees: number;
+	totalIncomeRoundingRuleId: string;
+	taxRoundingBaseWholeRupees: number;
+	taxRoundingRuleId: string;
+}>;
+
+export type RulePackManifestTaxConstants = Readonly<{
+	newRegime: NewRegimeTaxConstantRecord;
+}>;
+
+// The compiled form resolves every authored rule identifier to a validated
+// RuleId before publication.
+export type CompiledNewRegimeTaxConstants = Readonly<{
+	slabBands: readonly [RulePackSlabBand, ...RulePackSlabBand[]];
+	slabRuleId: RuleId;
+	standardDeductionWholeRupees: number;
+	standardDeductionRuleId: RuleId;
+	rebateMaxTotalIncomeWholeRupees: number;
+	rebateMaxAmountWholeRupees: number;
+	rebateRuleId: RuleId;
+	rebateMarginalReliefRuleId: RuleId;
+	surchargeTiers: readonly RulePackSurchargeTier[];
+	surchargeRuleId: RuleId;
+	cessRatePercent: number;
+	cessRuleId: RuleId;
+	totalIncomeRoundingBaseWholeRupees: number;
+	totalIncomeRoundingRuleId: RuleId;
+	taxRoundingBaseWholeRupees: number;
+	taxRoundingRuleId: RuleId;
+}>;
+
+export type CompiledTaxConstants = Readonly<{
+	newRegime: CompiledNewRegimeTaxConstants;
+}>;

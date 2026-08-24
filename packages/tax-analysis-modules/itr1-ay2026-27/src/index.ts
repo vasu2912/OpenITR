@@ -7,3 +7,14 @@ export {
 	itr1Ay202627RulePack,
 } from "./rule-pack";
 export { itr1Ay202627TaxAnalysisModuleArtifact } from "./tax-analysis-module";
+export { computeNewRegimeSalaryScenario, SALARY_FACT_KEYS } from "./computations/new-regime-salary";
+export type {
+	AcceptedSalaryDocumentFacts,
+	ComputationNodeInput,
+	ComputationTraceNode,
+	NewRegimeSalaryComputation,
+	NewRegimeSalaryComputationInput,
+	NewRegimeSalarySummary,
+	SalaryComputationIssue,
+	SalaryComputationRulePackInput,
+} from "./computations/new-regime-salary";

@@ -11,14 +11,17 @@ import {
 	parseTaxFormId,
 } from "@openitr/model";
 import type {
+	CompiledNewRegimeTaxConstants,
 	CompiledRulePack,
 	EligibilityAnswerValue,
 	EligibilityQuestion,
 	OfficialSource,
 	RuleCitation,
+	RuleId,
 	RulePackManifest,
 	RulePackManifestRuleRecord,
 	RulePackManifestSourceRecord,
+	RulePackSlabBand,
 	ScopeCheckResult,
 	SourceId,
 } from "@openitr/model";
@@ -111,6 +114,96 @@ type CompiledRule = Readonly<{
 	sourceId: SourceId;
 	sourceLocation: string;
 }>;
+
+const requireWholePercentage = (value: number, description: string): number => {
+	if (!Number.isSafeInteger(value) || value < 0 || value > 100) {
+		throw new Error(
+			`${description} must be a whole percentage between 0 and 100: ${value}`,
+		);
+	}
+	return value;
+};
+
+const requireNonNegativeWholeRupees = (
+	value: number,
+	description: string,
+): number => {
+	if (!Number.isSafeInteger(value) || value < 0) {
+		throw new Error(
+			`${description} must be a non-negative whole rupee amount: ${value}`,
+		);
+	}
+	return value;
+};
+
+const requirePositiveWholeRupees = (
+	value: number,
+	description: string,
+): number => {
+	if (!Number.isSafeInteger(value) || value <= 0) {
+		throw new Error(
+			`${description} must be a positive whole rupee amount: ${value}`,
+		);
+	}
+	return value;
+};
+
+const compileSlabBands = <
+	Bands extends readonly [RulePackSlabBand, ...RulePackSlabBand[]],
+>(
+	bands: Bands,
+): Bands => {
+	let previousUpperBound = 0;
+	for (const [index, band] of bands.entries()) {
+		const label = `Slab band ${index + 1}`;
+		requireWholePercentage(band.ratePercent, `${label} rate`);
+		if (band.upperBoundWholeRupees === null) {
+			if (index !== bands.length - 1) {
+				throw new Error("Only the last slab band may be open-ended");
+			}
+			break;
+		}
+		const upperBound = requirePositiveWholeRupees(
+			band.upperBoundWholeRupees,
+			`${label} upper bound`,
+		);
+		if (upperBound <= previousUpperBound) {
+			throw new Error(
+				`${label} upper bound must exceed the previous band's upper bound (${previousUpperBound})`,
+			);
+		}
+		previousUpperBound = upperBound;
+	}
+	const finalBand = bands[bands.length - 1];
+	if (
+		finalBand === undefined ||
+		finalBand.upperBoundWholeRupees !== null
+	) {
+		throw new Error("The last slab band must be open-ended");
+	}
+	return bands;
+};
+
+const compileSurchargeTiers = (
+	tiers: readonly { exceedsTotalIncomeWholeRupees: number; ratePercent: number }[],
+): readonly { exceedsTotalIncomeWholeRupees: number; ratePercent: number }[] => {
+	let previousThreshold = 0;
+	for (const [index, tier] of tiers.entries()) {
+		const label = `Surcharge tier ${index + 1}`;
+		requireWholePercentage(tier.ratePercent, `${label} rate`);
+		const threshold = requirePositiveWholeRupees(
+			tier.exceedsTotalIncomeWholeRupees,
+			`${label} threshold`,
+		);
+		if (threshold <= previousThreshold) {
+			throw new Error(
+				`${label} threshold must exceed the previous tier's threshold (${previousThreshold})`,
+			);
+		}
+		previousThreshold = threshold;
+	}
+	return tiers;
+};
 
 const compileSupportedRule = (
 	record: RulePackManifestRuleRecord,
@@ -336,25 +429,111 @@ export const compileRulePack = async ({
 		),
 	);
 
+	const resolveConstantRule = (
+		ruleId: string,
+		description: string,
+	): RuleId => {
+		const parsed = parseRuleId(ruleId);
+		if (!rulesById.has(parsed)) {
+			throw new Error(
+				`Unknown rule reference: ${description} requires undeclared rule "${ruleId}"`,
+			);
+		}
+		return parsed;
+	};
+
+	let compiledTaxConstants: CompiledRulePack["taxConstants"];
+	const authoredTaxConstants = manifest.taxConstants;
+	if (authoredTaxConstants !== undefined) {
+		const authored = authoredTaxConstants.newRegime;
+		const newRegime: CompiledNewRegimeTaxConstants = {
+			slabBands: compileSlabBands(authored.slabBands),
+			slabRuleId: resolveConstantRule(
+				authored.slabRuleId,
+				"The slab schedule",
+			),
+			standardDeductionWholeRupees: requireNonNegativeWholeRupees(
+				authored.standardDeductionWholeRupees,
+				"The standard deduction",
+			),
+			standardDeductionRuleId: resolveConstantRule(
+				authored.standardDeductionRuleId,
+				"The standard deduction",
+			),
+			rebateMaxTotalIncomeWholeRupees: requirePositiveWholeRupees(
+				authored.rebateMaxTotalIncomeWholeRupees,
+				"The rebate total-income limit",
+			),
+			rebateMaxAmountWholeRupees: requireNonNegativeWholeRupees(
+				authored.rebateMaxAmountWholeRupees,
+				"The maximum rebate amount",
+			),
+			rebateRuleId: resolveConstantRule(
+				authored.rebateRuleId,
+				"The rebate limit",
+			),
+			rebateMarginalReliefRuleId: resolveConstantRule(
+				authored.rebateMarginalReliefRuleId,
+				"The rebate marginal relief",
+			),
+			surchargeTiers: compileSurchargeTiers(authored.surchargeTiers),
+			surchargeRuleId: resolveConstantRule(
+				authored.surchargeRuleId,
+				"The surcharge schedule",
+			),
+			cessRatePercent: requireWholePercentage(
+				authored.cessRatePercent,
+				"The cess rate",
+			),
+			cessRuleId: resolveConstantRule(
+				authored.cessRuleId,
+				"The cess rate",
+			),
+			totalIncomeRoundingBaseWholeRupees: requirePositiveWholeRupees(
+				authored.totalIncomeRoundingBaseWholeRupees,
+				"The total-income rounding base",
+			),
+			totalIncomeRoundingRuleId: resolveConstantRule(
+				authored.totalIncomeRoundingRuleId,
+				"The total-income rounding base",
+			),
+			taxRoundingBaseWholeRupees: requirePositiveWholeRupees(
+				authored.taxRoundingBaseWholeRupees,
+				"The tax rounding base",
+			),
+			taxRoundingRuleId: resolveConstantRule(
+				authored.taxRoundingRuleId,
+				"The tax rounding base",
+			),
+		};
+		compiledTaxConstants = deepFreeze({ newRegime });
+	}
+
 	const sourceManifestSha256 = parseSha256Digest(
 		await sha256Hex(canonicalJson(officialSources)),
 	);
 
+	const identityWithSourceHashes = {
+		...identityWithoutHashes,
+		sourceManifestSha256,
+	};
+
+	const hashedContents = {
+		identity: { ...identityWithSourceHashes, officialSourceRevisionIds: officialSources.map((source) => source.id) },
+		officialSources,
+		supportedRuleIds,
+		ruleCitations,
+		scopeCheck: { question, results },
+		taxConstants: compiledTaxConstants,
+	};
+
 	const compiledPackSha256 = parseSha256Digest(
-		await sha256Hex(
-			canonicalJson({
-				identity: { ...identityWithoutHashes, sourceManifestSha256 },
-				officialSources,
-				supportedRuleIds,
-				ruleCitations,
-				scopeCheck: { question, results },
-			}),
-		),
+		await sha256Hex(canonicalJson(hashedContents)),
 	);
 
 	return deepFreeze({
 		identity: {
-			...identityWithoutHashes,
+			...identityWithSourceHashes,
 			officialSourceRevisionIds: officialSources.map(
 				(source) => source.id,
 			),
@@ -365,5 +544,8 @@ export const compileRulePack = async ({
 		supportedRuleIds,
 		ruleCitations,
 		scopeCheck: { question, results },
+		...(compiledTaxConstants === undefined
+			? {}
+			: { taxConstants: compiledTaxConstants }),
 	});
 };
