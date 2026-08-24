@@ -319,4 +319,94 @@ describe("parseXlsxGrid", () => {
 
 		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
 	});
+
+	test.each([
+		["a code point beyond Unicode", "&#x110000;"],
+		["a lone surrogate code point", "&#xd800;"],
+		["a control character", "&#x1;"],
+	])("rejects %s without throwing instead of failing closed", (_label, entity) => {
+		const bytes = buildWorkbook({
+			sharedStrings: [`PAN ${entity} XXXX9999X`],
+		});
+
+		expect(() => parseXlsxGrid(bytes)).not.toThrow();
+		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
+	});
+
+	test("rejects content before the root element", () => {
+		const bytes = buildWorkbook({
+			sharedStringsXml:
+				'<?xml version="1.0" encoding="UTF-8"?>stray text<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"></sst>',
+		});
+
+		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
+	});
+
+	test.each([
+		["a DTD section", '<!DOCTYPE sst [<!ENTITY x "y">]>'],
+		["a CDATA section", "<![CDATA[raw]]>"],
+		["a processing instruction", "<?php echo $x; ?>"],
+	] as const)("rejects %s ahead of the root element", (_label, prolog) => {
+		const bytes = buildWorkbook({
+			sharedStringsXml: `<?xml version="1.0" encoding="UTF-8"?>${prolog}<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"></sst>`,
+		});
+
+		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
+	});
+
+	test("rejects duplicate attribute names on one element", () => {
+		const bytes = buildWorkbook({
+			rows: [
+				'<row r="7"><c r="A7" t="s" t="s"><v>0</v></c></row>',
+			],
+			sharedStrings: ["FORM 26AS"],
+		});
+
+		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
+	});
+
+	test.each([
+		["a row carrying only a foreign element", [`<row r="9"><bogus/></row>`]],
+		[
+			"a row mixing cells with a foreign element",
+			[`<row r="9">${textCell("A9", 0)}<bogus/></row>`],
+		],
+	] as const)("rejects %s", (_label, rows) => {
+		const bytes = buildWorkbook({
+			sharedStrings: ["FORM 26AS"],
+			rows,
+		});
+
+		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
+	});
+
+	test("rejects an oversized part before inflating the workbook", () => {
+		const bytes = buildWorkbook({
+			sharedStrings: ["x".repeat(4 * 1024 * 1024 + 1)],
+		});
+
+		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
+	});
+
+	test("rejects a blank cell that still declares a type", () => {
+		const bytes = buildWorkbook({
+			sharedStrings: ["FORM 26AS"],
+			rows: ['<row r="8"><c r="A8" t="s"/></row>'],
+		});
+
+		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
+	});
+
+	test("rejects a shared string split across two text elements", () => {
+		const bytes = buildWorkbook({
+			sharedStringsXml: [
+				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+				'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+				"<si><t>FOR</t><t>M 26AS</t></si>",
+				"</sst>",
+			].join(""),
+		});
+
+		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
+	});
 });

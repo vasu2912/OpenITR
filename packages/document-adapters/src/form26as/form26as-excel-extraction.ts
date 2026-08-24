@@ -28,30 +28,24 @@ import {
 	tdsSectionMissingIssue,
 } from "./tds-part-one";
 
-const cellAt = (
+// One row's reviewed columns as a presence-aware snapshot: indexes 0-5
+// hold each printed cell's verbatim text, where a printed blank cell is an
+// empty string and a cell the workbook never printed stays undefined.
+const columnSnapshotOf = (
 	row: SpreadsheetRow,
-	columnIndex: number,
-): string | undefined =>
-	row.cells.find((candidate) => candidate.columnIndex === columnIndex)?.text;
-
-// A printed blank cell renders an empty box, so its raw value is an empty
-// string exactly like the plain-text export prints one; only a cell the
-// workbook never printed stays undefined.
-const rawValueAt = (
-	row: SpreadsheetRow,
-	columnIndex: number,
-): string | undefined => {
-	const cell = row.cells.find(
-		(candidate) => candidate.columnIndex === columnIndex,
-	);
-	if (cell === undefined) {
-		return undefined;
+): readonly (string | undefined)[] => {
+	const width = FORM26AS_COLUMN_HEADER_CELLS.length;
+	const snapshot: (string | undefined)[] = new Array(width).fill(undefined);
+	for (const cell of row.cells) {
+		if (cell.columnIndex < width && snapshot[cell.columnIndex] === undefined) {
+			snapshot[cell.columnIndex] = cell.text ?? "";
+		}
 	}
-	return cell.text ?? "";
+	return snapshot;
 };
 
 const leftmostTextOf = (row: SpreadsheetRow): string | undefined =>
-	cellAt(row, 0)?.trim();
+	row.cells.find((cell) => cell.columnIndex === 0)?.text?.trim();
 
 const isBlankRow = (row: SpreadsheetRow): boolean =>
 	row.cells.every((cell) => cell.text === undefined || cell.text.trim() === "");
@@ -62,20 +56,19 @@ type ParsedAmountCell =
 	| Readonly<{ kind: "malformed" }>;
 
 // An unknown amount is either a cell the export never printed or a printed
-// blank cell. Both stay unknown; only a printed value parses.
+// blank cell. Both stay unknown; only a printed value parses, keeping its
+// verbatim text as the raw value.
 const parseAmountCell = (
-	row: SpreadsheetRow,
-	columnIndex: number,
+	columnValue: string | undefined,
 ): ParsedAmountCell => {
-	const text = cellAt(row, columnIndex);
-	if (text === undefined || text.trim() === "") {
+	if (columnValue === undefined || columnValue.trim() === "") {
 		return { kind: "unknown" };
 	}
-	const amount = parseGroupedRupeeAmount(text);
+	const amount = parseGroupedRupeeAmount(columnValue);
 	if (amount === undefined) {
 		return { kind: "malformed" };
 	}
-	return { kind: "value", amount, originalValue: text };
+	return { kind: "value", amount, originalValue: columnValue };
 };
 
 type ParsedTdsRecord = Readonly<{
@@ -97,16 +90,13 @@ const parseTdsRecord = (
 	sheetName: string,
 	row: SpreadsheetRow,
 ): RecordParseOutcome => {
-	if (
-		row.cells.some(
-			(cell) => cell.columnIndex >= FORM26AS_COLUMN_HEADER_CELLS.length,
-		)
-	) {
+	const columns = columnSnapshotOf(row);
+	if (row.cells.some((cell) => cell.columnIndex >= columns.length)) {
 		return { kind: "malformed" };
 	}
 
-	const identityTextAt = (columnIndex: number): string | undefined =>
-		cellAt(row, columnIndex)?.trim();
+	const identityTextAt = (index: number): string | undefined =>
+		columns[index]?.trim();
 
 	const serialNumber = identityTextAt(0);
 	const deductorName = identityTextAt(1);
@@ -126,7 +116,7 @@ const parseTdsRecord = (
 
 	const parsedAmounts = AMOUNT_CELL_DEFINITIONS.map((definition) => ({
 		definition,
-		outcome: parseAmountCell(row, definition.columnIndex),
+		outcome: parseAmountCell(columns[definition.columnIndex]),
 	}));
 	if (parsedAmounts.some(({ outcome }) => outcome.kind === "malformed")) {
 		return { kind: "malformed" };
@@ -152,9 +142,10 @@ const parseTdsRecord = (
 		serialNumber,
 		deductorName,
 		deductorTan,
-		amountPaidCreditedRaw: rawValueAt(row, TDS_AMOUNT_COLUMNS.paidCredited.columnIndex),
-		taxDeductedRaw: rawValueAt(row, TDS_AMOUNT_COLUMNS.taxDeducted.columnIndex),
-		tdsDepositedRaw: rawValueAt(row, TDS_AMOUNT_COLUMNS.deposited.columnIndex),
+		amountPaidCreditedRaw:
+			columns[TDS_AMOUNT_COLUMNS.paidCredited.columnIndex],
+		taxDeductedRaw: columns[TDS_AMOUNT_COLUMNS.taxDeducted.columnIndex],
+		tdsDepositedRaw: columns[TDS_AMOUNT_COLUMNS.deposited.columnIndex],
 	};
 	return { kind: "parsed", record: { facts, amounts } };
 };
@@ -184,11 +175,13 @@ export const extractForm26AsSpreadsheetTdsObservations = ({
 	const columnHeaderRow = grid.rows.find(
 		(row) => row.rowNumber > sectionStart.rowNumber && !isBlankRow(row),
 	);
+	const headerColumns =
+		columnHeaderRow === undefined ? undefined : columnSnapshotOf(columnHeaderRow);
 	const headerCellsMatch =
 		columnHeaderRow !== undefined &&
+		headerColumns !== undefined &&
 		FORM26AS_COLUMN_HEADER_CELLS.every(
-			(expected, columnIndex) =>
-				cellAt(columnHeaderRow, columnIndex) === expected,
+			(expected, columnIndex) => headerColumns[columnIndex] === expected,
 		) &&
 		columnHeaderRow.cells.every(
 			(cell) => cell.columnIndex < FORM26AS_COLUMN_HEADER_CELLS.length,

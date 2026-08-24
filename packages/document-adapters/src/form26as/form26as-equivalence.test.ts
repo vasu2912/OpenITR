@@ -102,21 +102,15 @@ const canonicalFactOf = (observation: TdsObservation) => {
 };
 
 // The Part I record identity both representations must agree on even though
-// their locations differ.
-const recordIdentityOf = (observation: TdsObservation) => {
-	const {
-		medium: _medium,
-		firstLine: _firstLine,
-		lastLine: _lastLine,
-		sheet: _sheet,
-		rowNumber: _rowNumber,
-		...identity
-	} =
-		observation.record.medium === "spreadsheet"
-			? { ...observation.record, firstLine: undefined, lastLine: undefined }
-			: { ...observation.record, sheet: undefined, rowNumber: undefined };
-	return identity;
-};
+// their locations and medium differ.
+const recordIdentityOf = (observation: TdsObservation) => ({
+	serialNumber: observation.record.serialNumber,
+	deductorName: observation.record.deductorName,
+	deductorTan: observation.record.deductorTan,
+	amountPaidCreditedRaw: observation.record.amountPaidCreditedRaw,
+	taxDeductedRaw: observation.record.taxDeductedRaw,
+	tdsDepositedRaw: observation.record.tdsDepositedRaw,
+});
 
 describe("equivalent Form 26AS text and spreadsheet fixtures", () => {
 	test("produce equivalent canonical tax-deducted-at-source facts", async () => {

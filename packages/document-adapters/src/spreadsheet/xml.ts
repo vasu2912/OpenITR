@@ -21,6 +21,18 @@ export type XmlParseOutcome =
 	| Readonly<{ kind: "parsed"; root: XmlElementNode }>
 	| Readonly<{ kind: "invalid" }>;
 
+// XML 1.0 valid characters: tab, line feed, carriage return, and code
+// points at or above U+0020 except the surrogate block. Values beyond
+// U+10FFFF are rejected outright, so entity decoding can never produce a
+// lone surrogate or trip String.fromCodePoint into throwing.
+const isValidXmlCharacter = (codePoint: number): boolean =>
+	(codePoint >= 0x20 &&
+		codePoint <= 0x10ffff &&
+		!(codePoint >= 0xd800 && codePoint <= 0xdfff)) ||
+	codePoint === 0x09 ||
+	codePoint === 0x0a ||
+	codePoint === 0x0d;
+
 const decodeEntities = (raw: string): string | undefined => {
 	if (!raw.includes("&")) {
 		return raw;
@@ -55,11 +67,18 @@ const decodeEntities = (raw: string): string | undefined => {
 			if (!isHex && !isDecimal) {
 				return undefined;
 			}
+			const digits = entity.slice(isHex ? 2 : 1);
+			if (!/^[0-9a-fA-F]+$/.test(digits)) {
+				return undefined;
+			}
 			const codePoint = Number.parseInt(
-				entity.slice(isHex ? 2 : 1),
+				digits,
 				isHex ? 16 : 10,
 			);
-			if (!Number.isFinite(codePoint)) {
+			if (
+				!Number.isFinite(codePoint) ||
+				!isValidXmlCharacter(codePoint)
+			) {
 				return undefined;
 			}
 			decoded += String.fromCodePoint(codePoint);
@@ -144,6 +163,9 @@ const readAttributes = (
 		}
 		const decoded = decodeEntities(text.slice(valueStart + 1, closeQuote));
 		if (decoded === undefined) {
+			throw new Invalid();
+		}
+		if (attributes[name] !== undefined) {
 			throw new Invalid();
 		}
 		attributes[name] = decoded;
@@ -251,7 +273,10 @@ export const parseXmlDocument = (text: string): XmlParseOutcome => {
 	try {
 		const contentStart = readDeclarationAndMisc(text);
 		const rootBracket = text.indexOf("<", contentStart);
-		if (rootBracket < 0 || text[rootBracket + 1] === "/" ) {
+		if (rootBracket < 0 || text[rootBracket + 1] === "/") {
+			return { kind: "invalid" };
+		}
+		if (text.slice(contentStart, rootBracket).trim() !== "") {
 			return { kind: "invalid" };
 		}
 		const root = readElement(text, rootBracket);
@@ -274,6 +299,18 @@ export const elementChildrenOf = (
 	node.children.filter(
 		(child): child is XmlElementNode =>
 			child.kind === "element" && child.name === name,
+	);
+
+export const childElementsOf = (
+	node: XmlElementNode,
+): readonly XmlElementNode[] =>
+	node.children.filter((child): child is XmlElementNode => child.kind === "element");
+
+// Whitespace between structural elements carries no content; any other
+// stray text does and fails closed.
+export const hasSignificantText = (node: XmlElementNode): boolean =>
+	node.children.some(
+		(child) => child.kind === "text" && child.value.trim() !== "",
 	);
 
 export const firstChildOf = (
