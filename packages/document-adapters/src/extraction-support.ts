@@ -20,3 +20,8 @@ const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 // byte sequence that is not valid UTF-8 so callers can fail closed.
 export const decodeUtf8Strict = (bytes: Uint8Array): string =>
 	utf8Decoder.decode(bytes);
+
+export const isRecordObject = (
+	value: unknown,
+): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);

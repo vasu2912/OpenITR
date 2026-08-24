@@ -448,3 +448,85 @@ export const createForm26AsExcelFixture = (
 			: {}),
 	});
 };
+
+// Machine-generated synthetic official prefilled ITR-1 JSON for the one
+// supported revision: two signature markers, an optional salary-information
+// object with one reviewed property per agreed salary fact, and an optional
+// TDS-on-salary array with one reviewed record per employer. Every value is
+// invented; sentinel amounts exist so privacy tests can detect leakage.
+// The layout constants below intentionally mirror the adapter's expectations
+// without importing them, so any drift fails tests.
+export const PREFILLED_ITR1_JSON_DOCUMENT_TYPE = "ITR1_PREFILLED";
+export const PREFILLED_ITR1_JSON_SCHEMA_VERSION = "2026-27";
+
+const PREFILLED_ITR1_JSON_FIXTURE_MARKERS = {
+	documentType: PREFILLED_ITR1_JSON_DOCUMENT_TYPE,
+	schemaVersion: PREFILLED_ITR1_JSON_SCHEMA_VERSION,
+} as const;
+
+export const PREFILLED_ITR1_SENTINEL_SECTION_17_1_SALARY = "12,00,000";
+export const PREFILLED_ITR1_SENTINEL_EXEMPT_ALLOWANCES = "1,50,000";
+export const PREFILLED_ITR1_SENTINEL_TAXABLE_SALARY = "10,50,000";
+
+export const PREFILLED_ITR1_SALARY_INFORMATION = Object.freeze({
+	section17_1Salary: PREFILLED_ITR1_SENTINEL_SECTION_17_1_SALARY,
+	exemptAllowancesSection10: PREFILLED_ITR1_SENTINEL_EXEMPT_ALLOWANCES,
+	taxableSalaryTotal: PREFILLED_ITR1_SENTINEL_TAXABLE_SALARY,
+});
+
+// Record two omits taxDeducted so tests can prove that an absent amount
+// property stays unknown instead of becoming zero.
+export const PREFILLED_ITR1_TDS_RECORD_ONE = Object.freeze({
+	serialNumber: "1",
+	deductorName: "OpenITR Synthetic Employer Private Limited",
+	deductorTan: "MUMA12345B",
+	amountPaidCredited: FORM26AS_SENTINEL_PAID_CREDITED,
+	taxDeducted: FORM26AS_SENTINEL_TAX_DEDUCTED,
+	tdsDeposited: FORM26AS_SENTINEL_TDS_DEPOSITED,
+});
+
+export const PREFILLED_ITR1_TDS_RECORD_TWO = Object.freeze({
+	serialNumber: "2",
+	deductorName: "OpenITR Synthetic Contractor",
+	deductorTan: "PUNE23456C",
+	amountPaidCredited: FORM26AS_SENTINEL_CONTRACTOR_PAID,
+	tdsDeposited: FORM26AS_SENTINEL_CONTRACTOR_DEPOSITED,
+});
+
+export type PrefilledItr1JsonFixtureOptions = Readonly<{
+	documentType?: string;
+	schemaVersion?: string;
+	salaryInformation?: Readonly<Record<string, unknown>>;
+	tdsOnSalary?: readonly unknown[];
+	omitSalaryInformation?: boolean;
+	omitTdsOnSalary?: boolean;
+}>;
+
+export const createPrefilledItr1JsonFixture = (
+	options: PrefilledItr1JsonFixtureOptions = {},
+): string =>
+	JSON.stringify({
+		...PREFILLED_ITR1_JSON_FIXTURE_MARKERS,
+		...(options.documentType === undefined
+			? {}
+			: { documentType: options.documentType }),
+		...(options.schemaVersion === undefined
+			? {}
+			: { schemaVersion: options.schemaVersion }),
+		...(options.omitSalaryInformation === true
+			? {}
+			: {
+					salaryInformation:
+						options.salaryInformation ??
+						PREFILLED_ITR1_SALARY_INFORMATION,
+				}),
+		...(options.omitTdsOnSalary === true
+			? {}
+			: {
+					tdsOnSalary:
+						options.tdsOnSalary ?? [
+							PREFILLED_ITR1_TDS_RECORD_ONE,
+							PREFILLED_ITR1_TDS_RECORD_TWO,
+						],
+				}),
+	});

@@ -1,7 +1,7 @@
 import type { DocumentReviewIssue, Sha256Digest } from "@openitr/model";
 
 import type { AisJsonRevisionDocument } from "./ais-json-revision";
-import { isRecordObject } from "./ais-json-revision";
+import { isRecordObject } from "../extraction-support";
 import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import type { AdapterIdentity } from "../extraction-support";
 import type {
