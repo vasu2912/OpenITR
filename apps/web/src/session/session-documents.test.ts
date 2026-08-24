@@ -15,6 +15,7 @@ import {
 	parseTemplateRevision,
 } from "@openitr/model";
 import {
+	createAisCsvBankInterestFixture,
 	createAisJsonBankInterestFixture,
 	createAisJsonFixture,
 	createAmbiguousPdfFixture,
@@ -681,6 +682,62 @@ describe("observation extraction lifecycle", () => {
 				"bank-interest.savings-account",
 				"7890.25",
 				"/interestInformation/bankInterest/0",
+			],
+		]);
+		expect(record.issues).toEqual([]);
+
+		session.stop();
+	});
+
+	test("extracts bank-interest observations from an identified AIS CSV document", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-ais-export.csv",
+					bytes: utf8Bytes(createAisCsvBankInterestFixture()),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => extractionRecords(session)[0]?.status === "done");
+
+		const record = extractionRecords(session)[0];
+		expect(record?.status).toBe("done");
+		if (record?.status !== "done") {
+			throw new Error("extraction did not complete");
+		}
+		expect(record.observations).toEqual([]);
+		expect(
+			record.bankInterestObservations.map((observation) => {
+				const { evidence } = observation;
+				if (evidence.kind !== "csv-record-column") {
+					throw new Error(
+						"an AIS CSV observation must carry CSV record evidence",
+					);
+				}
+				return [
+					observation.factKey,
+					String(observation.normalizedValue),
+					[
+						evidence.line,
+						evidence.columnIndex,
+						evidence.columnHeader,
+						evidence.rawValue,
+					],
+				];
+			}),
+		).toEqual([
+			[
+				"bank-interest.deposits",
+				"45678.9",
+				[6, 3, "interestAmount", '"45,678.90"'],
+			],
+			[
+				"bank-interest.savings-account",
+				"7890.25",
+				[5, 3, "interestAmount", '"7,890.25"'],
 			],
 		]);
 		expect(record.issues).toEqual([]);
