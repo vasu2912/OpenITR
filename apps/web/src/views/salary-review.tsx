@@ -25,7 +25,32 @@ const ObservationEvidencePanel = ({
 	observation: SalaryObservation;
 	pages: PagesList;
 }>) => {
-	const page = pages.find((candidate) => candidate.page === observation.evidence.page);
+	const evidence = observation.evidence;
+	const locator =
+		evidence.kind === "pdf-page-region"
+			? (() => {
+					const page = pages.find(
+						(candidate) => candidate.page === evidence.page,
+					);
+					return {
+						heading: `Evidence — Page ${evidence.page}`,
+						description: `Evidence location: Page ${evidence.page} · x ${evidence.x} · y ${evidence.y} · width ${Math.round(evidence.width)} pt · height ${Math.round(evidence.height)} pt`,
+						lines: page?.lines ?? [],
+						isEvidenceLine: (text: string): boolean =>
+							text === observation.originalText,
+					};
+				})()
+			: {
+					heading: "Evidence — JSON Pointer",
+					description: `Evidence location: ${evidence.pointer}`,
+					lines: [
+						{
+							lineNumber: 1,
+							text: observation.originalText,
+						},
+					],
+					isEvidenceLine: (): boolean => true,
+				};
 	return (
 		<div
 			aria-label={`Evidence for ${observation.factKey}`}
@@ -33,18 +58,11 @@ const ObservationEvidencePanel = ({
 			id={`evidence-${observation.observationId}`}
 			role="region"
 		>
-			<p className="openitr-evidence-heading">
-				Evidence — Page {observation.evidence.page}
-			</p>
-			<p className="openitr-evidence-locator">
-				Evidence location: Page {observation.evidence.page} · x{" "}
-				{observation.evidence.x} · y {observation.evidence.y} · width{" "}
-				{Math.round(observation.evidence.width)} pt · height{" "}
-				{Math.round(observation.evidence.height)} pt
-			</p>
+			<p className="openitr-evidence-heading">{locator.heading}</p>
+			<p className="openitr-evidence-locator">{locator.description}</p>
 			<ol className="openitr-evidence-lines">
-				{(page?.lines ?? []).map((line) => {
-					const isEvidence = line.text === observation.originalText;
+				{locator.lines.map((line) => {
+					const isEvidence = locator.isEvidenceLine(line.text);
 					return (
 						<li
 							aria-current={isEvidence ? "location" : undefined}

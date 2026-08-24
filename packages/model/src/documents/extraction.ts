@@ -14,6 +14,7 @@ import type {
 export const DOCUMENT_REVIEW_ISSUE_CODES = Object.freeze({
 	salaryFieldMissing: parseIssueCode("DOCUMENT_SALARY_FIELD_MISSING"),
 	salaryFieldAmbiguous: parseIssueCode("DOCUMENT_SALARY_FIELD_AMBIGUOUS"),
+	salaryFieldMalformed: parseIssueCode("DOCUMENT_SALARY_FIELD_MALFORMED"),
 	bankInterestSectionMissing: parseIssueCode(
 		"DOCUMENT_BANK_INTEREST_SECTION_MISSING",
 	),
@@ -45,6 +46,9 @@ export const SALARY_FIELD_MISSING_RECOVERY_ACTION =
 
 export const SALARY_FIELD_AMBIGUOUS_RECOVERY_ACTION =
 	"Select the official Form 16 download for the assessment year so each salary field appears exactly once.";
+
+export const SALARY_FIELD_MALFORMED_RECOVERY_ACTION =
+	"Select an unmodified official export so every printed salary field carries its amount as the reviewed layout prints it.";
 
 export const BANK_INTEREST_SECTION_MISSING_RECOVERY_ACTION =
 	"Select an official AIS export of the supported revision that includes the bank-interest section, or continue without bank-interest facts.";

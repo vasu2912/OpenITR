@@ -101,8 +101,17 @@ describe("Form 16 Part A salary extraction", () => {
 			x: 72,
 			y: ROW_BASELINE_Y[0],
 		});
-		expect(section17?.evidence.width).toBeGreaterThan(0);
-		expect(section17?.evidence.height).toBeGreaterThan(0);
+		expect(section17?.evidence.kind).toBe("pdf-page-region");
+		expect(
+			section17?.evidence.kind === "pdf-page-region"
+				? section17.evidence.width
+				: undefined,
+		).toBeGreaterThan(0);
+		expect(
+			section17?.evidence.kind === "pdf-page-region"
+				? section17.evidence.height
+				: undefined,
+		).toBeGreaterThan(0);
 
 		expect(exemptAllowances?.factKey).toBe(
 			"salary.exempt-allowances-section-10",
@@ -111,12 +120,21 @@ describe("Form 16 Part A salary extraction", () => {
 		expect(exemptAllowances?.originalText).toBe(
 			"Less: Allowance to the extent exempt u/s 10: Rs 1,50,000",
 		);
-		expect(exemptAllowances?.evidence.y).toBe(ROW_BASELINE_Y[1]);
+		expect(exemptAllowances?.evidence.kind).toBe("pdf-page-region");
+		expect(
+			exemptAllowances?.evidence.kind === "pdf-page-region"
+				? exemptAllowances.evidence.y
+				: undefined,
+		).toBe(ROW_BASELINE_Y[1]);
 
 		expect(taxable?.factKey).toBe("salary.taxable-total");
 		expect(taxable?.normalizedValue).toBe(1050000);
 		expect(taxable?.originalText).toBe("Taxable salary: Rs 10,50,000");
-		expect(taxable?.evidence.y).toBe(ROW_BASELINE_Y[2]);
+		expect(
+			taxable?.evidence.kind === "pdf-page-region"
+				? taxable.evidence.y
+				: undefined,
+		).toBe(ROW_BASELINE_Y[2]);
 
 		expect(outcome.pages).toHaveLength(1);
 		expect(outcome.pages[0]?.page).toBe(1);

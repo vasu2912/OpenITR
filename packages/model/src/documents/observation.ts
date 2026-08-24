@@ -88,7 +88,7 @@ export type SalaryObservation = Readonly<{
 	originalText: string;
 	normalizedValue: number;
 	transformationSteps: readonly ObservationTransformationStep[];
-	evidence: PdfEvidenceLocator;
+	evidence: PdfEvidenceLocator | JsonPointerEvidenceLocator;
 	ruleCitation: ExtractionRuleCitation;
 }>;
 
@@ -111,7 +111,8 @@ export type BankInterestObservation = Readonly<{
 // unknown and never become zero.
 export type TdsSourceRecord =
 	| TextTdsSourceRecord
-	| SpreadsheetTdsSourceRecord;
+	| SpreadsheetTdsSourceRecord
+	| JsonTdsSourceRecord;
 
 // A Part I record read from the plain-text export. The record occupies one
 // line, so its location is that line's 1-based number.
@@ -127,13 +128,28 @@ export type TextTdsSourceRecord = Readonly<{
 	tdsDepositedRaw: string | undefined;
 }>;
 
-// A Part I record read from the spreadsheet export. The record occupies one
+// A Part I record read from a spreadsheet export. The record occupies one
 // row of the reviewed sheet, so its location is that sheet and the row's
 // 1-based number.
 export type SpreadsheetTdsSourceRecord = Readonly<{
 	medium: "spreadsheet";
 	sheet: string;
 	rowNumber: number;
+	serialNumber: string;
+	deductorName: string;
+	deductorTan: string;
+	amountPaidCreditedRaw: string | undefined;
+	taxDeductedRaw: string | undefined;
+	tdsDepositedRaw: string | undefined;
+}>;
+
+// A record read from a structured JSON source document. The record occupies
+// one array node, so its location is the RFC 6901 pointer to that node. An
+// undefined raw value means the property was absent; an empty string means
+// it carried an empty value. Both states stay unknown and never become zero.
+export type JsonTdsSourceRecord = Readonly<{
+	medium: "json";
+	pointer: string;
 	serialNumber: string;
 	deductorName: string;
 	deductorTan: string;
@@ -151,7 +167,10 @@ export type TdsObservation = Readonly<{
 	originalValue: string;
 	normalizedValue: ExactMoney;
 	transformationSteps: readonly ObservationTransformationStep[];
-	evidence: TextLineRangeEvidenceLocator | SpreadsheetEvidenceLocator;
+	evidence:
+		| TextLineRangeEvidenceLocator
+		| SpreadsheetEvidenceLocator
+		| JsonPointerEvidenceLocator;
 	ruleCitation: ExtractionRuleCitation;
 	record: TdsSourceRecord;
 }>;
