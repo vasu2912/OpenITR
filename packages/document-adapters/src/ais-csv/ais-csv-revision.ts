@@ -2,11 +2,12 @@ export const AIS_CSV_SUPPORTED_DOCUMENT_TYPE = "AIS";
 export const AIS_CSV_SUPPORTED_SCHEMA_VERSION = "2026-27";
 
 // The reviewed layout is exactly two marker lines, then optionally one
-// "section,bankInterest" block: a section marker line, one reviewed column
-// header row, and zero or more four-cell record rows. Anything else,
-// including interior blank lines, extra sections, reordered or renamed
-// headers, ragged rows, and broken quoting, is an unsupported revision.
-export const AIS_CSV_BANK_INTEREST_SECTION_MARKER_LINE = "section,bankInterest";
+// bank-interest block: a section marker line, one reviewed column header
+// row, and zero or more four-cell record rows. Anything else, including
+// interior blank lines, extra sections, reordered or renamed headers,
+// ragged rows, and broken quoting, is an unsupported revision.
+export const AIS_CSV_BANK_INTEREST_SECTION_KEY = "bankInterest";
+export const AIS_CSV_BANK_INTEREST_SECTION_MARKER_LINE = `section,${AIS_CSV_BANK_INTEREST_SECTION_KEY}`;
 
 export const AIS_CSV_BANK_INTEREST_COLUMN_HEADERS = Object.freeze([
 	"recordCategory",
@@ -31,14 +32,14 @@ export type AisCsvRecordRow = Readonly<{
 export type AisCsvRevisionDocument = Readonly<{
 	hasBankInterestSection: boolean;
 	bankInterestRows: readonly AisCsvRecordRow[];
-	columnHeaders: readonly string[];
 }>;
 
 export type AisCsvRevisionParseOutcome =
 	| Readonly<{ kind: "supported"; document: AisCsvRevisionDocument }>
 	| Readonly<{ kind: "unsupported" }>;
 
-const splitLogicalLines = (text: string): string[] => text.split(/\r\n|\r|\n/);
+const splitPhysicalLines = (text: string): string[] =>
+	text.split(/\r\n|\r|\n/);
 
 type CsvLineParseOutcome = readonly AisCsvCell[] | undefined;
 
@@ -123,7 +124,7 @@ const headerRowMatches = (
 export const parseAisCsvRevision = (
 	text: string,
 ): AisCsvRevisionParseOutcome => {
-	const lines = splitLogicalLines(text);
+	const lines = splitPhysicalLines(text);
 	while (lines.at(-1) === "") {
 		lines.pop();
 	}
@@ -158,7 +159,13 @@ export const parseAisCsvRevision = (
 	const bankInterestRows: AisCsvRecordRow[] = [];
 	const sectionRow: AisCsvRecordRow | undefined = rows[cursor];
 	if (sectionRow !== undefined) {
-		if (!markerRowMatches(sectionRow, "section", "bankInterest")) {
+		if (
+			!markerRowMatches(
+				sectionRow,
+				"section",
+				AIS_CSV_BANK_INTEREST_SECTION_KEY,
+			)
+		) {
 			return { kind: "unsupported" };
 		}
 		cursor += 1;
@@ -185,7 +192,6 @@ export const parseAisCsvRevision = (
 		document: {
 			hasBankInterestSection: sectionRow !== undefined,
 			bankInterestRows,
-			columnHeaders: [...AIS_CSV_BANK_INTEREST_COLUMN_HEADERS],
 		},
 	};
 };

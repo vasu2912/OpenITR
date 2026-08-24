@@ -21,9 +21,15 @@ import type {
 } from "./ais-csv-revision";
 import { AIS_CSV_BANK_INTEREST_COLUMN_HEADERS } from "./ais-csv-revision";
 
-const AMOUNT_COLUMN_INDEX = AIS_CSV_BANK_INTEREST_COLUMN_HEADERS.findIndex(
-	(header) => header === "interestAmount",
-);
+// Cell positions inside the reviewed record layout, aligned with the
+// AIS_CSV_BANK_INTEREST_COLUMN_HEADERS order the revision gate enforces.
+const CATEGORY_COLUMN_INDEX = 0;
+const INSTITUTION_COLUMN_INDEX = 1;
+const ACCOUNT_COLUMN_INDEX = 2;
+const AMOUNT_COLUMN_INDEX = 3;
+
+const AMOUNT_COLUMN_HEADER =
+	AIS_CSV_BANK_INTEREST_COLUMN_HEADERS[AMOUNT_COLUMN_INDEX];
 
 type RowParseOutcome =
 	| Readonly<{ kind: "parsed"; record: CanonicalBankInterestRecord }>
@@ -45,14 +51,14 @@ const amountCellOf = (row: AisCsvRecordRow): AmountCell | undefined => {
 
 const parseRow = (row: AisCsvRecordRow): RowParseOutcome => {
 	const categoryDefinition = bankInterestCategoryByCategoryName(
-		row.cells[0]?.value,
+		row.cells[CATEGORY_COLUMN_INDEX]?.value,
 	);
 	if (categoryDefinition === undefined) {
 		return { kind: "category-unknown" };
 	}
 
-	const institutionName = row.cells[1]?.value.trim();
-	const maskedAccountNumber = row.cells[2]?.value.trim();
+	const institutionName = row.cells[INSTITUTION_COLUMN_INDEX]?.value.trim();
+	const maskedAccountNumber = row.cells[ACCOUNT_COLUMN_INDEX]?.value.trim();
 	const amountCell = amountCellOf(row);
 	const amount =
 		amountCell === undefined
@@ -87,7 +93,7 @@ const parseRow = (row: AisCsvRecordRow): RowParseOutcome => {
 				kind: "csv-record-column",
 				line: row.line,
 				columnIndex: AMOUNT_COLUMN_INDEX,
-				columnHeader: "interestAmount",
+				columnHeader: AMOUNT_COLUMN_HEADER,
 				rawValue: amountCell.raw,
 			},
 			observationIdKey,

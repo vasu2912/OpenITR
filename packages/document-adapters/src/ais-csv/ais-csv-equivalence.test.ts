@@ -92,14 +92,22 @@ describe("equivalent AIS JSON and AIS CSV fixtures", () => {
 		).toEqual(["ais-json", "ais-json"]);
 		expect(csvOutcome.issues).toEqual(jsonOutcome.issues);
 
-		for (const observation of csvOutcome.bankInterestObservations) {
-			expect(csvLocatorSansLine(observation)).toEqual({
+		expect(
+			csvOutcome.bankInterestObservations.map(csvLocatorSansLine),
+		).toEqual([
+			{
 				kind: "csv-record-column",
 				columnIndex: 3,
 				columnHeader: "interestAmount",
-				rawValue: `"${observation.originalValue.replace(/^"|"$/g, "")}"`,
-			});
-		}
+				rawValue: '"45,678.90"',
+			},
+			{
+				kind: "csv-record-column",
+				columnIndex: 3,
+				columnHeader: "interestAmount",
+				rawValue: '"7,890.25"',
+			},
+		]);
 	});
 
 	test("feed downstream totals that do not depend on the source representation", async () => {
