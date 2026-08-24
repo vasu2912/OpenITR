@@ -770,7 +770,9 @@ describe("observation extraction lifecycle", () => {
 			record.tdsObservations.map((observation) => [
 				observation.factKey,
 				String(observation.normalizedValue),
-				[observation.evidence.firstLine, observation.evidence.lastLine],
+				observation.evidence.kind === "text-line-range"
+					? [observation.evidence.firstLine, observation.evidence.lastLine]
+					: undefined,
 			]),
 		).toEqual([
 			["tds.amount-paid-credited", "1000000", [7, 7]],

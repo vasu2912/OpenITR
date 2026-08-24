@@ -27,6 +27,20 @@ export type TextLineRangeEvidenceLocator = Readonly<{
 	lastLine: number;
 }>;
 
+// One cell in a spreadsheet source document, keeping the reviewed sheet and
+// column header names, the cell's A1-style address, its 1-based row, the
+// zero-based column position, and the cell's exact stored text, so a
+// workbook export can point back to the exact value it was read from.
+export type SpreadsheetEvidenceLocator = Readonly<{
+	kind: "spreadsheet-cell";
+	sheet: string;
+	cell: string;
+	rowNumber: number;
+	columnIndex: number;
+	columnHeader: string;
+	rawValue: string;
+}>;
+
 // A record row and column in a CSV source document, keeping the 1-based
 // source line of the record, the zero-based column position with its
 // reviewed header text, and the cell's exact characters including any
@@ -95,12 +109,34 @@ export type BankInterestObservation = Readonly<{
 // export printed them. An undefined raw value means the export printed no
 // cell; an empty string means it printed a blank one. Both states stay
 // unknown and never become zero.
-export type TdsSourceRecord = Readonly<{
+export type TdsSourceRecord =
+	| TextTdsSourceRecord
+	| SpreadsheetTdsSourceRecord;
+
+// A Part I record read from the plain-text export. The record occupies one
+// line, so its location is that line's 1-based number.
+export type TextTdsSourceRecord = Readonly<{
+	medium: "text";
 	serialNumber: string;
 	deductorName: string;
 	deductorTan: string;
 	firstLine: number;
 	lastLine: number;
+	amountPaidCreditedRaw: string | undefined;
+	taxDeductedRaw: string | undefined;
+	tdsDepositedRaw: string | undefined;
+}>;
+
+// A Part I record read from the spreadsheet export. The record occupies one
+// row of the reviewed sheet, so its location is that sheet and the row's
+// 1-based number.
+export type SpreadsheetTdsSourceRecord = Readonly<{
+	medium: "spreadsheet";
+	sheet: string;
+	rowNumber: number;
+	serialNumber: string;
+	deductorName: string;
+	deductorTan: string;
 	amountPaidCreditedRaw: string | undefined;
 	taxDeductedRaw: string | undefined;
 	tdsDepositedRaw: string | undefined;
@@ -115,7 +151,7 @@ export type TdsObservation = Readonly<{
 	originalValue: string;
 	normalizedValue: ExactMoney;
 	transformationSteps: readonly ObservationTransformationStep[];
-	evidence: TextLineRangeEvidenceLocator;
+	evidence: TextLineRangeEvidenceLocator | SpreadsheetEvidenceLocator;
 	ruleCitation: ExtractionRuleCitation;
 	record: TdsSourceRecord;
 }>;
