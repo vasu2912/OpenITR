@@ -13,6 +13,7 @@ import {
 	parseTemplateRevision,
 } from "@openitr/model";
 import {
+	createAisJsonBankInterestFixture,
 	createAisJsonFixture,
 	createAmbiguousPdfFixture,
 	createDamagedPdfFixture,
@@ -633,6 +634,49 @@ describe("observation extraction lifecycle", () => {
 		session.stop();
 	});
 
+	test("extracts bank-interest observations from an identified AIS JSON document", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-ais-export.json",
+					bytes: utf8Bytes(createAisJsonBankInterestFixture()),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => extractionRecords(session)[0]?.status === "done");
+
+		const record = extractionRecords(session)[0];
+		expect(record?.status).toBe("done");
+		if (record?.status !== "done") {
+			throw new Error("extraction did not complete");
+		}
+		expect(record.observations).toEqual([]);
+		expect(
+			record.bankInterestObservations.map((observation) => [
+				observation.factKey,
+				String(observation.normalizedValue),
+				observation.evidence.pointer,
+			]),
+		).toEqual([
+			[
+				"bank-interest.deposits",
+				"45678.9",
+				"/interestInformation/bankInterest/1",
+			],
+			[
+				"bank-interest.savings-account",
+				"7890.25",
+				"/interestInformation/bankInterest/0",
+			],
+		]);
+		expect(record.issues).toEqual([]);
+
+		session.stop();
+	});
+
 	test("a rejected file produces no extraction record or observations", async () => {
 		const session = createEligibleSession();
 
@@ -672,6 +716,7 @@ describe("observation extraction lifecycle", () => {
 					observations: [
 						fakeObservation(documentId, "salary.section-17-1", 1),
 					],
+					bankInterestObservations: [],
 					issues: [],
 					pages: [],
 				} satisfies DocumentExtractionOutcome),
@@ -703,6 +748,7 @@ describe("observation extraction lifecycle", () => {
 					observations: [
 						fakeObservation(documentId, "salary.section-17-1", 1),
 					],
+					bankInterestObservations: [],
 					issues: [],
 					pages: [],
 				} satisfies DocumentExtractionOutcome),
@@ -805,6 +851,7 @@ describe("new-regime salary computation exposure", () => {
 							1050000,
 						),
 					],
+					bankInterestObservations: [],
 					issues: [
 						{
 							code: DOCUMENT_REVIEW_ISSUE_CODES.salaryFieldAmbiguous,

@@ -1,6 +1,8 @@
 import type {
+	DocumentExtractionOutcome,
 	InspectableSourceDocument,
 } from "@openitr/model";
+import { createExtractionRejectionOutcome } from "@openitr/model";
 import { parseDocumentKind, parseTemplateRevision } from "@openitr/model";
 
 import type {
@@ -8,6 +10,8 @@ import type {
 	DocumentAdapterManifest,
 	SourceDocumentAdapter,
 } from "../registry";
+import { decodeUtf8Strict, parseAisJsonRevision } from "./ais-json-revision";
+import { extractBankInterestObservations } from "./bank-interest-extraction";
 
 export const AIS_JSON_MANIFEST: DocumentAdapterManifest = Object.freeze({
 	adapterId: "ais-json",
@@ -16,18 +20,6 @@ export const AIS_JSON_MANIFEST: DocumentAdapterManifest = Object.freeze({
 	templateRevision: parseTemplateRevision("2026-27"),
 });
 
-const matchesAisJsonSignature = (value: unknown): boolean => {
-	if (typeof value !== "object" || value === null) {
-		return false;
-	}
-	return (
-		"documentType" in value &&
-		value.documentType === "AIS" &&
-		"schemaVersion" in value &&
-		value.schemaVersion === "2026-27"
-	);
-};
-
 export const createAisJsonAdapter = (): SourceDocumentAdapter => ({
 	manifest: AIS_JSON_MANIFEST,
 	inspect: async (
@@ -35,21 +27,43 @@ export const createAisJsonAdapter = (): SourceDocumentAdapter => ({
 	): Promise<AdapterVerdict> => {
 		let decoded: string;
 		try {
-			decoded = new TextDecoder("utf-8", { fatal: true }).decode(input.bytes);
+			decoded = decodeUtf8Strict(input.bytes);
 		} catch {
 			return { verdict: "no-match" };
 		}
-
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(decoded) as unknown;
-		} catch {
-			return { verdict: "no-match" };
-		}
-
-		return matchesAisJsonSignature(parsed)
+		return parseAisJsonRevision(decoded).kind === "supported"
 			? { verdict: "exact-match" }
 			: { verdict: "no-match" };
 	},
-});
+	extract: async (input): Promise<DocumentExtractionOutcome> => {
+		let decoded: string;
+		try {
+			decoded = decodeUtf8Strict(input.bytes);
+		} catch {
+			return createExtractionRejectionOutcome(
+				"unknown-format",
+				input.identity,
+			);
+		}
+		const revision = parseAisJsonRevision(decoded);
+		if (revision.kind === "unsupported") {
+			return createExtractionRejectionOutcome(
+				"unknown-format",
+				input.identity,
+			);
+		}
 
+		const { observations, issues } = extractBankInterestObservations({
+			document: revision.document,
+			sourceDocumentId: input.identity,
+			adapter: AIS_JSON_MANIFEST,
+		});
+		return {
+			kind: "extracted",
+			observations: [],
+			bankInterestObservations: observations,
+			issues,
+			pages: [],
+		};
+	},
+});
