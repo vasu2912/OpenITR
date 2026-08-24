@@ -2,7 +2,7 @@ import {
 	computeSourceDocumentIdentity,
 	parseSha256Digest,
 } from "@openitr/model";
-import type { Sha256Digest } from "@openitr/model";
+import type { Sha256Digest, TdsObservation } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -17,6 +17,15 @@ import { createForm26AsTextAdapter } from "./form26as-text-adapter";
 const identityOf = async (text: string): Promise<Sha256Digest> =>
 	(await computeSourceDocumentIdentity({ bytes: utf8Bytes(text) }))
 		.contentSha256;
+
+const textEvidenceOf = (observation: TdsObservation) => {
+	if (observation.evidence.kind !== "text-line-range") {
+		throw new Error(
+			"a Form 26AS text observation must carry line-range evidence",
+		);
+	}
+	return observation.evidence;
+};
 
 const extractOf = async (text: string) => {
 	const adapter = createForm26AsTextAdapter();
@@ -69,6 +78,7 @@ describe("Form 26AS text TDS extraction", () => {
 		}
 		for (const observation of outcome.tdsObservations.slice(0, 3)) {
 			expect(observation.record).toEqual({
+				medium: "text",
 				serialNumber: "1",
 				deductorName: "OpenITR Synthetic Employer Private Limited",
 				deductorTan: "MUMA12345B",
@@ -81,6 +91,7 @@ describe("Form 26AS text TDS extraction", () => {
 		}
 		for (const observation of outcome.tdsObservations.slice(3)) {
 			expect(observation.record).toEqual({
+				medium: "text",
 				serialNumber: "2",
 				deductorName: "OpenITR Synthetic Contractor",
 				deductorTan: "PUNE23456C",
@@ -258,7 +269,7 @@ describe("Form 26AS text TDS extraction", () => {
 		expect(
 			new Set(
 				outcome.tdsObservations.map(
-					(observation) => observation.evidence.firstLine,
+					(observation) => textEvidenceOf(observation).firstLine,
 				),
 			),
 		).toEqual(new Set([7]));
@@ -408,7 +419,7 @@ describe("Form 26AS text TDS extraction", () => {
 		}
 		expect(
 			outcome.tdsObservations.map((observation) => [
-				observation.evidence.firstLine,
+				textEvidenceOf(observation).firstLine,
 				observation.factKey,
 			]),
 		).toEqual([
