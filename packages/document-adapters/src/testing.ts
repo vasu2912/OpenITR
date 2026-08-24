@@ -67,6 +67,74 @@ export const createAisJsonBankInterestFixture = (
 				}),
 	});
 
+// Machine-generated synthetic AIS CSV export for the one supported revision:
+// two marker lines, an optional bank-interest section with one reviewed
+// column header row, and one line per record with four cells. Amounts carry
+// Indian digit grouping so they always print quoted. The layout constants
+// below intentionally mirror the adapter's expectations without importing
+// them, so any drift fails tests.
+export const AIS_CSV_DOCUMENT_TYPE_MARKER = "documentType,AIS";
+export const AIS_CSV_SCHEMA_VERSION_MARKER = "schemaVersion,2026-27";
+export const AIS_CSV_SECTION_MARKER = "section,bankInterest";
+
+export const AIS_CSV_BANK_INTEREST_COLUMN_HEADER_LINE =
+	"recordCategory,institutionName,maskedAccountNumber,interestAmount";
+
+// Minimal RFC 4180 quoting: a cell prints quoted only when it carries a
+// comma, quote, or line break, and embedded quotes double.
+const csvCellText = (value: string): string =>
+	/[",]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+
+export type AisCsvBankInterestFixtureRow = Readonly<{
+	recordCategory: string;
+	institutionName: string;
+	maskedAccountNumber: string;
+	interestAmount: string;
+}>;
+
+export type AisCsvBankInterestFixtureOptions = Readonly<{
+	bankInterestRows?: readonly AisCsvBankInterestFixtureRow[];
+	omitBankInterestSection?: boolean;
+}>;
+
+export const createAisCsvBankInterestFixture = (
+	options: AisCsvBankInterestFixtureOptions = {},
+): string => {
+	if (options.omitBankInterestSection === true) {
+		return [
+			AIS_CSV_DOCUMENT_TYPE_MARKER,
+			AIS_CSV_SCHEMA_VERSION_MARKER,
+		].join("\n");
+	}
+	const rows =
+		options.bankInterestRows ??
+		[
+			AIS_BANK_INTEREST_SAVINGS_RECORD,
+			AIS_BANK_INTEREST_DEPOSITS_RECORD,
+		].map((record) => ({
+			recordCategory: record.recordCategory,
+			institutionName: record.institutionName,
+			maskedAccountNumber: record.maskedAccountNumber,
+			interestAmount: record.interestAmount,
+		}));
+	return [
+		AIS_CSV_DOCUMENT_TYPE_MARKER,
+		AIS_CSV_SCHEMA_VERSION_MARKER,
+		AIS_CSV_SECTION_MARKER,
+		AIS_CSV_BANK_INTEREST_COLUMN_HEADER_LINE,
+		...rows.map((row) =>
+			[
+				row.recordCategory,
+				row.institutionName,
+				row.maskedAccountNumber,
+				row.interestAmount,
+			]
+				.map(csvCellText)
+				.join(","),
+		),
+	].join("\n");
+};
+
 const FORM16_MARKER_LINES = [
 	"PART A",
 	"Certificate under section 203 of the Income-tax Act, 1961",
