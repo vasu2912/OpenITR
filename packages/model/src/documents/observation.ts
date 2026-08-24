@@ -27,10 +27,24 @@ export type TextLineRangeEvidenceLocator = Readonly<{
 	lastLine: number;
 }>;
 
+// A record row and column in a CSV source document, keeping the 1-based
+// source line of the record, the zero-based column position with its
+// reviewed header text, and the cell's exact characters including any
+// quoting, so a CSV export can point back to the exact value it was read
+// from.
+export type CsvEvidenceLocator = Readonly<{
+	kind: "csv-record-column";
+	line: number;
+	columnIndex: number;
+	columnHeader: string;
+	rawValue: string;
+}>;
+
 export type EvidenceLocator =
 	| PdfEvidenceLocator
 	| JsonPointerEvidenceLocator
-	| TextLineRangeEvidenceLocator;
+	| TextLineRangeEvidenceLocator
+	| CsvEvidenceLocator;
 
 export type ObservationTransformationOperation =
 	| "trim-whitespace"
@@ -73,7 +87,7 @@ export type BankInterestObservation = Readonly<{
 	originalValue: string;
 	normalizedValue: ExactMoney;
 	transformationSteps: readonly ObservationTransformationStep[];
-	evidence: JsonPointerEvidenceLocator;
+	evidence: JsonPointerEvidenceLocator | CsvEvidenceLocator;
 	ruleCitation: ExtractionRuleCitation;
 }>;
 

@@ -658,11 +658,19 @@ describe("observation extraction lifecycle", () => {
 		}
 		expect(record.observations).toEqual([]);
 		expect(
-			record.bankInterestObservations.map((observation) => [
-				observation.factKey,
-				String(observation.normalizedValue),
-				observation.evidence.pointer,
-			]),
+			record.bankInterestObservations.map((observation) => {
+				const { evidence } = observation;
+				if (evidence.kind !== "json-pointer") {
+					throw new Error(
+						"an AIS JSON observation must carry JSON Pointer evidence",
+					);
+				}
+				return [
+					observation.factKey,
+					String(observation.normalizedValue),
+					evidence.pointer,
+				];
+			}),
 		).toEqual([
 			[
 				"bank-interest.deposits",

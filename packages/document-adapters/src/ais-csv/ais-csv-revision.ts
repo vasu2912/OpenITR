@@ -29,6 +29,7 @@ export type AisCsvRecordRow = Readonly<{
 }>;
 
 export type AisCsvRevisionDocument = Readonly<{
+	hasBankInterestSection: boolean;
 	bankInterestRows: readonly AisCsvRecordRow[];
 	columnHeaders: readonly string[];
 }>;
@@ -182,6 +183,7 @@ export const parseAisCsvRevision = (
 	return {
 		kind: "supported",
 		document: {
+			hasBankInterestSection: sectionRow !== undefined,
 			bankInterestRows,
 			columnHeaders: [...AIS_CSV_BANK_INTEREST_COLUMN_HEADERS],
 		},

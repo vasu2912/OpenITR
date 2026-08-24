@@ -1,73 +1,34 @@
-import type {
-	BankInterestObservation,
-	DocumentReviewIssue,
-	Sha256Digest,
-} from "@openitr/model";
-import {
-	BANK_INTEREST_CATEGORY_UNKNOWN_RECOVERY_ACTION,
-	BANK_INTEREST_RECORD_AMBIGUOUS_RECOVERY_ACTION,
-	BANK_INTEREST_RECORD_MALFORMED_RECOVERY_ACTION,
-	BANK_INTEREST_SECTION_MISSING_RECOVERY_ACTION,
-	DOCUMENT_REVIEW_ISSUE_CODES,
-	parseFactKey,
-	parseRuleId,
-} from "@openitr/model";
+import type { DocumentReviewIssue, Sha256Digest } from "@openitr/model";
 
 import type { AisJsonRevisionDocument } from "./ais-json-revision";
 import { isRecordObject } from "./ais-json-revision";
 import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
-import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
 import type { AdapterIdentity } from "../extraction-support";
-import { compareByCodepoint } from "../extraction-support";
+import type {
+	BankInterestCategoryDefinition,
+	BankInterestExtraction,
+	CanonicalBankInterestRecord,
+} from "../ais-bank-interest-canonical";
+import {
+	BANK_INTEREST_CATEGORY_DEFINITIONS,
+	bankInterestCategoryByCategoryName,
+	bankInterestCategoryUnknownIssue,
+	bankInterestIdentityKey,
+	bankInterestRecordMalformedIssue,
+	bankInterestSectionMissingIssue,
+	foldCanonicalBankInterestRecords,
+} from "../ais-bank-interest-canonical";
 
-export type BankInterestCategoryDefinition = Readonly<{
-	category: string;
-	factKey: ReturnType<typeof parseFactKey>;
-	ruleId: ReturnType<typeof parseRuleId>;
-	description: string;
-}>;
-
-export const BANK_INTEREST_CATEGORY_DEFINITIONS: readonly BankInterestCategoryDefinition[] =
-	Object.freeze([
-		Object.freeze({
-			category: "SAVINGS_ACCOUNT",
-			factKey: parseFactKey("bank-interest.savings-account"),
-			ruleId: parseRuleId("AIS-BANK-INTEREST-SAVINGS-ACCOUNT"),
-			description:
-				"AIS bank-interest record for interest from a savings account.",
-		}),
-		Object.freeze({
-			category: "DEPOSITS",
-			factKey: parseFactKey("bank-interest.deposits"),
-			ruleId: parseRuleId("AIS-BANK-INTEREST-DEPOSITS"),
-			description: "AIS bank-interest record for interest from deposits.",
-		}),
-	]);
-
-const categoryByCategoryName = new Map(
-	BANK_INTEREST_CATEGORY_DEFINITIONS.map((definition) => [
-		definition.category,
-		definition,
-	]),
-);
+export type { BankInterestCategoryDefinition, BankInterestExtraction };
+export { BANK_INTEREST_CATEGORY_DEFINITIONS };
 
 const BANK_INTEREST_RECORD_POINTER_PREFIX = "/interestInformation/bankInterest";
 
 const pointerForRecord = (recordIndex: number): string =>
 	`${BANK_INTEREST_RECORD_POINTER_PREFIX}/${recordIndex}`;
 
-type ParsedBankInterestRecord = Readonly<{
-	identityKey: string;
-	categoryDefinition: BankInterestCategoryDefinition;
-	institutionName: string;
-	maskedAccountNumber: string;
-	amount: GroupedRupeeAmount;
-	originalValue: string;
-	recordIndex: number;
-}>;
-
 type RecordParseOutcome =
-	| Readonly<{ kind: "parsed"; record: ParsedBankInterestRecord }>
+	| Readonly<{ kind: "parsed"; record: CanonicalBankInterestRecord }>
 	| Readonly<{ kind: "category-unknown" }>
 	| Readonly<{
 			kind: "malformed";
@@ -81,10 +42,9 @@ const parseBankInterestRecord = (
 	if (!isRecordObject(record)) {
 		return { kind: "category-unknown" };
 	}
-	const categoryDefinition =
-		typeof record.recordCategory === "string"
-			? categoryByCategoryName.get(record.recordCategory)
-			: undefined;
+	const categoryDefinition = bankInterestCategoryByCategoryName(
+		record.recordCategory,
+	);
 	if (categoryDefinition === undefined) {
 		return { kind: "category-unknown" };
 	}
@@ -105,39 +65,27 @@ const parseBankInterestRecord = (
 		return { kind: "malformed", factKey: categoryDefinition.factKey };
 	}
 
+	const pointer = pointerForRecord(recordIndex);
 	return {
 		kind: "parsed",
 		record: {
-			identityKey: `${categoryDefinition.category}\u0000${trimmedInstitutionName}\u0000${trimmedMaskedAccountNumber}`,
 			categoryDefinition,
+			identityKey: bankInterestIdentityKey(
+				categoryDefinition,
+				trimmedInstitutionName,
+				trimmedMaskedAccountNumber,
+			),
 			institutionName: trimmedInstitutionName,
 			maskedAccountNumber: trimmedMaskedAccountNumber,
 			amount,
 			originalValue: JSON.stringify(record.interestAmount),
-			recordIndex,
+			evidence: { kind: "json-pointer", pointer },
+			observationIdKey: pointer,
+			sortKey: pointer,
 		},
 	};
 };
 
-const sectionMissingIssue = (): DocumentReviewIssue => ({
-	code: DOCUMENT_REVIEW_ISSUE_CODES.bankInterestSectionMissing,
-	severity: "review",
-	affectedFactKeys: BANK_INTEREST_CATEGORY_DEFINITIONS.map(
-		(definition) => definition.factKey,
-	),
-	recoveryAction: BANK_INTEREST_SECTION_MISSING_RECOVERY_ACTION,
-});
-
-export type BankInterestExtraction = Readonly<{
-	observations: readonly BankInterestObservation[];
-	issues: readonly DocumentReviewIssue[];
-}>;
-
-// Deterministic handling of duplicate and repeated records: records are
-// identified by category plus trimmed institution and masked account. A
-// repeat carrying the same normalized amount collapses into the first
-// occurrence's observation; a repeat carrying a different amount is
-// ambiguous and produces a review issue instead of any observation.
 export const extractBankInterestObservations = ({
 	document,
 	sourceDocumentId,
@@ -149,89 +97,40 @@ export const extractBankInterestObservations = ({
 }>): BankInterestExtraction => {
 	const section = document["interestInformation"];
 	if (!isRecordObject(section)) {
-		return { observations: [], issues: [sectionMissingIssue()] };
+		return {
+			observations: [],
+			issues: [bankInterestSectionMissingIssue()],
+		};
 	}
 	const records = section["bankInterest"];
 	if (!Array.isArray(records)) {
-		return { observations: [], issues: [sectionMissingIssue()] };
+		return {
+			observations: [],
+			issues: [bankInterestSectionMissingIssue()],
+		};
 	}
 
-	const issues: DocumentReviewIssue[] = [];
-	const firstRecordByIdentityKey = new Map<
-		string,
-		ParsedBankInterestRecord
-	>();
-	const ambiguousIdentityKeys = new Set<string>();
-
+	const parsedIssues: DocumentReviewIssue[] = [];
+	const canonicalRecords: CanonicalBankInterestRecord[] = [];
 	for (let index = 0; index < records.length; index += 1) {
 		const outcome = parseBankInterestRecord(records[index], index);
 		if (outcome.kind === "category-unknown") {
-			issues.push({
-				code: DOCUMENT_REVIEW_ISSUE_CODES.bankInterestCategoryUnknown,
-				severity: "review",
-				affectedFactKeys: [],
-				recoveryAction: BANK_INTEREST_CATEGORY_UNKNOWN_RECOVERY_ACTION,
-			});
+			parsedIssues.push(bankInterestCategoryUnknownIssue());
 			continue;
 		}
 		if (outcome.kind === "malformed") {
-			issues.push({
-				code: DOCUMENT_REVIEW_ISSUE_CODES.bankInterestRecordMalformed,
-				severity: "review",
-				affectedFactKeys: [outcome.factKey],
-				recoveryAction: BANK_INTEREST_RECORD_MALFORMED_RECOVERY_ACTION,
-			});
+			parsedIssues.push(
+				bankInterestRecordMalformedIssue(outcome.factKey),
+			);
 			continue;
 		}
-
-		const existing = firstRecordByIdentityKey.get(outcome.record.identityKey);
-		if (existing === undefined) {
-			firstRecordByIdentityKey.set(outcome.record.identityKey, outcome.record);
-			continue;
-		}
-		if (existing.amount.value !== outcome.record.amount.value) {
-			ambiguousIdentityKeys.add(outcome.record.identityKey);
-		}
+		canonicalRecords.push(outcome.record);
 	}
 
-	const keptRecords = [...firstRecordByIdentityKey.values()].filter(
-		(record) => !ambiguousIdentityKeys.has(record.identityKey),
-	);
-	for (const identityKey of ambiguousIdentityKeys) {
-		const record = firstRecordByIdentityKey.get(identityKey);
-		if (record === undefined) {
-			continue;
-		}
-		issues.push({
-			code: DOCUMENT_REVIEW_ISSUE_CODES.bankInterestRecordAmbiguous,
-			severity: "review",
-			affectedFactKeys: [record.categoryDefinition.factKey],
-			recoveryAction: BANK_INTEREST_RECORD_AMBIGUOUS_RECOVERY_ACTION,
-		});
-	}
-
-	const observations = keptRecords.map((record) => {
-		const pointer = pointerForRecord(record.recordIndex);
-		return {
-			observationId: `${record.categoryDefinition.factKey}@${sourceDocumentId}:${pointer}`,
-			factKey: record.categoryDefinition.factKey,
-			sourceDocumentId,
-			adapterId: adapter.adapterId,
-			adapterVersion: adapter.adapterVersion,
-			originalValue: record.originalValue,
-			normalizedValue: record.amount.value,
-			transformationSteps: record.amount.steps,
-			evidence: { kind: "json-pointer", pointer },
-			ruleCitation: {
-				ruleId: record.categoryDefinition.ruleId,
-				description: record.categoryDefinition.description,
-			},
-		} satisfies BankInterestObservation;
+	return foldCanonicalBankInterestRecords({
+		records: canonicalRecords,
+		parsedIssues,
+		sourceDocumentId,
+		adapter,
 	});
-	observations.sort(
-		(first, second) =>
-			compareByCodepoint(first.factKey, second.factKey) ||
-			compareByCodepoint(first.evidence.pointer, second.evidence.pointer),
-	);
-	return { observations, issues };
 };

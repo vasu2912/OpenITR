@@ -47,16 +47,16 @@ export const SALARY_FIELD_AMBIGUOUS_RECOVERY_ACTION =
 	"Select the official Form 16 download for the assessment year so each salary field appears exactly once.";
 
 export const BANK_INTEREST_SECTION_MISSING_RECOVERY_ACTION =
-	"Select an AIS JSON export of the supported revision that includes the bank-interest section, or continue without bank-interest facts.";
+	"Select an official AIS export of the supported revision that includes the bank-interest section, or continue without bank-interest facts.";
 
 export const BANK_INTEREST_RECORD_MALFORMED_RECOVERY_ACTION =
-	"Select an unmodified official AIS JSON export so every bank-interest record carries its category, institution, account, and amount.";
+	"Select an unmodified official AIS export so every bank-interest record carries its category, institution, account, and amount.";
 
 export const BANK_INTEREST_RECORD_AMBIGUOUS_RECOVERY_ACTION =
-	"Select the official AIS JSON export for the assessment year so each bank account appears once with one interest amount.";
+	"Select the official AIS export for the assessment year so each bank account appears once with one interest amount.";
 
 export const BANK_INTEREST_CATEGORY_UNKNOWN_RECOVERY_ACTION =
-	"Select an AIS JSON export whose bank-interest records use the categories this revision defines.";
+	"Select an official AIS export whose bank-interest records use the categories this revision defines.";
 
 export const TDS_SECTION_MISSING_RECOVERY_ACTION =
 	"Select a Form 26AS text export of the supported revision that includes Part I - Tax Deducted at Source, or continue without tax-deducted-at-source facts.";
