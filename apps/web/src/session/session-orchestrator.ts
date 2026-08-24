@@ -24,6 +24,7 @@ import { computeNewRegimeSalaryScenario } from "@openitr/itr1-ay2026-27";
 import type { NewRegimeSalaryComputation } from "@openitr/itr1-ay2026-27";
 import {
 	computeRefundOrAmountPayableEstimate,
+	estimateRefundOrAmountPayableFromSalaryScenario,
 } from "@openitr/itr1-ay2026-27";
 import type { RefundOrAmountPayableEstimate } from "@openitr/itr1-ay2026-27";
 import { createActor, setup } from "xstate";
@@ -158,7 +159,13 @@ const computeEstimateScenario = ({
 	rulePack,
 	scopeCheck,
 	extractions,
-}: SliceComputationInput): RefundOrAmountPayableEstimate | undefined => {
+	salaryComputation,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	scopeCheck: SessionContext["scopeCheck"];
+	extractions: readonly DocumentExtractionRecord[];
+	salaryComputation: NewRegimeSalaryComputation | undefined;
+}>): RefundOrAmountPayableEstimate | undefined => {
 	if (scopeCheck.kind !== "complete") {
 		return undefined;
 	}
@@ -185,6 +192,22 @@ const computeEstimateScenario = ({
 		documentId: record.documentId,
 		observations: acceptedObservationsOf(record, observations),
 	});
+	if (salaryComputation !== undefined) {
+		return estimateRefundOrAmountPayableFromSalaryScenario({
+			rulePack,
+			residentAnswer: scopeCheck.completion.answer,
+			salaryScenario: salaryComputation,
+			salaryDocuments: salaryRecords.map((record) =>
+				toDocument(record, record.observations),
+			),
+			bankInterestDocuments: bankInterestRecords.map((record) =>
+				toDocument(record, record.bankInterestObservations),
+			),
+			tdsDocuments: tdsRecords.map((record) =>
+				toDocument(record, record.tdsObservations),
+			),
+		});
+	}
 	return computeRefundOrAmountPayableEstimate({
 		rulePack,
 		residentAnswer: scopeCheck.completion.answer,
@@ -198,6 +221,30 @@ const computeEstimateScenario = ({
 			toDocument(record, record.tdsObservations),
 		),
 	});
+};
+
+// One derivation per session event: the salary scenario runs once and both
+// snapshot fields are built from it, so the two cards can never disagree.
+const deriveSessionComputations = ({
+	rulePack,
+	scopeCheck,
+	extractions,
+}: SliceComputationInput): {
+	salaryComputation: NewRegimeSalaryComputation | undefined;
+	estimateComputation: RefundOrAmountPayableEstimate | undefined;
+} => {
+	const salaryComputation = computeSalaryScenario({
+		rulePack,
+		scopeCheck,
+		extractions,
+	});
+	const estimateComputation = computeEstimateScenario({
+		rulePack,
+		scopeCheck,
+		extractions,
+		salaryComputation,
+	});
+	return { salaryComputation, estimateComputation };
 };
 
 const buildInspectableInput = (
@@ -468,51 +515,26 @@ const createSessionMachine = ({
 									candidate.candidateKey === event.candidateKey &&
 									candidate.status !== "removed",
 							),
-						actions: sessionSetup.assign({
-							documents: ({ context, event }) => {
-								if (event.type !== "document-removed") {
-									return context.documents;
-								}
-								return replaceCandidate(
+						actions: sessionSetup.assign(({ context, event }) => {
+							if (event.type !== "document-removed") {
+								return {};
+							}
+							const nextExtractions = context.extractions.filter(
+								(record) => record.candidateKey !== event.candidateKey,
+							);
+							return {
+								documents: replaceCandidate(
 									context.documents,
 									event.candidateKey,
 									(candidate) => withStatus(candidate, "removed"),
-								);
-							},
-							extractions: ({ context, event }) => {
-								if (event.type !== "document-removed") {
-									return context.extractions;
-								}
-								return context.extractions.filter(
-									(record) => record.candidateKey !== event.candidateKey,
-								);
-							},
-							salaryComputation: ({ context, event }) => {
-								if (event.type !== "document-removed") {
-									return context.salaryComputation;
-								}
-								return computeSalaryScenario({
+								),
+								extractions: nextExtractions,
+								...deriveSessionComputations({
 									rulePack: context.rulePack,
 									scopeCheck: context.scopeCheck,
-									extractions: context.extractions.filter(
-										(record) =>
-											record.candidateKey !== event.candidateKey,
-									),
-								});
-							},
-							estimateComputation: ({ context, event }) => {
-								if (event.type !== "document-removed") {
-									return context.estimateComputation;
-								}
-								return computeEstimateScenario({
-									rulePack: context.rulePack,
-									scopeCheck: context.scopeCheck,
-									extractions: context.extractions.filter(
-										(record) =>
-											record.candidateKey !== event.candidateKey,
-									),
-								});
-							},
+									extractions: nextExtractions,
+								}),
+							};
 						}),
 					},
 					"document-extraction-started": {
@@ -550,48 +572,24 @@ const createSessionMachine = ({
 									record.candidateKey === event.candidateKey &&
 									record.status === "extracting",
 							),
-						actions: sessionSetup.assign({
-							extractions: ({ context, event }) => {
-								if (event.type !== "document-extraction-settled") {
-									return context.extractions;
-								}
-								return replaceExtractionRecord(
-									context.extractions,
-									event.candidateKey,
-									(record) =>
-										settleExtractionRecord(record, event.outcome),
-								);
-							},
-							salaryComputation: ({ context, event }) => {
-								if (event.type !== "document-extraction-settled") {
-									return context.salaryComputation;
-								}
-								return computeSalaryScenario({
+						actions: sessionSetup.assign(({ context, event }) => {
+							if (event.type !== "document-extraction-settled") {
+								return {};
+							}
+							const nextExtractions = replaceExtractionRecord(
+								context.extractions,
+								event.candidateKey,
+								(record) =>
+									settleExtractionRecord(record, event.outcome),
+							);
+							return {
+								extractions: nextExtractions,
+								...deriveSessionComputations({
 									rulePack: context.rulePack,
 									scopeCheck: context.scopeCheck,
-									extractions: replaceExtractionRecord(
-										context.extractions,
-										event.candidateKey,
-										(record) =>
-											settleExtractionRecord(record, event.outcome),
-									),
-								});
-							},
-							estimateComputation: ({ context, event }) => {
-								if (event.type !== "document-extraction-settled") {
-									return context.estimateComputation;
-								}
-								return computeEstimateScenario({
-									rulePack: context.rulePack,
-									scopeCheck: context.scopeCheck,
-									extractions: replaceExtractionRecord(
-										context.extractions,
-										event.candidateKey,
-										(record) =>
-											settleExtractionRecord(record, event.outcome),
-									),
-								});
-							},
+									extractions: nextExtractions,
+								}),
+							};
 						}),
 					},
 					"document-extraction-cancelled": {
@@ -602,39 +600,21 @@ const createSessionMachine = ({
 									record.candidateKey === event.candidateKey &&
 									record.status === "extracting",
 							),
-						actions: sessionSetup.assign({
-							extractions: ({ context, event }) => {
-								if (event.type !== "document-extraction-cancelled") {
-									return context.extractions;
-								}
-								return context.extractions.filter(
-									(record) => record.candidateKey !== event.candidateKey,
-								);
-							},
-							salaryComputation: ({ context, event }) => {
-								if (event.type !== "document-extraction-cancelled") {
-									return context.salaryComputation;
-								}
-								return computeSalaryScenario({
+						actions: sessionSetup.assign(({ context, event }) => {
+							if (event.type !== "document-extraction-cancelled") {
+								return {};
+							}
+							const nextExtractions = context.extractions.filter(
+								(record) => record.candidateKey !== event.candidateKey,
+							);
+							return {
+								extractions: nextExtractions,
+								...deriveSessionComputations({
 									rulePack: context.rulePack,
 									scopeCheck: context.scopeCheck,
-									extractions: context.extractions.filter(
-										(record) => record.candidateKey !== event.candidateKey,
-									),
-								});
-							},
-							estimateComputation: ({ context, event }) => {
-								if (event.type !== "document-extraction-cancelled") {
-									return context.estimateComputation;
-								}
-								return computeEstimateScenario({
-									rulePack: context.rulePack,
-									scopeCheck: context.scopeCheck,
-									extractions: context.extractions.filter(
-										(record) => record.candidateKey !== event.candidateKey,
-									),
-								});
-							},
+									extractions: nextExtractions,
+								}),
+							};
 						}),
 					},
 				},
