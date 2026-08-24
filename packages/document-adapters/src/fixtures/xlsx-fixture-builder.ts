@@ -59,7 +59,7 @@ const escapeTextContent = (text: string): string =>
 
 const escapeAttributeValue = escapeTextContent;
 
-export const sharedStringsXmlOf = (items: readonly string[]): string =>
+const sharedStringsXmlOf = (items: readonly string[]): string =>
 	[
 		xmlDeclaration,
 		'<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
@@ -67,7 +67,7 @@ export const sharedStringsXmlOf = (items: readonly string[]): string =>
 		"</sst>",
 	].join("");
 
-export const worksheetXmlOf = (rows: readonly string[]): string =>
+const worksheetXmlOf = (rows: readonly string[]): string =>
 	[
 		xmlDeclaration,
 		'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',

@@ -2,8 +2,10 @@ import { unzipSync } from "fflate";
 
 import { decodeUtf8Strict } from "../extraction-support";
 import {
+	childElementsOf,
 	elementChildrenOf,
 	firstChildOf,
+	hasSignificantText,
 	parseXmlDocument,
 	textOf,
 	type XmlElementNode,
@@ -22,6 +24,20 @@ const REQUIRED_PARTS = Object.freeze([
 	"xl/sharedStrings.xml",
 	"xl/worksheets/sheet1.xml",
 ] as const);
+
+// Decompression caps enforced before any part inflates, so a crafted zip
+// bomb cannot turn a few kilobytes of input into gigabytes of browser
+// memory. Official statement exports stay orders of magnitude below these.
+const MAX_PART_BYTES = 4 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 12 * 1024 * 1024;
+
+// Every zip container starts with the local file header signature
+// "PK\u0003\u0004", so anything else can bail before decompression is even
+// attempted.
+const ZIP_SIGNATURE = [0x50, 0x4b, 0x03, 0x04] as const;
+
+const startsWithZipSignature = (bytes: Uint8Array): boolean =>
+	ZIP_SIGNATURE.every((byte, index) => bytes[index] === byte);
 
 const OFFICE_DOCUMENT_REL_TYPE =
 	"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument";
@@ -94,7 +110,7 @@ const hasExactlyAttributes = (
 	names.every((name) => node.attributes[name] !== undefined);
 
 const parseContentTypes = (root: XmlElementNode): boolean => {
-	if (root.name !== "Types") {
+	if (root.name !== "Types" || hasSignificantText(root)) {
 		return false;
 	}
 	const requiredDefaults = [
@@ -117,9 +133,7 @@ const parseContentTypes = (root: XmlElementNode): boolean => {
 				"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml",
 		},
 	];
-	const children = root.children.filter(
-		(child) => child.kind === "element",
-	) as readonly XmlElementNode[];
+	const children = childElementsOf(root);
 	if (children.length !== requiredDefaults.length + requiredOverrides.length) {
 		return false;
 	}
@@ -159,13 +173,11 @@ type PackageRelationship = Readonly<{
 const parseRelationships = (
 	root: XmlElementNode,
 ): readonly PackageRelationship[] | undefined => {
-	if (root.name !== "Relationships") {
+	if (root.name !== "Relationships" || hasSignificantText(root)) {
 		return undefined;
 	}
 	const relationships = elementChildrenOf(root, "Relationship");
-	if (
-		root.children.some((child) => child.kind === "text" && child.value.trim() !== "")
-	) {
+	if (relationships.length !== childElementsOf(root).length) {
 		return undefined;
 	}
 	return relationships.map((relationship) => ({
@@ -234,27 +246,24 @@ const parseCellReference = (
 const parseSharedStrings = (
 	root: XmlElementNode,
 ): readonly string[] | undefined => {
-	if (root.name !== "sst") {
+	if (root.name !== "sst" || hasSignificantText(root)) {
 		return undefined;
 	}
 	const items: string[] = [];
-	for (const child of root.children) {
-		if (child.kind === "text") {
-			if (child.value.trim() !== "") {
-				return undefined;
-			}
-			continue;
-		}
-		if (child.name !== "si") {
+	for (const item of childElementsOf(root)) {
+		if (item.name !== "si") {
 			return undefined;
 		}
-		const textElement = firstChildOf(child, "t");
+		const textElements = elementChildrenOf(item, "t");
 		if (
-			textElement === undefined ||
-			child.children.some(
-				(inner) => inner.kind === "element" && inner.name !== "t",
-			)
+			textElements.length !== 1 ||
+			childElementsOf(item).length !== 1 ||
+			hasSignificantText(item)
 		) {
+			return undefined;
+		}
+		const textElement = textElements[0];
+		if (textElement === undefined) {
 			return undefined;
 		}
 		items.push(textOf(textElement));
@@ -289,10 +298,12 @@ const parseWorksheetCell = (
 
 	const valueElement = firstChildOf(node, "v");
 	const cellType = node.attributes["t"];
-	if (valueElement === undefined && node.children.length > 0) {
-		return { kind: "unsupported" };
-	}
 	if (valueElement === undefined) {
+		// A printed blank cell carries neither a value nor a type attribute;
+		// a type without a value is not a shape the reviewed revision prints.
+		if (cellType !== undefined || node.children.length > 0) {
+			return { kind: "unsupported" };
+		}
 		return {
 			kind: "cell",
 			cell: {
@@ -325,14 +336,11 @@ const parseSheetData = (
 	sheetData: XmlElementNode,
 	sharedStrings: readonly string[],
 ): readonly SpreadsheetRow[] | undefined => {
+	if (hasSignificantText(sheetData)) {
+		return undefined;
+	}
 	const rows: SpreadsheetRow[] = [];
-	for (const child of sheetData.children) {
-		if (child.kind === "text") {
-			if (child.value.trim() !== "") {
-				return undefined;
-			}
-			continue;
-		}
+	for (const child of childElementsOf(sheetData)) {
 		if (child.name !== "row") {
 			return undefined;
 		}
@@ -348,16 +356,15 @@ const parseSheetData = (
 		if (previous !== undefined && rowNumber <= previous.rowNumber) {
 			return undefined;
 		}
+		const cellNodes = childElementsOf(child);
+		if (
+			cellNodes.length !== elementChildrenOf(child, "c").length ||
+			hasSignificantText(child)
+		) {
+			return undefined;
+		}
 		const cells: SpreadsheetCell[] = [];
-		for (const cellNode of elementChildrenOf(child, "c")) {
-			if (
-				child.children.some(
-					(inner) =>
-						inner.kind === "element" && inner.name !== "c",
-				)
-			) {
-				return undefined;
-			}
+		for (const cellNode of cellNodes) {
 			const outcome = parseWorksheetCell(cellNode, rowNumber, sharedStrings);
 			if (outcome.kind === "unsupported") {
 				return undefined;
@@ -383,9 +390,25 @@ const parseSheetData = (
 export const parseXlsxGrid = (
 	bytes: Uint8Array<ArrayBuffer>,
 ): XlsxParseOutcome => {
+	if (!startsWithZipSignature(bytes)) {
+		return { kind: "unsupported" };
+	}
+	// The filter bounds decompression only; it must not hide disallowed
+	// parts, because their presence is exactly what fails the workbook.
+	// Oversized or over-numerous entries stay uninflated, so the required
+	// parts go missing and the workbook fails closed under the memory cap.
+	let totalBytes = 0;
 	let parts: Record<string, Uint8Array>;
 	try {
-		parts = unzipSync(bytes) as Record<string, Uint8Array>;
+		parts = unzipSync(bytes, {
+			filter: (file) => {
+				if (file.originalSize > MAX_PART_BYTES) {
+					return false;
+				}
+				totalBytes += file.originalSize;
+				return totalBytes <= MAX_TOTAL_BYTES;
+			},
+		}) as Record<string, Uint8Array>;
 	} catch {
 		return { kind: "unsupported" };
 	}
@@ -422,15 +445,26 @@ export const parseXlsxGrid = (
 	}
 
 	const workbookRoot = parsePart(parts, "xl/workbook.xml");
-	if (workbookRoot === undefined || workbookRoot.name !== "workbook") {
+	if (
+		workbookRoot === undefined ||
+		workbookRoot.name !== "workbook" ||
+		hasSignificantText(workbookRoot)
+	) {
+		return { kind: "unsupported" };
+	}
+	if (childElementsOf(workbookRoot).length !== 1) {
 		return { kind: "unsupported" };
 	}
 	const sheets = exactlyOneChild(workbookRoot, "sheets");
-	if (sheets === undefined || workbookRoot.children.length !== 1) {
+	if (
+		sheets === undefined ||
+		hasSignificantText(sheets) ||
+		childElementsOf(sheets).length !== 1
+	) {
 		return { kind: "unsupported" };
 	}
 	const sheet = exactlyOneChild(sheets, "sheet");
-	if (sheet === undefined || sheets.children.length !== 1) {
+	if (sheet === undefined) {
 		return { kind: "unsupported" };
 	}
 	if (!hasExactlyAttributes(sheet, ["name", "sheetId", "r:id"])) {
@@ -474,11 +508,18 @@ export const parseXlsxGrid = (
 	}
 
 	const worksheetRoot = parsePart(parts, "xl/worksheets/sheet1.xml");
-	if (worksheetRoot === undefined || worksheetRoot.name !== "worksheet") {
+	if (
+		worksheetRoot === undefined ||
+		worksheetRoot.name !== "worksheet" ||
+		hasSignificantText(worksheetRoot)
+	) {
+		return { kind: "unsupported" };
+	}
+	if (childElementsOf(worksheetRoot).length !== 1) {
 		return { kind: "unsupported" };
 	}
 	const sheetData = exactlyOneChild(worksheetRoot, "sheetData");
-	if (sheetData === undefined || worksheetRoot.children.length !== 1) {
+	if (sheetData === undefined) {
 		return { kind: "unsupported" };
 	}
 	const rows = parseSheetData(sheetData, sharedStrings);
