@@ -40,7 +40,7 @@ const digestDifferences = (
 	expected: RulePackIdentity,
 	actual: Pick<RulePackIdentity, "sourceManifestSha256" | "compiledPackSha256">,
 ): string[] => {
-	const differences = [];
+	const differences: string[] = [];
 	if (expected.sourceManifestSha256 !== actual.sourceManifestSha256) {
 		differences.push(
 			`sourceManifestSha256 ${actual.sourceManifestSha256} != ${label} ${expected.sourceManifestSha256}`,
@@ -58,7 +58,7 @@ const identityDifferences = (
 	fresh: RulePackIdentity,
 	registered: RulePackIdentity,
 ): string[] => {
-	const differences = [];
+	const differences: string[] = [];
 	if (fresh.id !== registered.id) {
 		differences.push(`id ${registered.id} != freshly compiled ${fresh.id}`);
 	}

@@ -67,14 +67,16 @@ const syntheticManifest = ({
 	},
 });
 
+type FixtureRevisionEntry = {
+	identity: RulePackIdentity;
+	load: () => Promise<never>;
+};
+
 const registerArtifact = async (
 	manifests: readonly RulePackManifest[],
 ): Promise<{ artifact: TaxAnalysisModuleArtifact; identities: RulePackIdentity[] }> => {
-	const revisions = [] as {
-		identity: RulePackIdentity;
-		load: () => Promise<never>;
-	}[];
-	const identities = [];
+	const revisions: FixtureRevisionEntry[] = [];
+	const identities: RulePackIdentity[] = [];
 	for (const manifest of manifests) {
 		const compiled = await compileRulePack({ manifest });
 		identities.push(compiled.identity);

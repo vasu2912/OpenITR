@@ -98,7 +98,7 @@ Open `apps/web/src/app/release-manifest.ts` and point `activeAnalysisRelease.rul
 To learn the new digest, run the release gate test with any placeholder value:
 
 ```sh
-pnpm test -- apps/web/src/app/release-contribution-gate.test.ts
+pnpm exec vitest run apps/web/src/app/release-contribution-gate.test.ts
 ```
 
 The gate fails with a `checksum-mismatch` finding that prints the freshly compiled digest next to the placeholder. Paste the fresh value into the release manifest and rerun until the test passes. Determinism guarantees the value is stable.

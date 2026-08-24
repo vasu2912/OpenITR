@@ -31,7 +31,7 @@ const FORBIDDEN_JS_PATTERNS = [
 ];
 
 const REMOTE_ASSET_PATTERN =
-	/\s(?:src|href)=["']https?:\/\/[^"']+["']/g;
+	/\b(?:src|href)\s*=\s*["']?https?:\/\/[^\s"'>]+["']?/gi;
 
 const collectFiles = (dir, files = []) => {
 	for (const entry of readdirSync(dir)) {

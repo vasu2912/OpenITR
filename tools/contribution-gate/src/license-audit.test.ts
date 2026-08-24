@@ -73,7 +73,7 @@ describe("licence policy normalisation", () => {
 });
 
 describe("workspace licence audit", () => {
-	test("walks the production dependency closure and reports only disallowed licences", async () => {
+	test("walks the production dependency closure and reports only disallowed licences", () => {
 		const root = createSyntheticWorkspace({
 			"apps/web/package.json": {
 				name: "@test/web",
@@ -103,7 +103,7 @@ describe("workspace licence audit", () => {
 		});
 		cleanupRoots.push(root);
 
-		const result = await auditWorkspaceLicenses({ workspaceRoot: root });
+		const result = auditWorkspaceLicenses({ workspaceRoot: root });
 
 		expect(result.checkedPackages).toBe(3);
 		expect(result.violations).toEqual([
@@ -116,7 +116,7 @@ describe("workspace licence audit", () => {
 		]);
 	});
 
-	test("reports an unreadable dependency instead of crashing the audit", async () => {
+	test("reports an unreadable dependency instead of crashing the audit", () => {
 		const root = createSyntheticWorkspace({
 			"packages/model/package.json": {
 				name: "@test/model",
@@ -126,7 +126,7 @@ describe("workspace licence audit", () => {
 		});
 		cleanupRoots.push(root);
 
-		const result = await auditWorkspaceLicenses({ workspaceRoot: root });
+		const result = auditWorkspaceLicenses({ workspaceRoot: root });
 
 		expect(result.violations).toEqual([
 			{
@@ -140,10 +140,10 @@ describe("workspace licence audit", () => {
 });
 
 describe("this repository's production dependencies", () => {
-	test("stay inside the permissive allowlist", async () => {
+	test("stay inside the permissive allowlist", () => {
 		const repoRoot = new URL("../../..", import.meta.url).pathname;
 
-		const result = await auditWorkspaceLicenses({ workspaceRoot: repoRoot });
+		const result = auditWorkspaceLicenses({ workspaceRoot: repoRoot });
 
 		expect(result.checkedPackages).toBeGreaterThan(20);
 		expect(result.violations).toEqual([]);

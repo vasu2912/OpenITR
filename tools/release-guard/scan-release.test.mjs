@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { afterEach, describe, expect, test } from "vitest";
 
 const scriptUrl = new URL("./scan-release.mjs", import.meta.url);
-const scriptPath = new URL(".", import.meta.url).pathname;
 
 const runScanner = (distDir) =>
 	execFileSync(process.execPath, [scriptUrl.pathname, distDir], {
@@ -12,7 +12,7 @@ const runScanner = (distDir) =>
 	});
 
 const createTempDist = () => {
-	const root = mkdtempSync(join(scriptPath, "fixture-"));
+	const root = mkdtempSync(join(tmpdir(), "openitr-release-guard-"));
 	const dist = join(root, "dist");
 	mkdirSync(dist, { recursive: true });
 	return { root, dist };
@@ -105,24 +105,39 @@ describe("release guard", () => {
 		},
 	);
 
-	test("rejects a remote script reference in the entry HTML", () => {
-		const dist = writeDist({
-			"index.html":
-				'<script src="https://cdn.example.test/analytics.js"></script>',
-			"assets/index-HASH.js": "console.log(1);",
-		});
+	test.each([
+		[
+			"quoted",
+			'<script src="https://cdn.example.test/analytics.js"></script>',
+		],
+		[
+			"unquoted",
+			"<script src=https://cdn.example.test/tracker.js defer></script>",
+		],
+		[
+			"in the first attribute position",
+			'<a href="https://cdn.example.test/pixel.gif">x</a>',
+		],
+	])(
+		"rejects a remote HTML reference written %s",
+		(_label, html) => {
+			const dist = writeDist({
+				"index.html": html,
+				"assets/index-HASH.js": "console.log(1);",
+			});
 
-		let failure;
-		try {
-			runScanner(dist);
-		} catch (error) {
-			failure = error;
-		}
+			let failure;
+			try {
+				runScanner(dist);
+			} catch (error) {
+				failure = error;
+			}
 
-		expect(failure).toBeDefined();
-		const output = `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
-		expect(output).toContain("cdn.example.test");
-	});
+			expect(failure).toBeDefined();
+			const output = `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
+			expect(output).toContain("cdn.example.test");
+		},
+	);
 
 	test("fails when the release directory is missing", () => {
 		let failure;
