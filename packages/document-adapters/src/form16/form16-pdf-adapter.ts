@@ -230,6 +230,7 @@ export const createForm16PdfAdapter = (): SourceDocumentAdapter => ({
 			kind: "extracted",
 			observations,
 			bankInterestObservations: [],
+			tdsObservations: [],
 			issues,
 			pages: linesOutcome.pages.map((lines, pageIndex) => ({
 				page: pageIndex + 1,

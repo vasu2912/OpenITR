@@ -207,6 +207,7 @@ const settleExtractionRecord = (
 				status: "done",
 				observations: outcome.observations,
 				bankInterestObservations: outcome.bankInterestObservations,
+				tdsObservations: outcome.tdsObservations,
 				issues: outcome.issues,
 				pages: outcome.pages,
 			} satisfies DocumentExtractionRecord
