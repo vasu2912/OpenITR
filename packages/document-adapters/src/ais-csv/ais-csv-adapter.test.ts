@@ -201,8 +201,63 @@ describe("AIS CSV layout validation", () => {
 				"\n",
 			),
 		],
+		[
+			"a record row of only commas",
+			createAisCsvBankInterestFixture().replace(
+				/(?=DEPOSITS)/,
+				",,,\n",
+			),
+		],
 	] as const)("rejects %s before extracting any fact", async (_label, text) => {
 		await expectUnsupportedLayout(_label, text);
+	});
+
+	test("rejects a bare quote inside an unquoted cell as a broken layout", async () => {
+		await expectUnsupportedLayout(
+			"a bare quote inside an unquoted cell",
+			[
+				"documentType,AIS",
+				"schemaVersion,2026-27",
+				"section,bankInterest",
+				"recordCategory,institutionName,maskedAccountNumber,interestAmount",
+				'SAVINGS_ACCOUNT,OpenITR "Synthetic" Bank,XXXXXX0001,"7,890.25"',
+			].join("\n"),
+		);
+	});
+
+	test("decodes doubled quotes inside quoted cells and preserves their raw characters", async () => {
+		const outcome = await extractOf(
+			createAisCsvBankInterestFixture({
+				bankInterestRows: [
+					{
+						recordCategory: "SAVINGS_ACCOUNT",
+						institutionName: 'OpenITR "Synthetic" Bank',
+						maskedAccountNumber: "XXXXXX0001",
+						interestAmount: "7,890.25",
+					},
+					{
+						recordCategory: "SAVINGS_ACCOUNT",
+						institutionName: "OpenITR Synthetic Bank",
+						maskedAccountNumber: "XXXXXX0001",
+						interestAmount: "7,890.25",
+					},
+				],
+			}),
+		);
+
+		if (outcome.kind !== "extracted") {
+			throw new Error("expected an extracted outcome");
+		}
+		// The decoded quoted name differs from the plain name, so the two
+		// records stay distinct instead of collapsing into one account.
+		expect(outcome.bankInterestObservations).toHaveLength(2);
+		for (const observation of outcome.bankInterestObservations) {
+			expect(observation.evidence).toMatchObject({
+				kind: "csv-record-column",
+				rawValue: '"7,890.25"',
+			});
+		}
+		expect(outcome.issues).toEqual([]);
 	});
 
 	test("rejects bytes that are not valid UTF-8, including UTF-16 byte-order marks", async () => {

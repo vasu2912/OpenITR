@@ -4,10 +4,10 @@ export const AIS_CSV_SUPPORTED_SCHEMA_VERSION = "2026-27";
 // The reviewed layout is exactly two marker lines, then optionally one
 // bank-interest block: a section marker line, one reviewed column header
 // row, and zero or more four-cell record rows. Anything else, including
-// interior blank lines, extra sections, reordered or renamed headers,
-// ragged rows, and broken quoting, is an unsupported revision.
+// interior blank lines, blank record rows, extra sections, reordered or
+// renamed headers, ragged rows, and broken quoting, is an unsupported
+// revision.
 export const AIS_CSV_BANK_INTEREST_SECTION_KEY = "bankInterest";
-export const AIS_CSV_BANK_INTEREST_SECTION_MARKER_LINE = `section,${AIS_CSV_BANK_INTEREST_SECTION_KEY}`;
 
 export const AIS_CSV_BANK_INTEREST_COLUMN_HEADERS = Object.freeze([
 	"recordCategory",
@@ -44,51 +44,53 @@ const splitPhysicalLines = (text: string): string[] =>
 type CsvLineParseOutcome = readonly AisCsvCell[] | undefined;
 
 // Parses one physical line into cells. Quoted cells may carry commas and
-// doubled quotes; anything else that RFC 4180 would reject on a single line,
-// such as an unterminated quote or text after a closing quote, returns
-// undefined so the caller can fail closed.
+// doubled quotes; anything else RFC 4180 rejects on a single line, such as
+// an unterminated quote, text after a closing quote, or a bare quote in an
+// unquoted cell, returns undefined so the caller can fail closed.
 const parseCsvLine = (line: string): CsvLineParseOutcome => {
 	const cells: AisCsvCell[] = [];
 	let index = 0;
 	for (;;) {
 		const cellStart = index;
-		let value = "";
 		if (line[index] === '"') {
 			index += 1;
-			let closed = false;
+			const valueStart = index;
+			let closedAt = -1;
+			let carriesEscapedQuotes = false;
 			while (index < line.length) {
 				const character = line[index];
 				if (character === '"') {
 					if (line[index + 1] === '"') {
-						value += '"';
+						carriesEscapedQuotes = true;
 						index += 2;
 						continue;
 					}
+					closedAt = index;
 					index += 1;
-					closed = true;
 					break;
 				}
-				if (character !== undefined) {
-					value += character;
-				}
 				index += 1;
 			}
-			if (!closed) {
+			if (
+				closedAt === -1 ||
+				(index < line.length && line[index] !== ",")
+			) {
 				return undefined;
 			}
-			if (index < line.length && line[index] !== ",") {
-				return undefined;
-			}
-			cells.push({ value, raw: line.slice(cellStart, index) });
+			const inner = line.slice(valueStart, closedAt);
+			cells.push({
+				value: carriesEscapedQuotes ? inner.replace(/""/g, '"') : inner,
+				raw: line.slice(cellStart, index),
+			});
 		} else {
-			while (index < line.length && line[index] !== ",") {
-				const character = line[index];
-				if (character !== undefined) {
-					value += character;
-				}
-				index += 1;
+			const commaIndex = line.indexOf(",", cellStart);
+			const cellEnd = commaIndex === -1 ? line.length : commaIndex;
+			const text = line.slice(cellStart, cellEnd);
+			if (text.includes('"')) {
+				return undefined;
 			}
-			cells.push({ value, raw: line.slice(cellStart, index) });
+			cells.push({ value: text, raw: text });
+			index = cellEnd;
 		}
 		if (index >= line.length) {
 			return cells;
@@ -121,12 +123,21 @@ const headerRowMatches = (
 	);
 };
 
+// A record row whose every cell prints empty carries no category to name
+// and no amount to read; it is a broken layout rather than a reviewable
+// record, so the revision gate rejects it instead of guessing an issue.
+const isBlankRow = (row: AisCsvRecordRow): boolean =>
+	row.cells.every((cell) => cell.value === "");
+
 export const parseAisCsvRevision = (
 	text: string,
 ): AisCsvRevisionParseOutcome => {
 	const lines = splitPhysicalLines(text);
 	while (lines.at(-1) === "") {
 		lines.pop();
+	}
+	if (lines.length < 2) {
+		return { kind: "unsupported" };
 	}
 
 	const rows: AisCsvRecordRow[] = [];
@@ -178,6 +189,7 @@ export const parseAisCsvRevision = (
 			const row: AisCsvRecordRow | undefined = rows[cursor];
 			if (
 				row === undefined ||
+				isBlankRow(row) ||
 				row.cells.length !== AIS_CSV_BANK_INTEREST_COLUMN_HEADERS.length
 			) {
 				return { kind: "unsupported" };

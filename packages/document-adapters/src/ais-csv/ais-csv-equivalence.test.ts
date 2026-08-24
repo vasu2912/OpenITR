@@ -40,8 +40,9 @@ const extractWith = async (
 };
 
 // The canonical fact fields both representations must agree on. Identity
-// fields differ because the bytes differ; evidence differs because each
-// representation locates its records in its own way.
+// fields differ because the bytes differ; evidence and the raw value
+// differ because each representation records its own original
+// representation of the record.
 const canonicalFactOf = (observation: BankInterestObservation) => {
 	const {
 		sourceDocumentId: _sourceDocumentId,
@@ -49,6 +50,7 @@ const canonicalFactOf = (observation: BankInterestObservation) => {
 		adapterId: _adapterId,
 		adapterVersion: _adapterVersion,
 		evidence: _evidence,
+		originalValue: _originalValue,
 		...canonicalFact
 	} = observation;
 	return canonicalFact;
@@ -108,6 +110,46 @@ describe("equivalent AIS JSON and AIS CSV fixtures", () => {
 				rawValue: '"7,890.25"',
 			},
 		]);
+		// Each representation preserves its own raw amount text: the JSON
+		// export keeps its JSON encoding, the CSV keeps its exact cell.
+		expect(
+			jsonOutcome.bankInterestObservations.map(
+				(observation) => observation.originalValue,
+			),
+		).toEqual(['"45,678.90"', '"7,890.25"']);
+		expect(
+			csvOutcome.bankInterestObservations.map(
+				(observation) => observation.originalValue,
+			),
+		).toEqual(['"45,678.90"', '"7,890.25"']);
+	});
+
+	test("stays equivalent when amounts print without digit grouping", async () => {
+		const ungroupedSavings = {
+			recordCategory: "SAVINGS_ACCOUNT",
+			institutionName: "OpenITR Synthetic Bank",
+			maskedAccountNumber: "XXXXXX0001",
+			interestAmount: "500",
+		};
+		const jsonOutcome = await extractWith(
+			createAisJsonBankInterestFixture({ bankInterestRecords: [ungroupedSavings] }),
+			"json",
+		);
+		const csvOutcome = await extractWith(
+			createAisCsvBankInterestFixture({ bankInterestRows: [ungroupedSavings] }),
+			"csv",
+		);
+
+		expect(
+			jsonOutcome.bankInterestObservations.map(canonicalFactOf),
+		).toEqual(csvOutcome.bankInterestObservations.map(canonicalFactOf));
+		// Without a grouping comma the two raw representations visibly
+		// diverge, which is exactly why raw values sit outside fact
+		// equality.
+		expect(jsonOutcome.bankInterestObservations[0]?.originalValue).toBe(
+			'"500"',
+		);
+		expect(csvOutcome.bankInterestObservations[0]?.originalValue).toBe("500");
 	});
 
 	test("feed downstream totals that do not depend on the source representation", async () => {

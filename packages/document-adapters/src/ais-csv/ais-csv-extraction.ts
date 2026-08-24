@@ -39,16 +39,6 @@ type RowParseOutcome =
 			factKey: BankInterestCategoryDefinition["factKey"];
 	  }>;
 
-type AmountCell = Readonly<{ value: string; raw: string }>;
-
-const amountCellOf = (row: AisCsvRecordRow): AmountCell | undefined => {
-	const cell = row.cells[AMOUNT_COLUMN_INDEX];
-	if (cell === undefined) {
-		return undefined;
-	}
-	return { value: cell.value, raw: cell.raw };
-};
-
 const parseRow = (row: AisCsvRecordRow): RowParseOutcome => {
 	const categoryDefinition = bankInterestCategoryByCategoryName(
 		row.cells[CATEGORY_COLUMN_INDEX]?.value,
@@ -59,7 +49,7 @@ const parseRow = (row: AisCsvRecordRow): RowParseOutcome => {
 
 	const institutionName = row.cells[INSTITUTION_COLUMN_INDEX]?.value.trim();
 	const maskedAccountNumber = row.cells[ACCOUNT_COLUMN_INDEX]?.value.trim();
-	const amountCell = amountCellOf(row);
+	const amountCell = row.cells[AMOUNT_COLUMN_INDEX];
 	const amount =
 		amountCell === undefined
 			? undefined

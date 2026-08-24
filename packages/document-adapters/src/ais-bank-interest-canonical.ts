@@ -195,9 +195,11 @@ export const foldCanonicalBankInterestRecords = ({
 
 	return {
 		observations,
-		issues: issues.sort(
-			(first, second) =>
-				compareByCodepoint(issueOrderKey(first), issueOrderKey(second)),
-		),
+		issues: issues
+			.map((issue) => ({ issue, key: issueOrderKey(issue) }))
+			.sort((first, second) =>
+				compareByCodepoint(first.key, second.key),
+			)
+			.map((entry) => entry.issue),
 	};
 };
