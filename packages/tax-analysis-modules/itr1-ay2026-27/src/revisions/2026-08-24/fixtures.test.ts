@@ -90,6 +90,7 @@ describe("cited contribution example: revision 2026-08-24", () => {
 		expect(registeredIds).toEqual([
 			"itr1-ay2026-27.2026-08-22",
 			"itr1-ay2026-27.2026-08-24",
+			"itr1-ay2026-27.2026-08-24b",
 		]);
 
 		const retained = await registry.select(
