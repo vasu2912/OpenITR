@@ -10,6 +10,7 @@ import {
 } from "@openitr/model";
 
 import { createAisJsonAdapter } from "./ais-json/ais-json-adapter";
+import { createAisCsvAdapter } from "./ais-csv/ais-csv-adapter";
 import { createForm16PdfAdapter } from "./form16/form16-pdf-adapter";
 import { createForm26AsTextAdapter } from "./form26as/form26as-text-adapter";
 import { createForm16APdfAdapter } from "./form16a/form16a-pdf-adapter";
@@ -63,6 +64,7 @@ const FAILURE_PRIORITY = ["encrypted", "damaged", "image-only"] as const;
 
 const defaultAdapters = (): readonly SourceDocumentAdapter[] => [
 	createAisJsonAdapter(),
+	createAisCsvAdapter(),
 	createForm16PdfAdapter(),
 	createForm16APdfAdapter(),
 	createForm26AsTextAdapter(),
