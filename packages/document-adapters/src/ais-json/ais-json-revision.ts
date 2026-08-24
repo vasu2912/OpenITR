@@ -12,8 +12,11 @@ export const isRecordObject = (
 ): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
+// A single reusable decoder; decode() is stateless for non-streaming input.
+const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
+
 export const decodeUtf8Strict = (bytes: Uint8Array): string =>
-	new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+	utf8Decoder.decode(bytes);
 
 export const parseAisJsonRevision = (
 	text: string,

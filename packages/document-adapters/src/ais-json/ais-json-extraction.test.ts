@@ -1,4 +1,7 @@
-import { computeSourceDocumentIdentity } from "@openitr/model";
+import {
+	computeSourceDocumentIdentity,
+	parseSha256Digest,
+} from "@openitr/model";
 import type { Sha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
@@ -17,18 +20,23 @@ const identityOf = async (
 	return (await computeSourceDocumentIdentity({ bytes })).contentSha256;
 };
 
-const extractOf = async (text: string) => {
-	const bytes = utf8Bytes(text);
+const extractWithAdapter = async (
+	bytes: Uint8Array<ArrayBuffer>,
+	identity: Sha256Digest,
+) => {
 	const { extract } = createAisJsonAdapter();
 	if (extract === undefined) {
 		throw new Error("the AIS JSON adapter must support extraction");
 	}
 	return extract({
-		identity: await identityOf(text),
+		identity,
 		displayName: "synthetic-ais.json",
 		bytes,
 	});
 };
+
+const extractOf = async (text: string) =>
+	extractWithAdapter(utf8Bytes(text), await identityOf(text));
 
 describe("AIS JSON bank-interest extraction", () => {
 	test("extracts bank-interest records into canonical observations with identities, pointer evidence, and raw values", async () => {
@@ -127,6 +135,60 @@ describe("AIS JSON bank-interest extraction", () => {
 				affectedFactKeys: ["bank-interest.savings-account"],
 			},
 		]);
+	});
+
+	test("collapses a repeat whose institution or account differs only by surrounding whitespace", async () => {
+		const outcome = await extractOf(
+			createAisJsonBankInterestFixture({
+				bankInterestRecords: [
+					AIS_BANK_INTEREST_SAVINGS_RECORD,
+					{
+						...AIS_BANK_INTEREST_SAVINGS_RECORD,
+						institutionName: "  OpenITR Synthetic Bank  ",
+						maskedAccountNumber: " XXXXXX0001 ",
+					},
+				],
+			}),
+		);
+
+		if (outcome.kind !== "extracted") {
+			throw new Error("expected an extracted outcome");
+		}
+		expect(outcome.bankInterestObservations).toHaveLength(1);
+		expect(outcome.issues).toEqual([]);
+	});
+
+	test("extracts an empty bank-interest section cleanly without inventing issues", async () => {
+		const outcome = await extractOf(
+			createAisJsonBankInterestFixture({ bankInterestRecords: [] }),
+		);
+
+		if (outcome.kind !== "extracted") {
+			throw new Error("expected an extracted outcome");
+		}
+		expect(outcome.bankInterestObservations).toEqual([]);
+		expect(outcome.issues).toEqual([]);
+	});
+
+	test("keeps one review issue per offending record even when codes repeat", async () => {
+		const outcome = await extractOf(
+			createAisJsonBankInterestFixture({
+				bankInterestRecords: [
+					{ recordCategory: "POST_OFFICE_INTEREST" },
+					{ recordCategory: "LOTTERY" },
+				],
+			}),
+		);
+
+		if (outcome.kind !== "extracted") {
+			throw new Error("expected an extracted outcome");
+		}
+		expect(outcome.issues).toHaveLength(2);
+		for (const issue of outcome.issues) {
+			expect(String(issue.code)).toBe(
+				"DOCUMENT_BANK_INTEREST_CATEGORY_UNKNOWN",
+			);
+		}
 	});
 
 	test.each([
@@ -247,6 +309,20 @@ describe("AIS JSON bank-interest extraction", () => {
 
 	test("rejects bytes that are not JSON at all", async () => {
 		const outcome = await extractOf("definitely not json");
+
+		expect(outcome).toMatchObject({
+			kind: "rejected",
+			rejection: "unknown-format",
+		});
+	});
+
+	test("rejects bytes that are not valid UTF-8", async () => {
+		const bytes = new Uint8Array(new ArrayBuffer(4));
+		bytes.set([0xff, 0xfe, 0x7b, 0x7d]);
+		const outcome = await extractWithAdapter(
+			bytes,
+			parseSha256Digest("a".repeat(64)),
+		);
 
 		expect(outcome).toMatchObject({
 			kind: "rejected",
