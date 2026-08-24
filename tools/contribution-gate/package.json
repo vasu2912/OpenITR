@@ -1,0 +1,16 @@
+{
+	"name": "@openitr/contribution-gate",
+	"private": true,
+	"type": "module",
+	"exports": "./src/index.ts",
+	"scripts": {
+		"typecheck": "tsc --noEmit -p tsconfig.json"
+	},
+	"dependencies": {
+		"@openitr/model": "workspace:*",
+		"@openitr/rulepack-compiler": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/node": "^26.2.0"
+	}
+}

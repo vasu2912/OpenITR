@@ -797,13 +797,14 @@ Exact package versions belong to the lockfile and dependency policy. The archite
 OpenITR may use dependencies under these permissive licenses:
 
 - MIT.
+- 0BSD.
 - Apache-2.0.
 - BSD-2-Clause.
 - BSD-3-Clause.
 - ISC.
 - SIL-OFL-1.1 for fonts.
 
-Any license outside this allowlist blocks the release until the project changes the policy. The release rejects GPL, AGPL, SSPL, BUSL, Commons Clause, unlicensed packages, and packages with an unknown license.
+Any license outside this allowlist blocks the release until the project changes the policy. The release rejects GPL, AGPL, SSPL, BUSL, Commons Clause, unlicensed packages, and packages with an unknown license. `tools/contribution-gate` audits the production dependency closure of every workspace package against this allowlist on every test run.
 
 OpenITR can publish its own code under the MIT License. Dependencies retain their licenses and required notices.
 
