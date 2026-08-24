@@ -193,10 +193,28 @@ const replaceCandidate = (
 	update: (candidate: CandidateDocument) => CandidateDocument,
 ): readonly CandidateDocument[] =>
 	documents.map((candidate) =>
-		candidate.candidateKey === candidateKey
-			? update(candidate)
-			: candidate,
+		candidate.candidateKey === candidateKey ? update(candidate) : candidate,
 	);
+
+const settleExtractionRecord = (
+	record: DocumentExtractionRecord,
+	outcome: DocumentExtractionOutcome,
+): DocumentExtractionRecord =>
+	outcome.kind === "extracted"
+		? {
+				candidateKey: record.candidateKey,
+				documentId: record.documentId,
+				status: "done",
+				observations: outcome.observations,
+				issues: outcome.issues,
+				pages: outcome.pages,
+			} satisfies DocumentExtractionRecord
+		: {
+				candidateKey: record.candidateKey,
+				documentId: record.documentId,
+				status: "failed",
+				issue: outcome.issue,
+			} satisfies DocumentExtractionRecord;
 
 const withStatus = (
 	candidate: CandidateDocument,
@@ -451,21 +469,7 @@ const createSessionMachine = ({
 									context.extractions,
 									event.candidateKey,
 									(record) =>
-										event.outcome.kind === "extracted"
-											? {
-													candidateKey: record.candidateKey,
-													documentId: record.documentId,
-													status: "done",
-													observations: event.outcome.observations,
-													issues: event.outcome.issues,
-													pages: event.outcome.pages,
-												} satisfies DocumentExtractionRecord
-											: {
-													candidateKey: record.candidateKey,
-													documentId: record.documentId,
-													status: "failed",
-													issue: event.outcome.issue,
-												} satisfies DocumentExtractionRecord,
+										settleExtractionRecord(record, event.outcome),
 								);
 							},
 							salaryComputation: ({ context, event }) => {
@@ -479,21 +483,7 @@ const createSessionMachine = ({
 										context.extractions,
 										event.candidateKey,
 										(record) =>
-											event.outcome.kind === "extracted"
-												? {
-														candidateKey: record.candidateKey,
-														documentId: record.documentId,
-														status: "done",
-														observations: event.outcome.observations,
-														issues: event.outcome.issues,
-														pages: event.outcome.pages,
-													} satisfies DocumentExtractionRecord
-												: {
-														candidateKey: record.candidateKey,
-														documentId: record.documentId,
-														status: "failed",
-														issue: event.outcome.issue,
-													} satisfies DocumentExtractionRecord,
+											settleExtractionRecord(record, event.outcome),
 									),
 								});
 							},

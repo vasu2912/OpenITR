@@ -155,7 +155,7 @@ describe("one-employer new-regime salary scenario", () => {
 		expect(totalIncome.ruleId).toBe(
 			parseRuleId("ITR1-TOTAL-INCOME-ROUNDING-288A"),
 		);
-		expect(totalIncome.roundingMode).toBe("nearest-multiple-up");
+		expect(totalIncome.roundingMode).toBe("nearest-multiple-half-up");
 		expect(totalIncome.roundedValue).toBe("975000");
 
 		expect(
@@ -400,7 +400,10 @@ describe("accepted-fact enforcement fails closed", () => {
 // Every expectation below is an independently worked example: salary minus
 // the pinned 75,000 standard deduction, rounded under section 288A, run over
 // the FY 2025-26 new-regime schedule, adjusted, cess at four per cent, then
-// rounded under section 288B.
+// rounded under section 288B. Statutory half-way ties never arise inside this
+// scenario because section 288A fixes total income on a ten-rupee grid before
+// any percentage step; the exact-tie behaviour is pinned at the money
+// primitive level in packages/model/src/money/exact-money.test.ts.
 describe("statutory boundaries across the new-regime scenario", () => {
 	const scenario = (taxableTotal: number, answer = residentAnswer()) =>
 		computeOneEmployer(
@@ -540,44 +543,44 @@ describe("statutory boundaries across the new-regime scenario", () => {
 			},
 		],
 		[
-			"taxes the fifteen per cent band edge at sixteen lakh without relief",
+			"taxes the fifteen per cent band edge at sixteen lakh exactly",
 			{
-				taxableTotal: 1675010,
-				salaryTotal: "1675010",
-				taxableIncome: "1600010",
-				incomeTaxBeforeAdjustments: "120002",
+				taxableTotal: 1675000,
+				salaryTotal: "1675000",
+				taxableIncome: "1600000",
+				incomeTaxBeforeAdjustments: "120000",
 				rebateApplied: "0",
 				marginalReliefApplied: "0",
 				surcharge: "0",
-				cess: "4800.08",
+				cess: "4800",
 				finalTaxLiability: "124800",
 			},
 		],
 		[
-			"taxes the twenty per cent band edge at twenty lakh without relief",
+			"taxes the twenty per cent band edge at twenty lakh exactly",
 			{
-				taxableTotal: 2075010,
-				salaryTotal: "2075010",
-				taxableIncome: "2000010",
-				incomeTaxBeforeAdjustments: "200002.5",
+				taxableTotal: 2075000,
+				salaryTotal: "2075000",
+				taxableIncome: "2000000",
+				incomeTaxBeforeAdjustments: "200000",
 				rebateApplied: "0",
 				marginalReliefApplied: "0",
 				surcharge: "0",
-				cess: "8000.1",
+				cess: "8000",
 				finalTaxLiability: "208000",
 			},
 		],
 		[
-			"taxes the twenty-five per cent band edge at twenty-four lakh without relief",
+			"taxes the twenty-five per cent band edge at twenty-four lakh exactly",
 			{
-				taxableTotal: 2475010,
-				salaryTotal: "2475010",
-				taxableIncome: "2400010",
-				incomeTaxBeforeAdjustments: "300003",
+				taxableTotal: 2475000,
+				salaryTotal: "2475000",
+				taxableIncome: "2400000",
+				incomeTaxBeforeAdjustments: "300000",
 				rebateApplied: "0",
 				marginalReliefApplied: "0",
 				surcharge: "0",
-				cess: "12000.12",
+				cess: "12000",
 				finalTaxLiability: "312000",
 			},
 		],
@@ -635,6 +638,34 @@ describe("statutory boundaries across the new-regime scenario", () => {
 				surcharge: "258007",
 				cess: "113520.4",
 				finalTaxLiability: "2951530",
+			},
+		],
+		[
+			"eases twenty per cent surcharge into marginal relief ten rupees past two crore",
+			{
+				taxableTotal: 20075010,
+				salaryTotal: "20075010",
+				taxableIncome: "20000010",
+				incomeTaxBeforeAdjustments: "5580003",
+				rebateApplied: "0",
+				marginalReliefApplied: "0",
+				surcharge: "837007",
+				cess: "256680.4",
+				finalTaxLiability: "6673690",
+			},
+		],
+		[
+			"keeps twenty per cent surcharge at exactly five crore before the top tier starts",
+			{
+				taxableTotal: 50075000,
+				salaryTotal: "50075000",
+				taxableIncome: "50000000",
+				incomeTaxBeforeAdjustments: "14580000",
+				rebateApplied: "0",
+				marginalReliefApplied: "0",
+				surcharge: "2916000",
+				cess: "699840",
+				finalTaxLiability: "18195840",
 			},
 		],
 	])("%s", (_label, expected) => {

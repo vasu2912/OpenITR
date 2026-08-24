@@ -97,7 +97,13 @@ export const roundToNearestMultipleOf = (
 export const compareExactMoney = (
 	left: ExactMoney,
 	right: ExactMoney,
-): -1 | 0 | 1 => asExactDecimal(left).comparedTo(asExactDecimal(right)) as -1 | 0 | 1;
+): -1 | 0 | 1 => {
+	const comparison = asExactDecimal(left).comparedTo(asExactDecimal(right));
+	if (comparison < 0) {
+		return -1;
+	}
+	return comparison > 0 ? 1 : 0;
+};
 
 export const minExactMoney = (
 	left: ExactMoney,

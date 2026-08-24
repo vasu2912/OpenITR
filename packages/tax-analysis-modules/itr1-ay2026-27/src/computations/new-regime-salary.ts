@@ -110,15 +110,32 @@ export type ComputationNodeInput =
 			value: EligibilityAnswerValue;
 	  }>;
 
+// Stable operation names for trace nodes. The UI renders them as text, but
+// the closed union keeps producers and readers from drifting apart.
+export type ComputationOperation =
+	| "sum-of-accepted-observations"
+	| "subtract-exempt-allowances"
+	| "subtract-limited-to-zero"
+	| "round-to-nearest-multiple"
+	| "progressive-band-tax"
+	| "sum-of-bands"
+	| "rebate-minimum"
+	| "marginal-relief-cap"
+	| "not-applicable"
+	| "percent-with-threshold-relief"
+	| "percent-of";
+
+export type ComputationRoundingMode = "nearest-multiple-half-up";
+
 export type ComputationTraceNode = Readonly<{
 	nodeId: FactKey;
 	rulePackRevision: string;
 	ruleId: RuleId;
-	operation: string;
+	operation: ComputationOperation;
 	inputs: readonly ComputationNodeInput[];
 	unroundedValue: ExactMoney;
 	roundedValue: ExactMoney;
-	roundingMode?: "nearest-multiple-up";
+	roundingMode?: ComputationRoundingMode;
 	note?: string;
 }>;
 
@@ -174,16 +191,12 @@ const constantInput = (
 ): ComputationNodeInput => Object.freeze({ kind: "rule-pack-constant", name, wholeRupees });
 
 const wholeRupeeConstant = (
-	constants: CompiledNewRegimeTaxConstants,
-	pick: (record: CompiledNewRegimeTaxConstants) => number,
+	wholeRupees: number,
 	name: string,
-): { input: ComputationNodeInput; amount: ExactMoney } => {
-	const wholeRupees = pick(constants);
-	return {
-		input: constantInput(name, wholeRupees),
-		amount: exactMoneyFromWholeRupees(wholeRupees),
-	};
-};
+): { input: ComputationNodeInput; amount: ExactMoney } => ({
+	input: constantInput(name, wholeRupees),
+	amount: exactMoneyFromWholeRupees(wholeRupees),
+});
 
 // Progressive tax over the pinned schedule without emitting trace nodes; the
 // surcharge marginal-relief comparison needs this for threshold incomes.
@@ -351,33 +364,27 @@ export const computeNewRegimeSalaryScenario = ({
 	}
 
 	const standardDeduction = wholeRupeeConstant(
-		constants,
-		(record) => record.standardDeductionWholeRupees,
+		constants.standardDeductionWholeRupees,
 		"standard-deduction-section-16ia",
 	);
 	const roundingBase = wholeRupeeConstant(
-		constants,
-		(record) => record.totalIncomeRoundingBaseWholeRupees,
+		constants.totalIncomeRoundingBaseWholeRupees,
 		"total-income-rounding-base",
 	);
 	const taxRoundingBase = wholeRupeeConstant(
-		constants,
-		(record) => record.taxRoundingBaseWholeRupees,
+		constants.taxRoundingBaseWholeRupees,
 		"tax-rounding-base",
 	);
 	const rebateLimitIncome = wholeRupeeConstant(
-		constants,
-		(record) => record.rebateMaxTotalIncomeWholeRupees,
+		constants.rebateMaxTotalIncomeWholeRupees,
 		"rebate-max-total-income",
 	);
 	const rebateLimitAmount = wholeRupeeConstant(
-		constants,
-		(record) => record.rebateMaxAmountWholeRupees,
+		constants.rebateMaxAmountWholeRupees,
 		"rebate-max-amount",
 	);
 
 	type NodeDraft = Omit<ComputationTraceNode, "rulePackRevision">;
-	const draftNode = (draft: NodeDraft): NodeDraft => draft;
 	const finalizeNodes = (drafts: readonly NodeDraft[]): ComputationTraceNode[] =>
 		drafts.map((draft) =>
 			Object.freeze({ ...draft, rulePackRevision: revision }),
@@ -385,21 +392,21 @@ export const computeNewRegimeSalaryScenario = ({
 
 	const nodes: NodeDraft[] = [];
 
-	const salaryTotalNode = draftNode({
+	const salaryTotalNode: NodeDraft = {
 		nodeId: parseFactKey("derived.salary-total"),
 		ruleId: parseRuleId("ITR1-SALARY-INCOME-SECTION-15"),
 		operation: "sum-of-accepted-observations",
 		inputs: [factInput(SALARY_FACT_KEYS.section17_1, section17_1Value)],
 		unroundedValue: section17_1Value,
 		roundedValue: section17_1Value,
-	});
+	};
 	nodes.push(salaryTotalNode);
 
 	const afterExemptionsValue = subtractExactMoney(
 		section17_1Value,
 		exemptAllowancesValue,
 	);
-	const afterExemptionsNode = draftNode({
+	const afterExemptionsNode: NodeDraft = {
 		nodeId: parseFactKey("derived.salary-after-section-10-exemptions"),
 		ruleId: parseRuleId("ITR1-SALARY-EXEMPT-ALLOWANCES-SECTION-10"),
 		operation: "subtract-exempt-allowances",
@@ -412,7 +419,7 @@ export const computeNewRegimeSalaryScenario = ({
 		],
 		unroundedValue: afterExemptionsValue,
 		roundedValue: afterExemptionsValue,
-	});
+	};
 	nodes.push(afterExemptionsNode);
 
 	const deductionApplied = minExactMoney(
@@ -423,7 +430,7 @@ export const computeNewRegimeSalaryScenario = ({
 		afterExemptionsValue,
 		deductionApplied,
 	);
-	const afterDeductionNode = draftNode({
+	const afterDeductionNode: NodeDraft = {
 		nodeId: parseFactKey("derived.salary-standard-deduction-adjusted"),
 		ruleId: constants.standardDeductionRuleId,
 		operation: "subtract-limited-to-zero",
@@ -433,25 +440,25 @@ export const computeNewRegimeSalaryScenario = ({
 		],
 		unroundedValue: afterStandardDeductionValue,
 		roundedValue: afterStandardDeductionValue,
-	});
+	};
 	nodes.push(afterDeductionNode);
 
 	const roundedIncomeValue = roundToNearestMultipleOf(
 		afterStandardDeductionValue,
 		roundingBase.amount,
 	);
-	const roundedIncomeNode = draftNode({
+	const roundedIncomeNode: NodeDraft = {
 		nodeId: parseFactKey("derived.total-income-rounded-section-288a"),
 		ruleId: constants.totalIncomeRoundingRuleId,
 		operation: "round-to-nearest-multiple",
-		roundingMode: "nearest-multiple-up",
+		roundingMode: "nearest-multiple-half-up",
 		inputs: [
 			nodeInput(afterDeductionNode.nodeId, afterStandardDeductionValue),
 			roundingBase.input,
 		],
 		unroundedValue: afterStandardDeductionValue,
 		roundedValue: roundedIncomeValue,
-	});
+	};
 	nodes.push(roundedIncomeNode);
 
 	let lowerBound = ZERO;
@@ -474,7 +481,7 @@ export const computeNewRegimeSalaryScenario = ({
 		const bandTax = multiplyByWholePercent(bandWidth, band.ratePercent);
 		const bandNodeId = parseFactKey(`derived.slab-band-tax-${bandIndex}`);
 		nodes.push(
-			draftNode({
+			{
 				nodeId: bandNodeId,
 				ruleId: constants.slabRuleId,
 				operation: "progressive-band-tax",
@@ -492,7 +499,7 @@ export const computeNewRegimeSalaryScenario = ({
 				],
 				unroundedValue: bandTax,
 				roundedValue: bandTax,
-			}),
+			},
 		);
 		bandValues.push({ nodeId: bandNodeId, value: bandTax });
 		if (upperBound === undefined) {
@@ -506,7 +513,7 @@ export const computeNewRegimeSalaryScenario = ({
 		(total, band) => addExactMoney(total, band.value),
 		ZERO,
 	);
-	const slabTaxNode = draftNode({
+	const slabTaxNode: NodeDraft = {
 		nodeId: parseFactKey("derived.income-tax-before-adjustments"),
 		ruleId: constants.slabRuleId,
 		operation: "sum-of-bands",
@@ -516,7 +523,7 @@ export const computeNewRegimeSalaryScenario = ({
 				: bandValues.map((band) => nodeInput(band.nodeId, band.value)),
 		unroundedValue: slabTaxValue,
 		roundedValue: slabTaxValue,
-	});
+	};
 	nodes.push(slabTaxNode);
 
 	const isResident = residentAnswer.value === "yes";
@@ -537,7 +544,7 @@ export const computeNewRegimeSalaryScenario = ({
 		: incomeWithinRebateLimit
 			? undefined
 			: "Not applied: total income exceeds the rebate limit pinned by the rule pack.";
-	const rebateNode = draftNode({
+	const rebateNode: NodeDraft = {
 		nodeId: parseFactKey("derived.rebate-section-87a"),
 		ruleId: constants.rebateRuleId,
 		operation: "rebate-minimum",
@@ -550,7 +557,7 @@ export const computeNewRegimeSalaryScenario = ({
 		unroundedValue: rebateValue,
 		roundedValue: rebateValue,
 		...(rebateNote === undefined ? {} : { note: rebateNote }),
-	});
+	};
 	nodes.push(rebateNode);
 
 	const exceedsRebateLimit = compareExactMoney(
@@ -571,7 +578,7 @@ export const computeNewRegimeSalaryScenario = ({
 		: exceedsRebateLimit
 			? undefined
 			: "Not applied: total income is within the rebate limit, so no marginal comparison arises.";
-	const marginalReliefNode = draftNode({
+	const marginalReliefNode: NodeDraft = {
 		nodeId: parseFactKey("derived.marginal-relief-section-87a"),
 		ruleId: constants.rebateMarginalReliefRuleId,
 		operation: "marginal-relief-cap",
@@ -585,7 +592,7 @@ export const computeNewRegimeSalaryScenario = ({
 		unroundedValue: marginalReliefValue,
 		roundedValue: marginalReliefValue,
 		...(reliefNote === undefined ? {} : { note: reliefNote }),
-	});
+	};
 	nodes.push(marginalReliefNode);
 
 	const taxAfterAdjustmentsValue = subtractExactMoney(
@@ -648,7 +655,7 @@ export const computeNewRegimeSalaryScenario = ({
 				: rawSurcharge;
 		surchargeNote = undefined;
 	}
-	const surchargeNode = draftNode({
+	const surchargeNode: NodeDraft = {
 		nodeId: parseFactKey("derived.surcharge"),
 		ruleId: constants.surchargeRuleId,
 		operation: activeTier === undefined ? "not-applicable" : "percent-with-threshold-relief",
@@ -670,7 +677,7 @@ export const computeNewRegimeSalaryScenario = ({
 		unroundedValue: surchargeValue,
 		roundedValue: surchargeValue,
 		...(surchargeNote === undefined ? {} : { note: surchargeNote }),
-	});
+	};
 	nodes.push(surchargeNode);
 
 	const cessBase = addExactMoney(taxAfterAdjustmentsValue, surchargeValue);
@@ -678,7 +685,7 @@ export const computeNewRegimeSalaryScenario = ({
 		cessBase,
 		constants.cessRatePercent,
 	);
-	const cessNode = draftNode({
+	const cessNode: NodeDraft = {
 		nodeId: parseFactKey("derived.health-and-education-cess"),
 		ruleId: constants.cessRuleId,
 		operation: "percent-of",
@@ -691,7 +698,7 @@ export const computeNewRegimeSalaryScenario = ({
 		],
 		unroundedValue: cessValue,
 		roundedValue: cessValue,
-	});
+	};
 	nodes.push(cessNode);
 
 	const liabilityBeforeRounding = addExactMoney(cessBase, cessValue);
@@ -699,18 +706,18 @@ export const computeNewRegimeSalaryScenario = ({
 		liabilityBeforeRounding,
 		taxRoundingBase.amount,
 	);
-	const liabilityNode = draftNode({
+	const liabilityNode: NodeDraft = {
 		nodeId: parseFactKey("derived.total-tax-liability-rounded-section-288b"),
 		ruleId: constants.taxRoundingRuleId,
 		operation: "round-to-nearest-multiple",
-		roundingMode: "nearest-multiple-up",
+		roundingMode: "nearest-multiple-half-up",
 		inputs: [
 			nodeInput(cessNode.nodeId, cessValue),
 			taxRoundingBase.input,
 		],
 		unroundedValue: liabilityBeforeRounding,
 		roundedValue: finalLiabilityValue,
-	});
+	};
 	nodes.push(liabilityNode);
 
 	return Object.freeze({
