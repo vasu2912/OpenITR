@@ -1,4 +1,5 @@
 import type {
+	BankInterestObservation,
 	CandidateDocument,
 	DocumentExtractionOutcome,
 	DocumentInspectionOutcome,
@@ -8,6 +9,7 @@ import type {
 import {
 	DOCUMENT_REVIEW_ISSUE_CODES,
 	parseDocumentKind,
+	parseExactMoney,
 	parseFactKey,
 	parseRuleId,
 	parseTemplateRevision,
@@ -824,6 +826,29 @@ const fakeObservation = (
 	ruleCitation: { ruleId: parseRuleId("FORM16-PARTA-TAXABLE-SALARY"), description: "d" },
 });
 
+const fakeBankInterestObservation = (
+	documentId: Sha256Digest,
+	factKey: string,
+	amount: string,
+): BankInterestObservation => ({
+	observationId: `${factKey}@${documentId}:/interestInformation/bankInterest/0`,
+	factKey: parseFactKey(factKey),
+	sourceDocumentId: documentId,
+	adapterId: "ais-json",
+	adapterVersion: "1",
+	originalValue: JSON.stringify(amount),
+	normalizedValue: parseExactMoney(amount),
+	transformationSteps: [],
+	evidence: {
+		kind: "json-pointer",
+		pointer: "/interestInformation/bankInterest/0",
+	},
+	ruleCitation: {
+		ruleId: parseRuleId("AIS-BANK-INTEREST-SAVINGS-ACCOUNT"),
+		description: "AIS bank-interest record",
+	},
+});
+
 describe("new-regime salary computation exposure", () => {
 	const salaryComputationOf = (session: SessionOrchestrator) => {
 		const snapshot = session.getSnapshot();
@@ -950,3 +975,201 @@ describe("new-regime salary computation exposure", () => {
 	});
 });
 
+describe("refund-or-payable estimate exposure", () => {
+	const estimateComputationOf = (session: SessionOrchestrator) => {
+		const snapshot = session.getSnapshot();
+		return snapshot.kind === "document-intake"
+			? snapshot.estimateComputation
+			: undefined;
+	};
+	const salaryComputationOf = (session: SessionOrchestrator) => {
+		const snapshot = session.getSnapshot();
+		return snapshot.kind === "document-intake"
+			? snapshot.salaryComputation
+			: undefined;
+	};
+
+	const selectAllThreeDocuments = (
+		session: SessionOrchestrator,
+	): void => {
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+				{
+					displayName: "openitr-sentinel-ais-export.json",
+					bytes: utf8Bytes(createAisJsonBankInterestFixture()),
+				},
+				{
+					displayName: "openitr-sentinel-26as-export.txt",
+					bytes: utf8Bytes(createForm26AsTextFixture()),
+				},
+			]),
+		);
+	};
+
+	const waitUntilAllExtracted = async (
+		session: SessionOrchestrator,
+	): Promise<void> => {
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 3 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+	};
+
+	test("reconciles all three accepted slices into one estimated refund", async () => {
+		const session = createEligibleSession();
+
+		selectAllThreeDocuments(session);
+		await waitUntilAllExtracted(session);
+
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		expect(estimate.outcome).toEqual({
+			kind: "estimated-refund",
+			difference: "61250",
+		});
+		expect(estimate.summary.taxesPaid).toBe("61250");
+		expect(estimate.rulePackRevision).toBe(
+			itr1Ay202627RulePack.identity.revision,
+		);
+
+		session.stop();
+	});
+
+	test("blocks with the missing slices named while the salary scenario still computes", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => extractionRecords(session)[0]?.status === "done");
+
+		expect(salaryComputationOf(session)?.kind).toBe("computed");
+
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("blocked");
+		if (estimate?.kind !== "blocked") {
+			throw new Error("expected a blocked estimate");
+		}
+		const codes = estimate.issues.map((issue) => String(issue.code));
+		expect(codes).toContain("FACT_BANK_INTEREST_EVIDENCE_REQUIRED");
+		expect(codes).toContain("FACT_TDS_EVIDENCE_REQUIRED");
+		for (const issue of estimate.issues) {
+			expect(issue.severity).toBe("blocking");
+			expect(issue.recoveryAction.length).toBeGreaterThan(0);
+		}
+
+		session.stop();
+	});
+
+	test("excludes disputed bank-interest observations and names the review needed", async () => {
+		const { session, calls } = await createIdentifiedGatedSession();
+
+		await waitFor(() => calls.some((call) => call.stage === "extract"));
+		const documentId = intakeDocuments(session)[0]?.documentId;
+		if (documentId === undefined) {
+			throw new Error("candidate missing");
+		}
+		calls
+			.filter((call) => call.stage === "extract")
+			.forEach((call) =>
+				call.resolve({
+					kind: "extracted",
+					observations: [],
+					bankInterestObservations: [
+						fakeBankInterestObservation(
+							documentId,
+							"bank-interest.savings-account",
+							"1000",
+						),
+						fakeBankInterestObservation(
+							documentId,
+							"bank-interest.savings-account",
+							"2000",
+						),
+					],
+					tdsObservations: [],
+					issues: [
+						{
+							code: DOCUMENT_REVIEW_ISSUE_CODES.bankInterestRecordAmbiguous,
+							severity: "review",
+							affectedFactKeys: [
+								parseFactKey("bank-interest.savings-account"),
+							],
+							recoveryAction: "Select the official AIS JSON export.",
+						},
+					],
+					pages: [],
+				} satisfies DocumentExtractionOutcome),
+			);
+		await waitFor(() => estimateComputationOf(session)?.kind === "blocked");
+
+		const estimate = estimateComputationOf(session);
+		if (estimate?.kind !== "blocked") {
+			throw new Error("expected a blocked estimate");
+		}
+		expect(
+			estimate.issues.some(
+				(issue) =>
+					String(issue.code) === "FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
+			),
+		).toBe(true);
+
+		session.stop();
+	});
+
+	test("drops the estimate when a contributing document is removed", async () => {
+		const session = createEligibleSession();
+
+		selectAllThreeDocuments(session);
+		await waitUntilAllExtracted(session);
+		expect(estimateComputationOf(session)?.kind).toBe("computed");
+
+		const aisCandidate = intakeDocuments(session).find(
+			(candidate) =>
+				candidate.displayName === "openitr-sentinel-ais-export.json",
+		);
+		if (aisCandidate === undefined) {
+			throw new Error("AIS candidate missing");
+		}
+		session.send({
+			kind: "remove-source-document",
+			documentId: aisCandidate.documentId,
+		});
+		await waitFor(() =>
+			intakeDocuments(session)
+				.find((candidate) => candidate.candidateKey === aisCandidate.candidateKey)
+				?.status === "removed",
+		);
+
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("blocked");
+		if (estimate?.kind !== "blocked") {
+			throw new Error("expected a blocked estimate after removal");
+		}
+		expect(
+			estimate.issues.some(
+				(issue) =>
+					String(issue.code) === "FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
+			),
+		).toBe(true);
+
+		session.stop();
+	});
+});

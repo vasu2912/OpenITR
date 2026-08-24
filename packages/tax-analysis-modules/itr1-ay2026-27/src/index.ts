@@ -5,6 +5,11 @@ export {
 } from "./revisions/2026-08-24/rule-pack";
 export { itr1Ay202627RulePackManifest20260824 } from "./revisions/2026-08-24/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260824b,
+	itr1Ay202627RulePack20260824b,
+} from "./revisions/2026-08-24b/rule-pack";
+export { itr1Ay202627RulePackManifest20260824b } from "./revisions/2026-08-24b/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -23,3 +28,15 @@ export type {
 	SalaryComputationIssue,
 	SalaryComputationRulePackInput,
 } from "./computations/new-regime-salary";
+export { computeRefundOrAmountPayableEstimate } from "./computations/estimate-refund-or-payable";
+export type {
+	AcceptedBankInterestDocumentFacts,
+	AcceptedTdsDocumentFacts,
+	EstimateEvidenceReference,
+	EstimateEvidenceRole,
+	EstimateOutcome,
+	RefundOrAmountPayableEstimate,
+	RefundOrAmountPayableEstimateInput,
+	RefundOrPayableEstimateIssue,
+	RefundOrPayableEstimateSummary,
+} from "./computations/estimate-refund-or-payable";

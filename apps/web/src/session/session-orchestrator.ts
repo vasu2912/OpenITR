@@ -11,6 +11,7 @@ import type {
 	DocumentExtractionRecord,
 	DocumentInspectionOutcome,
 	EligibilityAnswerValue,
+	FactKey,
 	InspectableSourceDocument,
 	IsoTimestamp,
 	QuestionId,
@@ -21,6 +22,10 @@ import type {
 } from "@openitr/model";
 import { computeNewRegimeSalaryScenario } from "@openitr/itr1-ay2026-27";
 import type { NewRegimeSalaryComputation } from "@openitr/itr1-ay2026-27";
+import {
+	computeRefundOrAmountPayableEstimate,
+} from "@openitr/itr1-ay2026-27";
+import type { RefundOrAmountPayableEstimate } from "@openitr/itr1-ay2026-27";
 import { createActor, setup } from "xstate";
 import type { Subscription } from "xstate";
 
@@ -61,6 +66,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
 	salaryComputation: NewRegimeSalaryComputation | undefined;
+	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 }>;
 
 export type SessionOrchestratorSnapshot =
@@ -86,43 +92,111 @@ type SessionContext = Readonly<{
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
 	salaryComputation: NewRegimeSalaryComputation | undefined;
+	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 }>;
 
 // Only observations that no review issue disputes are accepted facts. The
-// computation itself re-validates everything and fails closed on gaps.
+// computations themselves re-validate everything and fail closed on gaps.
+const acceptedObservationsOf = <TObservation extends { factKey: FactKey }>(
+	record: Extract<DocumentExtractionRecord, { status: "done" }>,
+	observations: readonly TObservation[],
+): readonly TObservation[] => {
+	const disputedFactKeys = new Set(
+		record.issues.flatMap((issue) => [...issue.affectedFactKeys]),
+	);
+	return observations.filter(
+		(observation) => !disputedFactKeys.has(observation.factKey),
+	);
+};
+// A done record joins a slice when its adapter produced at least one raw
+// observation of that kind; the computation layer then judges every accepted
+// value and fails closed on gaps or duplicates.
+const sliceRecords = <
+	TKey extends "observations" | "bankInterestObservations" | "tdsObservations",
+>(
+	extractions: readonly DocumentExtractionRecord[],
+	observationField: TKey,
+): readonly Extract<
+	DocumentExtractionRecord,
+	{ status: "done" }
+>[] =>
+	extractions.filter(
+		(record): record is Extract<DocumentExtractionRecord, { status: "done" }> =>
+			record.status === "done" && record[observationField].length > 0,
+	);
+
+type SliceComputationInput = Readonly<{
+	rulePack: ScopeRulePack;
+	scopeCheck: SessionContext["scopeCheck"];
+	extractions: readonly DocumentExtractionRecord[];
+}>;
+
 const computeSalaryScenario = ({
 	rulePack,
 	scopeCheck,
 	extractions,
-}: Readonly<{
-	rulePack: ScopeRulePack;
-	scopeCheck: SessionContext["scopeCheck"];
-	extractions: readonly DocumentExtractionRecord[];
-}>): NewRegimeSalaryComputation | undefined => {
+}: SliceComputationInput): NewRegimeSalaryComputation | undefined => {
 	if (scopeCheck.kind !== "complete") {
 		return undefined;
 	}
-	const doneRecords = extractions.filter(
-		(record) => record.status === "done",
-	);
+	const doneRecords = sliceRecords(extractions, "observations");
 	if (doneRecords.length === 0) {
 		return undefined;
 	}
-	const salaryDocuments = doneRecords.map((record) => {
-		const disputedFactKeys = new Set(
-			record.issues.flatMap((issue) => [...issue.affectedFactKeys]),
-		);
-		return {
-			documentId: record.documentId,
-			observations: record.observations.filter(
-				(observation) => !disputedFactKeys.has(observation.factKey),
-			),
-		};
-	});
+	const salaryDocuments = doneRecords.map((record) => ({
+		documentId: record.documentId,
+		observations: acceptedObservationsOf(record, record.observations),
+	}));
 	return computeNewRegimeSalaryScenario({
 		rulePack,
 		residentAnswer: scopeCheck.completion.answer,
 		salaryDocuments,
+	});
+};
+
+const computeEstimateScenario = ({
+	rulePack,
+	scopeCheck,
+	extractions,
+}: SliceComputationInput): RefundOrAmountPayableEstimate | undefined => {
+	if (scopeCheck.kind !== "complete") {
+		return undefined;
+	}
+	const salaryRecords = sliceRecords(extractions, "observations");
+	const bankInterestRecords = sliceRecords(
+		extractions,
+		"bankInterestObservations",
+	);
+	const tdsRecords = sliceRecords(extractions, "tdsObservations");
+	if (
+		salaryRecords.length === 0 &&
+		bankInterestRecords.length === 0 &&
+		tdsRecords.length === 0
+	) {
+		return undefined;
+	}
+	const toDocument = <TObservation extends { factKey: FactKey }>(
+		record: Extract<DocumentExtractionRecord, { status: "done" }>,
+		observations: readonly TObservation[],
+	): {
+		documentId: Sha256Digest;
+		observations: readonly TObservation[];
+	} => ({
+		documentId: record.documentId,
+		observations: acceptedObservationsOf(record, observations),
+	});
+	return computeRefundOrAmountPayableEstimate({
+		rulePack,
+		residentAnswer: scopeCheck.completion.answer,
+		salaryDocuments: salaryRecords.map((record) =>
+			toDocument(record, record.observations),
+		),
+		bankInterestDocuments: bankInterestRecords.map((record) =>
+			toDocument(record, record.bankInterestObservations),
+		),
+		tdsDocuments: tdsRecords.map((record) =>
+			toDocument(record, record.tdsObservations),
+		),
 	});
 };
 
@@ -245,6 +319,7 @@ const createSessionMachine = ({
 			documents: [],
 			extractions: [],
 			salaryComputation: undefined,
+			estimateComputation: undefined,
 		},
 		initial: "awaiting-answer",
 		states: {
@@ -425,6 +500,19 @@ const createSessionMachine = ({
 									),
 								});
 							},
+							estimateComputation: ({ context, event }) => {
+								if (event.type !== "document-removed") {
+									return context.estimateComputation;
+								}
+								return computeEstimateScenario({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: context.extractions.filter(
+										(record) =>
+											record.candidateKey !== event.candidateKey,
+									),
+								});
+							},
 						}),
 					},
 					"document-extraction-started": {
@@ -489,6 +577,21 @@ const createSessionMachine = ({
 									),
 								});
 							},
+							estimateComputation: ({ context, event }) => {
+								if (event.type !== "document-extraction-settled") {
+									return context.estimateComputation;
+								}
+								return computeEstimateScenario({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: replaceExtractionRecord(
+										context.extractions,
+										event.candidateKey,
+										(record) =>
+											settleExtractionRecord(record, event.outcome),
+									),
+								});
+							},
 						}),
 					},
 					"document-extraction-cancelled": {
@@ -513,6 +616,18 @@ const createSessionMachine = ({
 									return context.salaryComputation;
 								}
 								return computeSalaryScenario({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: context.extractions.filter(
+										(record) => record.candidateKey !== event.candidateKey,
+									),
+								});
+							},
+							estimateComputation: ({ context, event }) => {
+								if (event.type !== "document-extraction-cancelled") {
+									return context.estimateComputation;
+								}
+								return computeEstimateScenario({
 									rulePack: context.rulePack,
 									scopeCheck: context.scopeCheck,
 									extractions: context.extractions.filter(
@@ -560,6 +675,7 @@ const toSessionSnapshot = (
 			documents: context.documents,
 			extractions: context.extractions,
 			salaryComputation: context.salaryComputation,
+			estimateComputation: context.estimateComputation,
 		};
 		default: {
 			const _exhaustive: never = context.scopeCheck;

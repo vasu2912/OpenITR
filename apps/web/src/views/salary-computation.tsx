@@ -1,6 +1,4 @@
 import type {
-	ComputationNodeInput,
-	ComputationTraceNode,
 	NewRegimeSalaryComputation,
 } from "@openitr/itr1-ay2026-27";
 import {
@@ -11,84 +9,12 @@ import {
 	Title,
 } from "@patternfly/react-core";
 
-// Display-only grouping of an exact decimal string. Arithmetic never passes
-// through here.
-const rupeeFormat = (value: string): string => {
-	const [wholePart = "", fraction] = value.split(".");
-	if (!/^\d+$/.test(wholePart)) {
-		return value;
-	}
-	const grouped = new Intl.NumberFormat("en-IN").format(Number(wholePart));
-	return fraction === undefined ? grouped : `${grouped}.${fraction}`;
-};
-
-const inputLabel = (input: ComputationNodeInput): string => {
-	switch (input.kind) {
-		case "fact":
-			return `Fact ${input.factKey} = ₹ ${rupeeFormat(input.value)}`;
-		case "node":
-			return `From ${input.nodeId} = ₹ ${rupeeFormat(input.value)}`;
-		case "rule-pack-constant":
-			return `Rule-pack constant ${input.name} = ${input.wholeRupees}`;
-		case "user-answer":
-			return `Your answer to ${input.questionId}: ${input.value}`;
-	}
-};
-
-const NodeCard = ({ node }: Readonly<{ node: ComputationTraceNode }>) => (
-	<details className="openitr-trace-node">
-		<summary>
-			<strong>{node.nodeId}</strong>
-			<span className="openitr-trace-node-value">
-				₹ {rupeeFormat(node.roundedValue)}
-			</span>
-		</summary>
-		<dl className="openitr-trace-details">
-			<div>
-				<dt>Rule</dt>
-				<dd>{node.ruleId}</dd>
-			</div>
-			<div>
-				<dt>Rule-pack revision</dt>
-				<dd>{node.rulePackRevision}</dd>
-			</div>
-			<div>
-				<dt>Operation</dt>
-				<dd>{node.operation}</dd>
-			</div>
-			<div>
-				<dt>Unrounded</dt>
-				<dd>{node.unroundedValue}</dd>
-			</div>
-			<div>
-				<dt>Rounded</dt>
-				<dd>{node.roundedValue}</dd>
-			</div>
-			{Object.hasOwn(node, "roundingMode") && node.roundingMode ? (
-				<div>
-					<dt>Rounding mode</dt>
-					<dd>{node.roundingMode}</dd>
-				</div>
-			) : null}
-		</dl>
-		<ul className="openitr-trace-inputs">
-			{node.inputs.map((input, index) => (
-				<li key={`${input.kind}-${index}`}>{inputLabel(input)}</li>
-			))}
-		</ul>
-		{node.note ? (
-			<p className="openitr-trace-note">{node.note}</p>
-		) : null}
-	</details>
-);
+import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
 
 type SummaryRow = Readonly<{ label: string; value: string; hint?: string }>;
 
 const summaryRows = (
-	computation: Extract<
-		NewRegimeSalaryComputation,
-		{ kind: "computed" }
-	>,
+	computation: Extract<NewRegimeSalaryComputation, { kind: "computed" }>,
 ): readonly SummaryRow[] => [
 	{
 		label: "Salary total",
@@ -176,15 +102,7 @@ export const SalaryComputationView = ({
 								</div>
 							))}
 						</dl>
-						<p className="openitr-trace-heading">
-							Computation trace — every node cites its rule, revision,
-							unrounded result, and rounded result
-						</p>
-						<div className="openitr-trace-list">
-							{computation.nodes.map((node) => (
-								<NodeCard key={node.nodeId} node={node} />
-							))}
-						</div>
+						<ComputationTraceList nodes={computation.nodes} />
 					</>
 				)}
 			</CardBody>
