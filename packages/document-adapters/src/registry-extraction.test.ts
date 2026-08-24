@@ -6,7 +6,11 @@ import type { Sha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { buildSyntheticPdf } from "./fixtures/pdf-fixture-builder";
-import { createForm16SalaryPdfFixture } from "./testing";
+import {
+	createAisJsonBankInterestFixture,
+	createForm16SalaryPdfFixture,
+	utf8Bytes,
+} from "./testing";
 import { createDocumentInspectionRegistry } from "./registry";
 
 const copyBytes = (source: Uint8Array): Uint8Array<ArrayBuffer> => {
@@ -36,15 +40,20 @@ describe("registry extraction routing", () => {
 	});
 
 	test("rejects extraction for revisions without extraction support", async () => {
-		const bytes = copyBytes(
-			new TextEncoder().encode(
-				JSON.stringify({ documentType: "AIS", schemaVersion: "2026-27" }),
-			),
-		);
+		const bytes = buildSyntheticPdf({
+			pages: [
+				{
+					textLines: [
+						"FORM 16A",
+						"Certificate under section 203(2A) of the Income-tax Act, 1961",
+					],
+				},
+			],
+		});
 		const outcome = await createDocumentInspectionRegistry().extractDocument({
-			identity: await identityOf(bytes),
-			displayName: "ais.json",
-			bytes,
+			identity: await identityOf(copyBytes(bytes)),
+			displayName: "form16a.pdf",
+			bytes: copyBytes(bytes),
 		});
 
 		expect(outcome).toMatchObject({
@@ -52,6 +61,25 @@ describe("registry extraction routing", () => {
 			rejection: "extraction-unsupported",
 			issue: { code: DOCUMENT_ISSUE_CODES.documentExtractionUnsupported },
 		});
+	});
+
+	test("routes an identified AIS JSON revision to its bank-interest extraction", async () => {
+		const bytes = utf8Bytes(createAisJsonBankInterestFixture());
+		const outcome = await createDocumentInspectionRegistry().extractDocument({
+			identity: await identityOf(bytes),
+			displayName: "synthetic-ais.json",
+			bytes,
+		});
+
+		expect(outcome.kind).toBe("extracted");
+		if (outcome.kind === "extracted") {
+			expect(outcome.bankInterestObservations).toHaveLength(2);
+			expect(
+				outcome.bankInterestObservations.map(
+					(observation) => observation.adapterId,
+				),
+			).toEqual(["ais-json", "ais-json"]);
+		}
 	});
 
 	test("keeps fail-closed outcomes guarding extraction", async () => {

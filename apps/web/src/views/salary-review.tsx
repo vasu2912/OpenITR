@@ -148,9 +148,9 @@ export const SalaryReviewView = ({
 						data-document-id={record.documentId}
 						key={record.candidateKey}
 					>
-						{record.issues.map((issue) => (
+						{record.issues.map((issue, issueIndex) => (
 							<Alert
-								key={issue.code}
+								key={`${String(issue.code)}-${issueIndex}`}
 								title={`${String(issue.code)}: ${issue.affectedFactKeys.join(", ")}`}
 								variant="warning"
 							>

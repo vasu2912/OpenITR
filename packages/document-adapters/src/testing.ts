@@ -25,6 +25,48 @@ export const createAisJsonFixture = (): string =>
 		transactionSummary: [],
 	});
 
+export const AIS_JSON_SENTINEL_SAVINGS_INTEREST = "7,890.25";
+export const AIS_JSON_SENTINEL_DEPOSITS_INTEREST = "45,678.90";
+
+export const AIS_BANK_INTEREST_SAVINGS_RECORD = Object.freeze({
+	recordCategory: "SAVINGS_ACCOUNT",
+	institutionName: "OpenITR Synthetic Bank",
+	maskedAccountNumber: "XXXXXX0001",
+	interestAmount: AIS_JSON_SENTINEL_SAVINGS_INTEREST,
+});
+
+export const AIS_BANK_INTEREST_DEPOSITS_RECORD = Object.freeze({
+	recordCategory: "DEPOSITS",
+	institutionName: "OpenITR Synthetic Co-operative Bank",
+	maskedAccountNumber: "XXXXXX0002",
+	interestAmount: AIS_JSON_SENTINEL_DEPOSITS_INTEREST,
+});
+
+export type AisJsonBankInterestFixtureOptions = Readonly<{
+	bankInterestRecords?: readonly unknown[];
+	omitInterestSection?: boolean;
+}>;
+
+export const createAisJsonBankInterestFixture = (
+	options: AisJsonBankInterestFixtureOptions = {},
+): string =>
+	JSON.stringify({
+		...AIS_JSON_FIXTURE_MARKERS,
+		taxpayerInformation: {},
+		transactionSummary: [],
+		...(options.omitInterestSection
+			? {}
+			: {
+					interestInformation: {
+						bankInterest:
+							options.bankInterestRecords ?? [
+								AIS_BANK_INTEREST_SAVINGS_RECORD,
+								AIS_BANK_INTEREST_DEPOSITS_RECORD,
+							],
+					},
+				}),
+	});
+
 const FORM16_MARKER_LINES = [
 	"PART A",
 	"Certificate under section 203 of the Income-tax Act, 1961",
