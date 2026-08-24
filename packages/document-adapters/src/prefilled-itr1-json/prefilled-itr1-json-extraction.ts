@@ -33,7 +33,29 @@ const TDS_AMOUNT_PROPERTY_NAMES = {
 	paidCredited: "amountPaidCredited",
 	taxDeducted: "taxDeducted",
 	deposited: "tdsDeposited",
-} as const satisfies Record<keyof typeof TDS_AMOUNT_COLUMNS, string>;
+} as const satisfies Readonly<Record<keyof typeof TDS_AMOUNT_COLUMNS, string>>;
+
+type TdsAmountColumnBinding = Readonly<{
+	columnKey: keyof typeof TDS_AMOUNT_COLUMNS;
+	propertyName: string;
+	definition: (typeof TDS_AMOUNT_COLUMNS)[keyof typeof TDS_AMOUNT_COLUMNS];
+}>;
+
+const bindTdsAmountColumn = <
+	Key extends keyof typeof TDS_AMOUNT_COLUMNS,
+>(columnKey: Key): TdsAmountColumnBinding => ({
+	columnKey,
+	propertyName: TDS_AMOUNT_PROPERTY_NAMES[columnKey],
+	definition: TDS_AMOUNT_COLUMNS[columnKey],
+});
+
+// One binding per reviewed amount column, in fact-key order.
+const TDS_AMOUNT_COLUMN_BINDINGS: readonly TdsAmountColumnBinding[] =
+	Object.freeze([
+		Object.freeze(bindTdsAmountColumn("paidCredited")),
+		Object.freeze(bindTdsAmountColumn("taxDeducted")),
+		Object.freeze(bindTdsAmountColumn("deposited")),
+	]);
 
 // The reviewed salary properties print Indian digit-grouped whole-rupee
 // strings such as "12,00,000". Every normalization step is recorded in
@@ -148,7 +170,9 @@ const collectSalaryObservations = ({
 	const observations: SalaryObservation[] = [];
 	for (const definition of PREFILLED_ITR1_SALARY_FIELD_DEFINITIONS) {
 		const value = section[definition.propertyName];
-		if (value === undefined) {
+		// An absent property and a JSON null both mean the prefill carries
+		// nothing for this field; both stay out of the facts.
+		if (value === undefined || value === null) {
 			continue;
 		}
 		if (typeof value === "string" && value.trim() === "") {
@@ -192,11 +216,11 @@ type ParsedAmountCell =
 	| Readonly<{ kind: "value"; amount: GroupedRupeeAmount; raw: string }>
 	| Readonly<{ kind: "malformed" }>;
 
-// An absent property and a printed blank both stay unknown; only a present
-// non-blank value parses, keeping its exact characters as the record's raw
-// value.
+// An absent property, a JSON null, and a printed blank all stay unknown;
+// only a present non-blank value parses, keeping its exact characters as
+// the record's raw value.
 const parseTdsAmountProperty = (value: unknown): ParsedAmountCell => {
-	if (value === undefined) {
+	if (value === undefined || value === null) {
 		return { kind: "unknown", raw: undefined };
 	}
 	if (typeof value === "string") {
@@ -254,15 +278,10 @@ const parseJsonTdsRecord = (
 	}
 
 	const pointer = `${TDS_SECTION_POINTER}/${recordIndex}`;
-	const parsedAmounts = Object.entries(TDS_AMOUNT_PROPERTY_NAMES).map(
-		([columnKey, propertyName]) => ({
-			columnKey: columnKey as keyof typeof TDS_AMOUNT_PROPERTY_NAMES,
-			definition:
-				TDS_AMOUNT_COLUMNS[columnKey as keyof typeof TDS_AMOUNT_COLUMNS],
-			propertyName,
-			outcome: parseTdsAmountProperty(record[propertyName]),
-		}),
-	);
+	const parsedAmounts = TDS_AMOUNT_COLUMN_BINDINGS.map((binding) => ({
+		binding,
+		outcome: parseTdsAmountProperty(record[binding.propertyName]),
+	}));
 	if (parsedAmounts.some(({ outcome }) => outcome.kind === "malformed")) {
 		return { kind: "malformed" };
 	}
@@ -271,20 +290,20 @@ const parseJsonTdsRecord = (
 		FactKey,
 		{ amount: GroupedRupeeAmount; originalValue: string }
 	>();
-	for (const { definition, propertyName, outcome } of parsedAmounts) {
+	for (const { binding, outcome } of parsedAmounts) {
 		if (outcome.kind === "value") {
-			amounts.set(definition.factKey, {
+			amounts.set(binding.definition.factKey, {
 				amount: outcome.amount,
-				originalValue: JSON.stringify(record[propertyName]),
+				originalValue: JSON.stringify(record[binding.propertyName]),
 			});
 		}
 	}
 
 	const rawOf = (
-		columnKey: keyof typeof TDS_AMOUNT_PROPERTY_NAMES,
+		columnKey: keyof typeof TDS_AMOUNT_COLUMNS,
 	): string | undefined => {
 		const outcome = parsedAmounts.find(
-			(entry) => entry.columnKey === columnKey,
+			(entry) => entry.binding.columnKey === columnKey,
 		)?.outcome;
 		return outcome === undefined || outcome.kind === "malformed"
 			? undefined
@@ -325,42 +344,36 @@ const collectTdsObservations = ({
 		parsedRecords.push(outcome.record);
 	}
 
-	// Records leave in source array order and the amount column definitions
+	// Records leave in source array order and the amount column bindings
 	// enumerate a record's facts in fact-key order, so flatMap yields
 	// observations ordered by record pointer and then fact key.
 	return parsedRecords.flatMap((record) =>
-		Object.entries(TDS_AMOUNT_PROPERTY_NAMES).flatMap(
-			([columnKey, propertyName]) => {
-				const definition =
-					TDS_AMOUNT_COLUMNS[
-						columnKey as keyof typeof TDS_AMOUNT_COLUMNS
-					];
-				const parsed = record.amounts.get(definition.factKey);
-				if (parsed === undefined) {
-					return [];
-				}
-				return [
-					{
-						observationId: `${definition.factKey}@${sourceDocumentId}:${record.facts.pointer}/${propertyName}`,
-						factKey: definition.factKey,
-						sourceDocumentId,
-						adapterId: adapter.adapterId,
-						adapterVersion: adapter.adapterVersion,
-						originalValue: parsed.originalValue,
-						normalizedValue: parsed.amount.value,
-						transformationSteps: parsed.amount.steps,
-						evidence: {
-							kind: "json-pointer",
-							pointer: `${record.facts.pointer}/${propertyName}`,
-						},
-						ruleCitation: {
-							ruleId: definition.ruleId,
-							description: definition.description,
-						},
-						record: record.facts,
-					} satisfies TdsObservation,
-				];
-			},
-		),
+		TDS_AMOUNT_COLUMN_BINDINGS.flatMap(({ definition, propertyName }) => {
+			const parsed = record.amounts.get(definition.factKey);
+			if (parsed === undefined) {
+				return [];
+			}
+			return [
+				{
+					observationId: `${definition.factKey}@${sourceDocumentId}:${record.facts.pointer}/${propertyName}`,
+					factKey: definition.factKey,
+					sourceDocumentId,
+					adapterId: adapter.adapterId,
+					adapterVersion: adapter.adapterVersion,
+					originalValue: parsed.originalValue,
+					normalizedValue: parsed.amount.value,
+					transformationSteps: parsed.amount.steps,
+					evidence: {
+						kind: "json-pointer",
+						pointer: `${record.facts.pointer}/${propertyName}`,
+					},
+					ruleCitation: {
+						ruleId: definition.ruleId,
+						description: definition.description,
+					},
+					record: record.facts,
+				} satisfies TdsObservation,
+			];
+		}),
 	);
 };

@@ -7,6 +7,7 @@ import type { Sha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import {
+	createAisJsonBankInterestFixture,
 	createPrefilledItr1JsonFixture,
 	utf8Bytes,
 } from "../testing";
@@ -167,5 +168,33 @@ describe("registry inspection of official prefilled ITR-1 JSON", () => {
 			rejection: "unknown-format",
 			issue: { code: DOCUMENT_ISSUE_CODES.documentUnknownFormat },
 		});
+	});
+
+	test("keeps the prefilled ITR-1 and AIS JSON signatures distinct without ambiguity", async () => {
+		const registry = createDocumentInspectionRegistry();
+		const prefilledBytes = utf8Bytes(createPrefilledItr1JsonFixture());
+		const aisBytes = utf8Bytes(createAisJsonBankInterestFixture());
+
+		const prefilledOutcome = await registry.inspect({
+			identity: await identityOf(prefilledBytes),
+			displayName: "synthetic-prefilled-itr1.json",
+			bytes: copyBytes(prefilledBytes),
+		});
+		const aisOutcome = await registry.inspect({
+			identity: await identityOf(aisBytes),
+			displayName: "synthetic-ais.json",
+			bytes: copyBytes(aisBytes),
+		});
+
+		expect(
+			prefilledOutcome.kind === "identified"
+				? prefilledOutcome.adapter.adapterId
+				: undefined,
+		).toBe("prefilled-itr1-json");
+		expect(
+			aisOutcome.kind === "identified"
+				? aisOutcome.adapter.adapterId
+				: undefined,
+		).toBe("ais-json");
 	});
 });

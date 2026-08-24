@@ -149,6 +149,20 @@ describe("prefilled ITR-1 JSON salary extraction", () => {
 		expect(outcome.issues).toEqual([]);
 	});
 
+	test("keeps a JSON-null salary property out of the facts without inventing issues", async () => {
+		const outcome = await extractOf(
+			createPrefilledItr1JsonFixture({
+				salaryInformation: { section17_1Salary: null },
+			}),
+		);
+
+		if (outcome.kind !== "extracted") {
+			throw new Error("expected an extracted outcome");
+		}
+		expect(outcome.observations).toEqual([]);
+		expect(outcome.issues).toEqual([]);
+	});
+
 	test("ignores unknown properties at the document root and inside reviewed sections", async () => {
 		const text = JSON.stringify({
 			documentType: "ITR1_PREFILLED",
@@ -350,6 +364,33 @@ describe("prefilled ITR-1 JSON TDS-on-salary extraction", () => {
 		}
 		expect(outcome.tdsObservations).toEqual([]);
 		expect(outcome.issues).toHaveLength(2);
+	});
+
+	test("treats a JSON-null amount property as absent instead of malformed", async () => {
+		const outcome = await extractOf(
+			createPrefilledItr1JsonFixture({
+				tdsOnSalary: [
+					{
+						...PREFILLED_ITR1_TDS_RECORD_ONE,
+						taxDeducted: null,
+					},
+				],
+			}),
+		);
+
+		if (outcome.kind !== "extracted") {
+			throw new Error("expected an extracted outcome");
+		}
+		expect(outcome.tdsObservations.map((o) => o.factKey)).toEqual([
+			"tds.amount-paid-credited",
+			"tds.tds-deposited",
+		]);
+		expect(outcome.issues).toEqual([]);
+		const [first] = outcome.tdsObservations;
+		if (first?.record.medium !== "json") {
+			throw new Error("expected a JSON record");
+		}
+		expect(first.record.taxDeductedRaw).toBeUndefined();
 	});
 });
 

@@ -26,31 +26,39 @@ const ObservationEvidencePanel = ({
 	pages: PagesList;
 }>) => {
 	const evidence = observation.evidence;
-	const locator =
-		evidence.kind === "pdf-page-region"
-			? (() => {
-					const page = pages.find(
-						(candidate) => candidate.page === evidence.page,
-					);
-					return {
-						heading: `Evidence — Page ${evidence.page}`,
-						description: `Evidence location: Page ${evidence.page} · x ${evidence.x} · y ${evidence.y} · width ${Math.round(evidence.width)} pt · height ${Math.round(evidence.height)} pt`,
-						lines: page?.lines ?? [],
-						isEvidenceLine: (text: string): boolean =>
-							text === observation.originalText,
-					};
-				})()
-			: {
-					heading: "Evidence — JSON Pointer",
-					description: `Evidence location: ${evidence.pointer}`,
-					lines: [
-						{
-							lineNumber: 1,
-							text: observation.originalText,
-						},
-					],
-					isEvidenceLine: (): boolean => true,
-				};
+	let locator: {
+		heading: string;
+		description: string;
+		lines: PagesList[number]["lines"];
+		isEvidenceLine: (text: string) => boolean;
+	};
+	if (evidence.kind === "pdf-page-region") {
+		const page = pages.find((candidate) => candidate.page === evidence.page);
+		locator = {
+			heading: `Evidence — Page ${evidence.page}`,
+			description: `Evidence location: Page ${evidence.page} · x ${evidence.x} · y ${evidence.y} · width ${Math.round(evidence.width)} pt · height ${Math.round(evidence.height)} pt`,
+			lines: page?.lines ?? [],
+			isEvidenceLine: (text: string): boolean =>
+				text === observation.originalText,
+		};
+	} else if (evidence.kind === "json-pointer") {
+		locator = {
+			heading: "Evidence — JSON Pointer",
+			description: `Evidence location: ${evidence.pointer}`,
+			lines: [
+				{
+					lineNumber: 1,
+					text: observation.originalText,
+				},
+			],
+			isEvidenceLine: (): boolean => true,
+		};
+	} else {
+		const _exhaustive: never = evidence;
+		throw new Error(
+			`Unsupported salary evidence locator: ${String(_exhaustive)}`,
+		);
+	}
 	return (
 		<div
 			aria-label={`Evidence for ${observation.factKey}`}

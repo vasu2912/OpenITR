@@ -40,12 +40,13 @@ const projectedDocumentOf = (
 export const parsePrefilledItr1JsonRevision = (
 	text: string,
 ): PrefilledItr1JsonParseOutcome => {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(text) as unknown;
-	} catch {
-		return { kind: "unsupported" };
-	}
+	const parsed: unknown = (() => {
+		try {
+			return JSON.parse(text);
+		} catch {
+			return undefined;
+		}
+	})();
 	if (!isRecordObject(parsed)) {
 		return { kind: "unsupported" };
 	}
