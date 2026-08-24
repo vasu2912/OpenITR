@@ -18,9 +18,13 @@ import { describe, expect, test } from "vitest";
 import { itr1Ay202627RulePack20260824b } from "../revisions/2026-08-24b/rule-pack";
 import {
 	SALARY_FACT_KEYS,
+	computeNewRegimeSalaryScenario,
 } from "./new-regime-salary";
 import type { AcceptedSalaryDocumentFacts } from "./new-regime-salary";
-import { computeRefundOrAmountPayableEstimate } from "./estimate-refund-or-payable";
+import {
+	computeRefundOrAmountPayableEstimate,
+	estimateRefundOrAmountPayableFromSalaryScenario,
+} from "./estimate-refund-or-payable";
 import type {
 	AcceptedBankInterestDocumentFacts,
 	AcceptedTdsDocumentFacts,
@@ -39,8 +43,6 @@ const residentAnswer = (): AttestedAnswer => ({
 	rulePackId: itr1Ay202627RulePack20260824b.identity.id,
 });
 
-let nextEvidenceY = 600;
-
 const salaryObservation = ({
 	factKey,
 	wholeRupees,
@@ -57,7 +59,7 @@ const salaryObservation = ({
 		kind: "pdf-page-region",
 		page: 1,
 		x: 72,
-		y: nextEvidenceY,
+		y: 600,
 		width: 200,
 		height: 12,
 	},
@@ -633,6 +635,35 @@ describe("determinism of accepted facts, rule pack, and trace", () => {
 
 		expect(JSON.stringify(second)).toBe(JSON.stringify(first));
 		expect(structuredClone(first)).toEqual(first);
+	});
+
+	test("derives the same estimate from a precomputed salary scenario as from raw documents", () => {
+		const salaryDocuments = [reviewedSalaryDocument()];
+		const bankInterestDocuments = [reviewedBankInterestDocument()];
+		const tdsDocuments = [reviewedTdsDocument()];
+		const answer = residentAnswer();
+
+		const direct = computeRefundOrAmountPayableEstimate({
+			rulePack: itr1Ay202627RulePack20260824b,
+			residentAnswer: answer,
+			salaryDocuments,
+			bankInterestDocuments,
+			tdsDocuments,
+		});
+		const sharedSalary = estimateRefundOrAmountPayableFromSalaryScenario({
+			rulePack: itr1Ay202627RulePack20260824b,
+			residentAnswer: answer,
+			salaryScenario: computeNewRegimeSalaryScenario({
+				rulePack: itr1Ay202627RulePack20260824b,
+				residentAnswer: answer,
+				salaryDocuments,
+			}),
+			salaryDocuments,
+			bankInterestDocuments,
+			tdsDocuments,
+		});
+
+		expect(JSON.stringify(sharedSalary)).toBe(JSON.stringify(direct));
 	});
 
 	test("keeps the summary consistent with its own trace nodes", () => {

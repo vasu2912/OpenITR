@@ -126,6 +126,15 @@ export type RefundOrAmountPayableEstimateInput = Readonly<{
 	tdsDocuments: readonly AcceptedTdsDocumentFacts[];
 }>;
 
+export type EstimateFromSalaryScenarioInput = Readonly<{
+	rulePack: SalaryComputationRulePackInput;
+	residentAnswer: AttestedAnswer;
+	salaryScenario: NewRegimeSalaryComputation;
+	salaryDocuments: readonly AcceptedSalaryDocumentFacts[];
+	bankInterestDocuments: readonly AcceptedBankInterestDocumentFacts[];
+	tdsDocuments: readonly AcceptedTdsDocumentFacts[];
+}>;
+
 export type RefundOrAmountPayableEstimate =
 	| Readonly<{
 			kind: "computed";
@@ -348,18 +357,37 @@ export const computeRefundOrAmountPayableEstimate = ({
 	salaryDocuments,
 	bankInterestDocuments,
 	tdsDocuments,
-}: RefundOrAmountPayableEstimateInput): RefundOrAmountPayableEstimate => {
+}: RefundOrAmountPayableEstimateInput): RefundOrAmountPayableEstimate =>
+	estimateRefundOrAmountPayableFromSalaryScenario({
+		rulePack,
+		residentAnswer,
+		salaryScenario: computeNewRegimeSalaryScenario({
+			rulePack,
+			residentAnswer,
+			salaryDocuments,
+		}),
+		salaryDocuments,
+		bankInterestDocuments,
+		tdsDocuments,
+	});
+
+// The reconciliation over an already-derived salary scenario. Callers that
+// computed the salary slice for the same inputs (the session derives it for
+// its own card) pass it here instead of paying for a second run; the public
+// entry point above keeps the derive-it-for-me behavior.
+export const estimateRefundOrAmountPayableFromSalaryScenario = ({
+	rulePack,
+	residentAnswer,
+	salaryScenario,
+	salaryDocuments,
+	bankInterestDocuments,
+	tdsDocuments,
+}: EstimateFromSalaryScenarioInput): RefundOrAmountPayableEstimate => {
 	const issues: RefundOrPayableEstimateIssue[] = [];
 
 	// The salary slice owns every Form 16 validation; its blocking issues join
 	// any bank-interest or TDS gaps so one blocked screen lists everything
 	// that needs review.
-	const salaryScenario: NewRegimeSalaryComputation =
-		computeNewRegimeSalaryScenario({
-			rulePack,
-			residentAnswer,
-			salaryDocuments,
-		});
 	if (salaryScenario.kind === "blocked") {
 		issues.push(...salaryScenario.issues);
 	}

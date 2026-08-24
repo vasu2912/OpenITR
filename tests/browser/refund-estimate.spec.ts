@@ -48,10 +48,10 @@ test.describe("estimated refund or amount payable", () => {
 			}),
 		).toBeVisible({ timeout: 30_000 });
 
-		const outcomeAlert = estimateSection.locator(".pf-v6-c-alert__title", {
-			hasText: /Estimated (refund|amount payable)|Balanced/,
+		const outcomeHeading = estimateSection.getByRole("heading", {
+			name: /Estimated refund|Estimated amount payable|Balanced/,
 		});
-		await expect(outcomeAlert.first()).toBeVisible({ timeout: 30_000 });
+		await expect(outcomeHeading).toBeVisible({ timeout: 30_000 });
 
 		await expect(
 			estimateSection.getByText("Educational analysis only"),

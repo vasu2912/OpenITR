@@ -28,13 +28,17 @@ export type {
 	SalaryComputationIssue,
 	SalaryComputationRulePackInput,
 } from "./computations/new-regime-salary";
-export { computeRefundOrAmountPayableEstimate } from "./computations/estimate-refund-or-payable";
+export {
+	computeRefundOrAmountPayableEstimate,
+	estimateRefundOrAmountPayableFromSalaryScenario,
+} from "./computations/estimate-refund-or-payable";
 export type {
 	AcceptedBankInterestDocumentFacts,
 	AcceptedTdsDocumentFacts,
 	EstimateEvidenceReference,
 	EstimateEvidenceRole,
 	EstimateOutcome,
+	EstimateFromSalaryScenarioInput,
 	RefundOrAmountPayableEstimate,
 	RefundOrAmountPayableEstimateInput,
 	RefundOrPayableEstimateIssue,
