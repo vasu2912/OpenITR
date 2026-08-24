@@ -2,6 +2,14 @@ import {
 	buildSyntheticPdf,
 	corruptSyntheticPdf,
 } from "./fixtures/pdf-fixture-builder";
+import {
+	buildXlsxWorkbookFixture,
+	blankCell,
+	rowXmlOf,
+	SharedStringTableBuilder,
+	textCell,
+	type FixtureCell,
+} from "./fixtures/xlsx-fixture-builder";
 import { PRIVATE_STATEMENT_SENTINEL_HEADER } from "./private-statements/private-statement-detector";
 
 export { PRIVATE_STATEMENT_SENTINEL_HEADER };
@@ -334,4 +342,109 @@ export const createForm26AsTextFixture = (
 				]),
 		"",
 	].join("\r\n");
+};
+
+// Machine-generated synthetic Form 26AS spreadsheet export for the one
+// supported revision: one worksheet named after the statement, a four-row
+// header block, the Part I section title row, one reviewed column header
+// row, and one row per TDS record with six cells, followed by an aggregate
+// row that starts with "Total". Every reviewed cell is a text cell carrying
+// exactly the characters the plain-text export prints. The layout constants
+// below intentionally mirror the adapter's expectations without importing
+// them, so any drift fails tests.
+export const FORM26AS_EXCEL_SHEET_NAME = "Form 26AS";
+export const FORM26AS_EXCEL_ASSESSMENT_YEAR = FORM26AS_TEXT_ASSESSMENT_YEAR;
+
+const FORM26AS_EXCEL_TITLE = "FORM 26AS";
+const FORM26AS_EXCEL_SUBTITLE =
+	"Annual Tax Statement under Section 203AA of the Income Tax Act, 1961";
+const FORM26AS_EXCEL_PAN_LABEL = "Permanent Account Number (PAN)";
+const FORM26AS_EXCEL_PAN_VALUE = "PANXXXX9999X";
+const FORM26AS_EXCEL_ASSESSMENT_YEAR_LABEL = "Assessment Year";
+
+export type Form26AsExcelFixtureOptions = Readonly<{
+	partOneRows?: readonly (readonly (string | undefined)[])[];
+	omitPartOne?: boolean;
+	omitColumnHeader?: boolean;
+	assessmentYear?: string;
+	sheetName?: string;
+	extraZipEntries?: Readonly<Record<string, string>>;
+	omitSharedStringsPart?: boolean;
+}>;
+
+// "" prints a blank cell; undefined omits the cell entirely so fixtures can
+// distinguish the two states a real workbook can carry.
+const fixtureRowOf = (
+	rowNumber: number,
+	values: readonly (string | FixtureCell | undefined)[],
+	table: SharedStringTableBuilder,
+): string =>
+	rowXmlOf(
+		rowNumber,
+		values.map((value) => {
+			if (value === undefined) {
+				return undefined;
+			}
+			if (value === "") {
+				return blankCell();
+			}
+			return typeof value === "string" ? textCell(value) : value;
+		}),
+		table,
+	);
+
+export const createForm26AsExcelFixture = (
+	options: Form26AsExcelFixtureOptions = {},
+): Uint8Array<ArrayBuffer> => {
+	const table = new SharedStringTableBuilder();
+	const partOneRows =
+		options.partOneRows ??
+		[
+			[...FORM26AS_TDS_RECORD_ONE_CELLS],
+			[...FORM26AS_TDS_RECORD_TWO_CELLS],
+			["Total", "", "", "12,50,000.00", "50,000.00", "61,250.00"],
+		];
+	const rows: readonly string[] = [
+		fixtureRowOf(1, [FORM26AS_EXCEL_TITLE], table),
+		fixtureRowOf(2, [FORM26AS_EXCEL_SUBTITLE], table),
+		fixtureRowOf(
+			3,
+			[FORM26AS_EXCEL_PAN_LABEL, FORM26AS_EXCEL_PAN_VALUE],
+			table,
+		),
+		fixtureRowOf(
+			4,
+			[
+				FORM26AS_EXCEL_ASSESSMENT_YEAR_LABEL,
+				options.assessmentYear ?? FORM26AS_EXCEL_ASSESSMENT_YEAR,
+			],
+			table,
+		),
+		...(options.omitPartOne
+			? []
+			: [
+					fixtureRowOf(5, [FORM26AS_PART_ONE_TITLE], table),
+					...(options.omitColumnHeader
+						? []
+						: [fixtureRowOf(6, [...FORM26AS_COLUMN_HEADER_CELLS], table)]),
+					...partOneRows.map((cells, index) =>
+						fixtureRowOf(
+							(options.omitColumnHeader ? 6 : 7) + index,
+							cells,
+							table,
+						),
+					),
+				]),
+	];
+	return buildXlsxWorkbookFixture({
+		sheetName: options.sheetName ?? FORM26AS_EXCEL_SHEET_NAME,
+		rows,
+		sharedStrings: table.items,
+		...(options.extraZipEntries === undefined
+			? {}
+			: { extraEntries: options.extraZipEntries }),
+		...(options.omitSharedStringsPart === true
+			? { omitParts: ["xl/sharedStrings.xml"] }
+			: {}),
+	});
 };

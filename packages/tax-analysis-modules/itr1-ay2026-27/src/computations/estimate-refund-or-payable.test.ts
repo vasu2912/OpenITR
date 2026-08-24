@@ -122,6 +122,7 @@ const tdsDepositedObservation = ({
 		description: "Form 26AS Part I column definition",
 	},
 	record: {
+		medium: "text",
 		serialNumber,
 		deductorName: "OpenITR Synthetic Employer",
 		deductorTan,
@@ -531,6 +532,7 @@ describe("blocked estimates fail closed and name what needs review", () => {
 					factKey: parseFactKey("tds.tax-deducted"),
 					observationId: `tds.tax-deducted@${form26asDocumentId}:7-7`,
 					record: {
+						medium: "text",
 						serialNumber: "1",
 						deductorName: "OpenITR Synthetic Employer",
 						deductorTan: "MUMA12345B",

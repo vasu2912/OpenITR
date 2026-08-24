@@ -3,15 +3,7 @@ import type {
 	FactKey,
 	Sha256Digest,
 	TdsObservation,
-	TdsSourceRecord,
-} from "@openitr/model";
-import {
-	DOCUMENT_REVIEW_ISSUE_CODES,
-	TDS_COLUMN_HEADER_MALFORMED_RECOVERY_ACTION,
-	TDS_RECORD_MALFORMED_RECOVERY_ACTION,
-	TDS_SECTION_MISSING_RECOVERY_ACTION,
-	parseFactKey,
-	parseRuleId,
+	TextTdsSourceRecord,
 } from "@openitr/model";
 
 import { compareByCodepoint } from "../extraction-support";
@@ -19,88 +11,19 @@ import type { AdapterIdentity } from "../extraction-support";
 import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
 import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import type { Form26AsTextDocument } from "./form26as-text-revision";
-
-const FORM26AS_PART_ONE_TITLE = "Part I - Tax Deducted at Source";
-
-const FORM26AS_COLUMN_HEADER_CELLS = Object.freeze([
-	"Sr. No.",
-	"Name of Deductor",
-	"TAN of Deductor",
-	"Total Amount Paid/Credited",
-	"Total Tax Deducted",
-	"Total TDS Deposited",
-]);
-
-type AmountCellDefinition = Readonly<{
-	columnIndex: number;
-	factKey: FactKey;
-	ruleId: ReturnType<typeof parseRuleId>;
-	description: string;
-}>;
-
-// One definition per amount column of the reviewed Part I layout. This table
-// is the single source of truth for every amount cell's position, canonical
-// fact, and rule citation.
-const AMOUNT_COLUMNS = {
-	paidCredited: Object.freeze({
-		columnIndex: 3,
-		factKey: parseFactKey("tds.amount-paid-credited"),
-		ruleId: parseRuleId("FORM26AS-TDS-AMOUNT-PAID-CREDITED"),
-		description:
-			"Form 26AS Part I record fact for the total amount paid or credited.",
-	}),
-	taxDeducted: Object.freeze({
-		columnIndex: 4,
-		factKey: parseFactKey("tds.tax-deducted"),
-		ruleId: parseRuleId("FORM26AS-TDS-TAX-DEDUCTED"),
-		description:
-			"Form 26AS Part I record fact for the total tax deducted at source.",
-	}),
-	deposited: Object.freeze({
-		columnIndex: 5,
-		factKey: parseFactKey("tds.tds-deposited"),
-		ruleId: parseRuleId("FORM26AS-TDS-DEPOSITED"),
-		description:
-			"Form 26AS Part I record fact for the total tax deposited with the government.",
-	}),
-} as const satisfies Readonly<Record<string, AmountCellDefinition>>;
-
-const AMOUNT_CELL_DEFINITIONS: readonly AmountCellDefinition[] =
-	Object.values(AMOUNT_COLUMNS);
-
-// A malformed or rejected Part I record affects every tax-paid fact the
-// reviewed layout can extract from it.
-const affectedFactKeys = (): readonly FactKey[] =>
-	AMOUNT_CELL_DEFINITIONS.map((definition) => definition.factKey);
-
-const SERIAL_NUMBER_PATTERN = /^[0-9]+$/;
-const TAN_PATTERN = /^[A-Z]{4}[0-9]{5}[A-Z]$/;
-// A strict part-title boundary such as "Part II - ..." or "Part-II(A)" ends
-// the section. Loose prose that merely starts with "part" does not match and
-// therefore fails closed as a malformed record instead of hiding records.
-const NEXT_PART_PATTERN = /^part[\s-]*[ivx]+\b/i;
-const AGGREGATE_ROW_LABEL = "Total";
-
-const sectionMissingIssue = (): DocumentReviewIssue => ({
-	code: DOCUMENT_REVIEW_ISSUE_CODES.tdsSectionMissing,
-	severity: "review",
-	affectedFactKeys: affectedFactKeys(),
-	recoveryAction: TDS_SECTION_MISSING_RECOVERY_ACTION,
-});
-
-const columnHeaderMalformedIssue = (): DocumentReviewIssue => ({
-	code: DOCUMENT_REVIEW_ISSUE_CODES.tdsColumnHeaderMalformed,
-	severity: "review",
-	affectedFactKeys: affectedFactKeys(),
-	recoveryAction: TDS_COLUMN_HEADER_MALFORMED_RECOVERY_ACTION,
-});
-
-const recordMalformedIssue = (): DocumentReviewIssue => ({
-	code: DOCUMENT_REVIEW_ISSUE_CODES.tdsRecordMalformed,
-	severity: "review",
-	affectedFactKeys: affectedFactKeys(),
-	recoveryAction: TDS_RECORD_MALFORMED_RECOVERY_ACTION,
-});
+import {
+	AGGREGATE_ROW_LABEL,
+	AMOUNT_CELL_DEFINITIONS,
+	FORM26AS_COLUMN_HEADER_CELLS,
+	FORM26AS_PART_ONE_TITLE,
+	NEXT_PART_PATTERN,
+	SERIAL_NUMBER_PATTERN,
+	TAN_PATTERN,
+	TDS_AMOUNT_COLUMNS,
+	tdsColumnHeaderMalformedIssue,
+	tdsRecordMalformedIssue,
+	tdsSectionMissingIssue,
+} from "./tds-part-one";
 
 type ParsedAmountCell =
 	| Readonly<{ kind: "unknown"; raw: string | undefined }>
@@ -121,7 +44,7 @@ const parseAmountCell = (cell: string | undefined): ParsedAmountCell => {
 };
 
 type ParsedTdsRecord = Readonly<{
-	facts: TdsSourceRecord;
+	facts: TextTdsSourceRecord;
 	amounts: ReadonlyMap<
 		FactKey,
 		Readonly<{ amount: GroupedRupeeAmount; originalValue: string }>
@@ -185,15 +108,16 @@ const parseTdsRecord = (
 		}
 	}
 
-	const facts: TdsSourceRecord = {
+	const facts: TextTdsSourceRecord = {
+		medium: "text",
 		serialNumber,
 		deductorName,
 		deductorTan,
 		firstLine: lineNumber,
 		lastLine: lineNumber,
-		amountPaidCreditedRaw: cellAt(AMOUNT_COLUMNS.paidCredited.columnIndex),
-		taxDeductedRaw: cellAt(AMOUNT_COLUMNS.taxDeducted.columnIndex),
-		tdsDepositedRaw: cellAt(AMOUNT_COLUMNS.deposited.columnIndex),
+		amountPaidCreditedRaw: cellAt(TDS_AMOUNT_COLUMNS.paidCredited.columnIndex),
+		taxDeductedRaw: cellAt(TDS_AMOUNT_COLUMNS.taxDeducted.columnIndex),
+		tdsDepositedRaw: cellAt(TDS_AMOUNT_COLUMNS.deposited.columnIndex),
 	};
 	return {
 		kind: "parsed",
@@ -224,7 +148,7 @@ export const extractTdsObservations = ({
 		(line) => line.trim() === FORM26AS_PART_ONE_TITLE,
 	);
 	if (sectionStart < 0) {
-		return { observations: [], issues: [sectionMissingIssue()] };
+		return { observations: [], issues: [tdsSectionMissingIssue()] };
 	}
 
 	let columnHeaderLine = -1;
@@ -246,7 +170,7 @@ export const extractTdsObservations = ({
 			(expected, columnIndex) => headerCells[columnIndex] === expected,
 		);
 	if (columnHeaderLine < 0 || !columnHeaderMatches) {
-		return { observations: [], issues: [columnHeaderMalformedIssue()] };
+		return { observations: [], issues: [tdsColumnHeaderMalformedIssue()] };
 	}
 
 	const issues: DocumentReviewIssue[] = [];
@@ -275,7 +199,7 @@ export const extractTdsObservations = ({
 		}
 		const outcome = parseTdsRecord(line, index + 1);
 		if (outcome.kind === "malformed") {
-			issues.push(recordMalformedIssue());
+			issues.push(tdsRecordMalformedIssue());
 			continue;
 		}
 		records.push(outcome.record);
