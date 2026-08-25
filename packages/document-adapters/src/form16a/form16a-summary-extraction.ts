@@ -263,13 +263,20 @@ export const extractForm16APaymentSummary = ({
 			issues.push(form16aRecordMalformedIssue());
 			continue;
 		}
+		// A row whose section and nature of payment this revision does not
+		// define contributes nothing in either direction: its gross receipt
+		// has no canonical income fact, so crediting its withheld or
+		// deposited amounts would count tax paid against income the model
+		// never recognized. The record is skipped entirely; the review issue
+		// names what the user must check.
+		if (outcome.record.categoryDefinition === undefined) {
+			issues.push(form16aCategoryUnknownIssue());
+			continue;
+		}
 		const record: ParsedSummaryRecord = {
 			...outcome.record,
 			rowNumber: parsedRecords.length + 1,
 		};
-		if (record.categoryDefinition === undefined) {
-			issues.push(form16aCategoryUnknownIssue());
-		}
 		parsedRecords.push(record);
 	}
 

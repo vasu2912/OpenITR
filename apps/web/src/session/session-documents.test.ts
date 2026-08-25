@@ -1359,6 +1359,61 @@ describe("refund-or-payable estimate exposure", () => {
 		session.stop();
 	});
 
+	test("excludes an unrecognized section's receipt and deposit from the totals", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+				{
+					displayName: "openitr-sentinel-ais-export.json",
+					bytes: utf8Bytes(createAisJsonBankInterestFixture()),
+				},
+				{
+					displayName: "openitr-sentinel-form16a-certificate.pdf",
+					bytes: createForm16APdfFixture({ addUnknownCategoryRow: true }),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 3 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+
+		// The 194J row (gross 50,000, deposited 5,000) stays out of both
+		// directions until a supported revision classifies it.
+		const certificateRecord = extractionRecords(session)
+			.filter((record) => record.status === "done")
+			.find((record) =>
+				record.nonSalaryIncomeObservations.some(
+					(observation) =>
+						observation.factKey ===
+						"non-salary-income.interest-other-than-securities",
+				),
+			);
+		if (certificateRecord?.status !== "done") {
+			throw new Error("certificate extraction missing");
+		}
+		expect(certificateRecord.tdsObservations).toHaveLength(3);
+
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		expect(estimate.summary.nonSalaryIncomeTotal).toBe("145000");
+		expect(estimate.summary.taxesPaid).toBe("12000");
+
+		session.stop();
+	});
+
 	test("drops the estimate when a contributing document is removed", async () => {
 		const session = createEligibleSession();
 
