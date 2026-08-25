@@ -229,7 +229,7 @@ describe("Form 16A fail-closed extraction", () => {
 		]);
 	});
 
-	test("fails closed on an unrecognized section without losing its tax-paid facts", async () => {
+	test("contributes nothing from an unrecognized section, in either direction", async () => {
 		const outcome = await extractedOrThrow(
 			createForm16APdfFixture({ addUnknownCategoryRow: true }),
 		);
@@ -244,12 +244,16 @@ describe("Form 16A fail-closed extraction", () => {
 			"non-salary-income.interest-other-than-securities",
 		]);
 
-		// Its reviewed tax-paid cells still become evidence.
+		// It also produces no tax-paid facts: crediting its deposits would
+		// count tax paid against income the model never recognized.
 		expect(
 			outcome.tdsObservations.filter(
 				(observation) => observation.record.serialNumber === "3",
-			).map((observation) => observation.factKey),
-		).toEqual(["tds.tax-deducted", "tds.tds-deposited"]);
+			).map((observation) => [observation.factKey, String(observation.normalizedValue)]),
+		).toEqual([]);
+		expect(
+			outcome.tdsObservations.map((observation) => observation.record.serialNumber),
+		).toEqual(["1", "1", "2"]);
 		expect(outcome.issues.map((issue) => String(issue.code))).toEqual([
 			"DOCUMENT_FORM16A_CATEGORY_UNKNOWN",
 		]);
