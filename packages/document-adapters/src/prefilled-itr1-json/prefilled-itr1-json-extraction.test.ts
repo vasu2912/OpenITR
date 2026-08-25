@@ -344,6 +344,8 @@ describe("prefilled ITR-1 JSON TDS-on-salary extraction", () => {
 						"tds.tax-deducted",
 						"tds.tds-deposited",
 					],
+					recoveryAction:
+						"Select an unmodified official prefilled ITR-1 JSON export so every TDS-on-salary record carries its serial number, deductor name, TAN, and amount properties.",
 				},
 			]);
 		},
@@ -392,6 +394,77 @@ describe("prefilled ITR-1 JSON TDS-on-salary extraction", () => {
 		}
 		expect(first.record.taxDeductedRaw).toBeUndefined();
 	});
+
+	test("reports an implausibly long digit amount as malformed instead of a fact", async () => {
+		const outcome = await extractOf(
+			createPrefilledItr1JsonFixture({
+				tdsOnSalary: [
+					{
+						...PREFILLED_ITR1_TDS_RECORD_ONE,
+						amountPaidCredited: "9".repeat(400),
+					},
+				],
+			}),
+		);
+
+		if (outcome.kind !== "extracted") {
+			throw new Error("expected an extracted outcome");
+		}
+		expect(outcome.tdsObservations).toEqual([]);
+		expect(outcome.issues).toHaveLength(1);
+	});
+
+	test("accepts padded identity properties and stores their trimmed values like the sibling adapters do", async () => {
+		const outcome = await extractOf(
+			createPrefilledItr1JsonFixture({
+				tdsOnSalary: [
+					{
+						...PREFILLED_ITR1_TDS_RECORD_ONE,
+						serialNumber: " 1 ",
+						deductorName: "  OpenITR Synthetic Employer Private Limited  ",
+						deductorTan: " MUMA12345B ",
+					},
+				],
+			}),
+		);
+
+		if (outcome.kind !== "extracted") {
+			throw new Error("expected an extracted outcome");
+		}
+		expect(outcome.tdsObservations).toHaveLength(3);
+		expect(outcome.issues).toEqual([]);
+		const [first] = outcome.tdsObservations;
+		if (first?.record.medium !== "json") {
+			throw new Error("expected a JSON record");
+		}
+		expect(first.record.serialNumber).toBe("1");
+		expect(first.record.deductorName).toBe(
+			"OpenITR Synthetic Employer Private Limited",
+		);
+		expect(first.record.deductorTan).toBe("MUMA12345B");
+	});
+
+	test.each([
+		["a numeric serial number node", { serialNumber: 1, deductorTan: "MUMA12345B" }],
+		["a non-string deductor TAN node", { serialNumber: "1", deductorTan: true }],
+	] as const)(
+		"reports %s as a malformed TDS record without inventing facts",
+		async (_label, partialRecord) => {
+			const outcome = await extractOf(
+				createPrefilledItr1JsonFixture({
+					tdsOnSalary: [partialRecord],
+				}),
+			);
+
+			if (outcome.kind !== "extracted") {
+				throw new Error("expected an extracted outcome");
+			}
+			expect(outcome.tdsObservations).toEqual([]);
+			expect(outcome.issues).toMatchObject([
+				{ code: "DOCUMENT_TDS_RECORD_MALFORMED" },
+			]);
+		},
+	);
 });
 
 describe("prefilled ITR-1 JSON determinism", () => {

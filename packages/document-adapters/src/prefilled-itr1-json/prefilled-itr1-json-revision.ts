@@ -21,14 +21,23 @@ export type PrefilledItr1JsonParseOutcome =
 	| Readonly<{ kind: "supported"; document: PrefilledItr1JsonDocument }>
 	| Readonly<{ kind: "unsupported" }>;
 
-// A reviewed section that is present must carry the reviewed shape: the
-// salary section an object of named properties, the TDS section an array
-// of record nodes.
+// Projects the reviewed sections in one pass, validating each present
+// section's shape as it goes. A prefill legitimately omits a section it
+// has nothing to say about; properties outside the reviewed sections
+// belong to the official format, not to OpenITR facts, and are dropped at
+// this boundary. Returns undefined when a present section carries a shape
+// other than the reviewed one.
 const projectedDocumentOf = (
 	parsed: Record<string, unknown>,
-): PrefilledItr1JsonDocument => {
+): PrefilledItr1JsonDocument | undefined => {
 	const salaryInformation = parsed["salaryInformation"];
+	if (salaryInformation !== undefined && !isRecordObject(salaryInformation)) {
+		return undefined;
+	}
 	const tdsOnSalary = parsed["tdsOnSalary"];
+	if (tdsOnSalary !== undefined && !Array.isArray(tdsOnSalary)) {
+		return undefined;
+	}
 	return {
 		...(isRecordObject(salaryInformation)
 			? { salaryInformation }
@@ -56,17 +65,9 @@ export const parsePrefilledItr1JsonRevision = (
 	) {
 		return { kind: "unsupported" };
 	}
-	if (
-		parsed["salaryInformation"] !== undefined &&
-		!isRecordObject(parsed["salaryInformation"])
-	) {
+	const document = projectedDocumentOf(parsed);
+	if (document === undefined) {
 		return { kind: "unsupported" };
 	}
-	if (
-		parsed["tdsOnSalary"] !== undefined &&
-		!Array.isArray(parsed["tdsOnSalary"])
-	) {
-		return { kind: "unsupported" };
-	}
-	return { kind: "supported", document: projectedDocumentOf(parsed) };
+	return { kind: "supported", document };
 };

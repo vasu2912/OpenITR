@@ -7,11 +7,12 @@ import type {
 } from "@openitr/model";
 import {
 	DOCUMENT_REVIEW_ISSUE_CODES,
+	PREFILLED_ITR1_TDS_RECORD_MALFORMED_RECOVERY_ACTION,
 	SALARY_FIELD_MALFORMED_RECOVERY_ACTION,
 } from "@openitr/model";
 
 import type { AdapterIdentity } from "../extraction-support";
-import { isRecordObject } from "../extraction-support";
+import { compareByCodepoint, isRecordObject } from "../extraction-support";
 import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
 import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import {
@@ -144,12 +145,26 @@ export const extractPrefilledItr1Observations = ({
 					issues,
 				});
 
+	// Issues leave ordered by their own content, so neither the section
+	// order in the source nor the collection order can influence them.
 	return {
 		salaryObservations,
 		tdsObservations,
-		issues,
+		issues: [...issues]
+			.map((issue) => ({ issue, key: issueOrderKey(issue) }))
+			.sort((first, second) =>
+				compareByCodepoint(first.key, second.key),
+			)
+			.map((entry) => entry.issue),
 	};
 };
+
+const issueOrderKey = (issue: DocumentReviewIssue): string =>
+	[
+		issue.code,
+		issue.affectedFactKeys.join("\u0000"),
+		issue.recoveryAction,
+	].join("\u0001");
 
 type IssueSink = { push(issue: DocumentReviewIssue): void };
 
@@ -261,29 +276,44 @@ const parseJsonTdsRecord = (
 		return { kind: "malformed" };
 	}
 
-	const serialNumber = record["serialNumber"];
-	const deductorName = record["deductorName"];
-	const deductorTan = record["deductorTan"];
+	const serialNumberNode = record["serialNumber"];
+	const deductorNameNode = record["deductorName"];
+	const deductorTanNode = record["deductorTan"];
 	if (
-		typeof serialNumber !== "string" ||
-		serialNumber === "" ||
+		typeof serialNumberNode !== "string" ||
+		typeof deductorNameNode !== "string" ||
+		typeof deductorTanNode !== "string"
+	) {
+		return { kind: "malformed" };
+	}
+	// Identity values trim once, exactly as the sibling Form 26AS adapters
+	// trim their identity cells, so padded input cannot change the verdict
+	// and no padding reaches a stored fact.
+	const serialNumber = serialNumberNode.trim();
+	const deductorName = deductorNameNode.trim();
+	const deductorTan = deductorTanNode.trim();
+	if (
 		!SERIAL_NUMBER_PATTERN.test(serialNumber) ||
-		typeof deductorName !== "string" ||
-		deductorName.trim() === "" ||
-		typeof deductorTan !== "string" ||
-		deductorTan.trim() === "" ||
+		deductorName === "" ||
 		!TAN_PATTERN.test(deductorTan)
 	) {
 		return { kind: "malformed" };
 	}
 
 	const pointer = `${TDS_SECTION_POINTER}/${recordIndex}`;
-	const parsedAmounts = TDS_AMOUNT_COLUMN_BINDINGS.map((binding) => ({
-		binding,
-		outcome: parseTdsAmountProperty(record[binding.propertyName]),
-	}));
-	if (parsedAmounts.some(({ outcome }) => outcome.kind === "malformed")) {
-		return { kind: "malformed" };
+	type KnownAmountEntry = Readonly<{
+		binding: (typeof TDS_AMOUNT_COLUMN_BINDINGS)[number];
+		outcome:
+			| Extract<ParsedAmountCell, { kind: "unknown" }>
+			| Extract<ParsedAmountCell, { kind: "value" }>;
+	}>;
+	const parsedAmounts: KnownAmountEntry[] = [];
+	for (const binding of TDS_AMOUNT_COLUMN_BINDINGS) {
+		const outcome = parseTdsAmountProperty(record[binding.propertyName]);
+		if (outcome.kind === "malformed") {
+			return { kind: "malformed" };
+		}
+		parsedAmounts.push({ binding, outcome });
 	}
 
 	const amounts = new Map<
@@ -299,16 +329,14 @@ const parseJsonTdsRecord = (
 		}
 	}
 
+	// Every surviving outcome carries its raw value; unknown keeps
+	// undefined for an absent property.
 	const rawOf = (
 		columnKey: keyof typeof TDS_AMOUNT_COLUMNS,
-	): string | undefined => {
-		const outcome = parsedAmounts.find(
+	): string | undefined =>
+		parsedAmounts.find(
 			(entry) => entry.binding.columnKey === columnKey,
-		)?.outcome;
-		return outcome === undefined || outcome.kind === "malformed"
-			? undefined
-			: outcome.raw;
-	};
+		)?.outcome.raw;
 
 	const facts: JsonTdsSourceRecord = {
 		medium: "json",
@@ -338,7 +366,11 @@ const collectTdsObservations = ({
 	for (let index = 0; index < records.length; index += 1) {
 		const outcome = parseJsonTdsRecord(records[index], index);
 		if (outcome.kind === "malformed") {
-			issues.push(tdsRecordMalformedIssue());
+			issues.push(
+				tdsRecordMalformedIssue(
+					PREFILLED_ITR1_TDS_RECORD_MALFORMED_RECOVERY_ACTION,
+				),
+			);
 			continue;
 		}
 		parsedRecords.push(outcome.record);

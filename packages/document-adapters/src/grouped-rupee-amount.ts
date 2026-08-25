@@ -12,7 +12,10 @@ const normalizeWhitespace = (text: string): string =>
 // Parses the Indian digit-grouped rupee strings that official statement
 // exports print, such as "10,00,000.00", into an exact decimal value while
 // recording every transformation step. Returns undefined for anything that
-// is not a plain non-negative amount, so callers can fail closed.
+// is not a plain non-negative amount within a plausible statement magnitude,
+// so callers can fail closed.
+const MAX_AMOUNT_DIGITS = 15;
+
 export const parseGroupedRupeeAmount = (
 	raw: unknown,
 ): GroupedRupeeAmount | undefined => {
@@ -22,6 +25,12 @@ export const parseGroupedRupeeAmount = (
 	const trimmed = normalizeWhitespace(raw);
 	const digitsWithoutGrouping = trimmed.replace(/,/g, "");
 	if (!/^[0-9]+(?:\.[0-9]+)?$/.test(digitsWithoutGrouping)) {
+		return undefined;
+	}
+	// No official statement prints a rupee amount beyond fifteen digits;
+	// longer digit strings are hostile input, not data, and fail closed
+	// instead of becoming an unbounded money fact.
+	if (digitsWithoutGrouping.replace(".", "").length > MAX_AMOUNT_DIGITS) {
 		return undefined;
 	}
 	let value: ExactMoney;
