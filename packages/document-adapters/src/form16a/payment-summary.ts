@@ -10,7 +10,9 @@ import {
 	parseRuleId,
 } from "@openitr/model";
 
-import { SERIAL_NUMBER_PATTERN, TDS_AMOUNT_COLUMNS } from "../form26as/tds-part-one";// The reviewed vocabulary of a machine-generated Form 16A certificate's
+import { SERIAL_NUMBER_PATTERN, TDS_AMOUNT_COLUMNS } from "../form26as/tds-part-one";
+
+// The reviewed vocabulary of a machine-generated Form 16A certificate's
 // Summary of Payment(s) table, so the adapter and its fixtures cannot drift
 // apart and the certificate's tax-paid facts reuse the same canonical keys
 // as every other TDS source.

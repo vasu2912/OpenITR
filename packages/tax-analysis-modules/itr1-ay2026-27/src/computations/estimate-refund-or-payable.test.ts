@@ -325,7 +325,8 @@ describe("refund or payable estimate", () => {
 		expect(estimate.summary).toEqual({
 			salaryAdjustedIncome: "975000",
 			bankInterestTotal: "53569.15",
-			nonSalaryIncomeTotal: "0",			totalIncome: "1028570",
+			nonSalaryIncomeTotal: "0",
+			totalIncome: "1028570",
 			incomeTaxBeforeAdjustments: "42857",
 			rebateApplied: "42857",
 			marginalReliefApplied: "0",

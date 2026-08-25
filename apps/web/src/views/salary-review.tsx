@@ -15,6 +15,8 @@ import {
 } from "@patternfly/react-core";
 import { useState } from "react";
 
+import { rupeeFormat } from "./computation-trace-view";
+
 type PagesList = Extract<DocumentExtractionRecord, { status: "done" }>["pages"];
 
 const rupeeDisplay = new Intl.NumberFormat("en-IN", {
@@ -38,8 +40,8 @@ type ReviewObservation = Readonly<{
 		| TdsObservation["evidence"];
 }>;
 
-const moneyDisplay = (value: string): string =>
-	rupeeDisplay.format(Number(value));
+// Exact-money values stay strings all the way into grouped display text.
+const moneyDisplay = (value: string): string => rupeeFormat(value);
 
 const salaryToReview = (observation: SalaryObservation): ReviewObservation => ({
 	observationId: observation.observationId,

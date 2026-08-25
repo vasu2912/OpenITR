@@ -23,14 +23,8 @@ export const FORM16A_PDF_MANIFEST: DocumentAdapterManifest = Object.freeze({
 	templateRevision: parseTemplateRevision("2026-27"),
 });
 
-// Inspection reports a bare PDF as no-match; extraction reports it as an
-// unknown-format rejection.
-const INSPECTION_REJECTIONS = {
-	encrypted: "encrypted",
-	damaged: "damaged",
-	"no-text-layer": "image-only",
-} as const;
-
+// Extraction reports a bare PDF as an unknown-format rejection; inspection
+// reports it as no-match.
 const EXTRACTION_REJECTIONS = {
 	encrypted: "encrypted",
 	damaged: "damaged",
@@ -51,21 +45,24 @@ export const createForm16APdfAdapter = (): SourceDocumentAdapter => ({
 	manifest: FORM16A_PDF_MANIFEST,
 	inspect: async (input, options = {}): Promise<AdapterVerdict> => {
 		const linesOutcome = await extractPdfLines(input.bytes, options);
-		if (linesOutcome.outcome === "not-a-pdf") {
-			return { verdict: "no-match" };
+		switch (linesOutcome.outcome) {
+			case "not-a-pdf":
+				return { verdict: "no-match" };
+			case "encrypted":
+				return { verdict: "rejected", rejection: "encrypted" };
+			case "damaged":
+				return { verdict: "rejected", rejection: "damaged" };
+			case "no-text-layer":
+				return { verdict: "rejected", rejection: "image-only" };
+			case "text":
+				return form16aMarkersPresent(linesOutcome)
+					? { verdict: "exact-match" }
+					: { verdict: "no-match" };
+			default: {
+				const _exhaustive: never = linesOutcome;
+				return _exhaustive;
+			}
 		}
-		if (linesOutcome.outcome !== "text") {
-			return {
-				verdict: "rejected",
-				rejection:
-					INSPECTION_REJECTIONS[
-						linesOutcome.outcome as keyof typeof INSPECTION_REJECTIONS
-					],
-			};
-		}
-		return form16aMarkersPresent(linesOutcome)
-			? { verdict: "exact-match" }
-			: { verdict: "no-match" };
 	},
 	extract: async (input, options = {}): Promise<DocumentExtractionOutcome> => {
 		const linesOutcome = await extractPdfLines(input.bytes, options);

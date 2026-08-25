@@ -286,6 +286,17 @@ describe("Form 16A fail-closed extraction", () => {
 				(observation) => observation.record.serialNumber === "1",
 			),
 		).toEqual([]);
+		// Dropping the conflicted first record must not renumber the rows
+		// printed after it: the dividend row stays row 2.
+		const dividends = outcome.nonSalaryIncomeObservations[0];
+		expect(dividends?.observationId.endsWith(":1:2")).toBe(true);
+		expect(
+			outcome.tdsObservations.every(
+				(observation) =>
+					observation.record.medium === "pdf" &&
+					observation.record.rowNumber === 2,
+			),
+		).toBe(true);
 		expect(outcome.issues.map((issue) => String(issue.code))).toEqual([
 			"DOCUMENT_FORM16A_RECORD_AMBIGUOUS",
 		]);

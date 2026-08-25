@@ -57,6 +57,10 @@ type PageLine = PdfLineGeometry & { readonly page: number };
 
 type ParsedSummaryRecord = Readonly<{
 	line: PageLine;
+	// The record's 1-based position among the certificate's successfully
+	// parsed summary rows. Assigned before duplicate folding so dropping a
+	// conflicted row can never renumber the records printed after it.
+	rowNumber: number;
 	categoryDefinition: Form16APaymentCategoryDefinition | undefined;
 	serialNumber: string;
 	section: string;
@@ -66,8 +70,12 @@ type ParsedSummaryRecord = Readonly<{
 	tdsDepositedCell: ReviewedAmountCell;
 }>;
 
+// The record shape produced by parsing one printed row, before the caller
+// assigns its position among parsed rows.
+type ParsedRow = Omit<ParsedSummaryRecord, "rowNumber">;
+
 type RecordParseOutcome =
-	| Readonly<{ kind: "parsed"; record: ParsedSummaryRecord }>
+	| Readonly<{ kind: "parsed"; record: ParsedRow }>
 	| Readonly<{ kind: "malformed" }>;
 
 const splitRowCells = (rowText: string): string[] =>
@@ -255,10 +263,14 @@ export const extractForm16APaymentSummary = ({
 			issues.push(form16aRecordMalformedIssue());
 			continue;
 		}
-		if (outcome.record.categoryDefinition === undefined) {
+		const record: ParsedSummaryRecord = {
+			...outcome.record,
+			rowNumber: parsedRecords.length + 1,
+		};
+		if (record.categoryDefinition === undefined) {
 			issues.push(form16aCategoryUnknownIssue());
 		}
-		parsedRecords.push(outcome.record);
+		parsedRecords.push(record);
 	}
 
 	// Duplicate printed serial numbers collapse when every reviewed cell is
@@ -310,9 +322,8 @@ export const extractForm16APaymentSummary = ({
 
 	const incomeObservations: NonSalaryIncomeObservation[] = [];
 	const tdsObservations: TdsObservation[] = [];
-	survivingRecords.forEach((record, recordIndex) => {
-		const rowNumber = recordIndex + 1;
-		const locatorKey = `${record.line.page}:${rowNumber}`;
+	for (const record of survivingRecords) {
+		const locatorKey = `${record.line.page}:${record.rowNumber}`;
 		if (
 			record.categoryDefinition !== undefined &&
 			record.grossCell.kind === "value"
@@ -336,7 +347,7 @@ export const extractForm16APaymentSummary = ({
 		const facts: PdfTdsSourceRecord = {
 			medium: "pdf",
 			page: record.line.page,
-			rowNumber,
+			rowNumber: record.rowNumber,
 			serialNumber: record.serialNumber,
 			deductorName,
 			deductorTan,
@@ -375,7 +386,7 @@ export const extractForm16APaymentSummary = ({
 				record: facts,
 			});
 		}
-	});
+	}
 
 	// Surviving records leave in printed-row order, so both observation lists
 	// inherit the certificate's own sequence; income additionally orders by

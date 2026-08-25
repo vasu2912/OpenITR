@@ -877,8 +877,8 @@ describe("observation extraction lifecycle", () => {
 						fakeObservation(documentId, "salary.section-17-1", 1),
 					],
 					bankInterestObservations: [],
-					tdsObservations: [],					nonSalaryIncomeObservations: [],
-
+					tdsObservations: [],
+					nonSalaryIncomeObservations: [],
 					issues: [],
 					pages: [],
 				} satisfies DocumentExtractionOutcome),
@@ -911,8 +911,8 @@ describe("observation extraction lifecycle", () => {
 						fakeObservation(documentId, "salary.section-17-1", 1),
 					],
 					bankInterestObservations: [],
-					tdsObservations: [],					nonSalaryIncomeObservations: [],
-
+					tdsObservations: [],
+					nonSalaryIncomeObservations: [],
 					issues: [],
 					pages: [],
 				} satisfies DocumentExtractionOutcome),
@@ -1039,8 +1039,8 @@ describe("new-regime salary computation exposure", () => {
 						),
 					],
 					bankInterestObservations: [],
-					tdsObservations: [],					nonSalaryIncomeObservations: [],
-
+					tdsObservations: [],
+					nonSalaryIncomeObservations: [],
 					issues: [
 						{
 							code: DOCUMENT_REVIEW_ISSUE_CODES.salaryFieldAmbiguous,
