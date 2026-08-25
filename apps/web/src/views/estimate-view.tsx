@@ -16,6 +16,7 @@ const roleLabels: Readonly<Record<EstimateEvidenceRole, string>> =
 	Object.freeze({
 		"salary-income": "Salary income",
 		"bank-interest-income": "Bank interest",
+		"non-salary-income": "Non-salary income (Form 16A)",
 		"taxes-paid": "Taxes paid (TDS deposited)",
 	});
 
@@ -64,6 +65,11 @@ const summaryRows = (
 		label: "Accepted bank interest",
 		value: `₹ ${rupeeFormat(estimate.summary.bankInterestTotal)}`,
 		hint: "Savings-account and deposit interest from the AIS export",
+	},
+	{
+		label: "Accepted non-salary income",
+		value: `₹ ${rupeeFormat(estimate.summary.nonSalaryIncomeTotal)}`,
+		hint: "Gross receipts from accepted Form 16A certificate records",
 	},
 	{
 		label: "Total income (rounded)",
@@ -118,8 +124,8 @@ export const EstimateView = ({
 				</CardTitle>
 				<CardBody>
 					<Alert isInline title="Educational analysis only" variant="info">
-						This estimate reconciles your accepted salary, bank-interest, and
-						tax-deducted-at-source evidence with the pinned rule pack. It is
+						This estimate reconciles your accepted salary, bank-interest,
+						non-salary-income, and tax-deducted-at-source evidence with the pinned rule pack. It is
 						not tax advice. Review every figure yourself.
 					</Alert>
 					<p>
@@ -151,8 +157,8 @@ export const EstimateView = ({
 			</CardTitle>
 			<CardBody>
 				<Alert isInline title="Educational analysis only" variant="info">
-					This estimate reconciles your accepted salary, bank-interest, and
-					tax-deducted-at-source evidence with the pinned rule pack. It is
+					This estimate reconciles your accepted salary, bank-interest,
+					non-salary-income, and tax-deducted-at-source evidence with the pinned rule pack. It is
 					not an official result, not tax advice, and not a filing
 					computation. Review every figure yourself.
 				</Alert>

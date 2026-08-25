@@ -22,6 +22,7 @@ import {
 	createDamagedPdfFixture,
 	createEncryptedPdfFixture,
 	createForm16PdfFixture,
+	createForm16APdfFixture,
 	createImageOnlyPdfFixture,
 	createPrivateStatementCsvFixture,
 	createForm16SalaryPdfFixture,
@@ -786,6 +787,56 @@ describe("observation extraction lifecycle", () => {
 		session.stop();
 	});
 
+	test("extracts non-salary income and tax-paid observations from an identified Form 16A certificate", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16a-certificate.pdf",
+					bytes: createForm16APdfFixture(),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => extractionRecords(session)[0]?.status === "done");
+
+		const record = extractionRecords(session)[0];
+		expect(record?.status).toBe("done");
+		if (record?.status !== "done") {
+			throw new Error("extraction did not complete");
+		}
+		expect(record.observations).toEqual([]);
+		expect(record.bankInterestObservations).toEqual([]);
+		expect(
+			record.nonSalaryIncomeObservations.map((observation) => [
+				observation.factKey,
+				String(observation.normalizedValue),
+				observation.evidence.kind,
+			]),
+		).toEqual([
+			["non-salary-income.dividends", "25000", "pdf-page-region"],
+			[
+				"non-salary-income.interest-other-than-securities",
+				"120000",
+				"pdf-page-region",
+			],
+		]);
+		expect(
+			record.tdsObservations.map((observation) => [
+				observation.factKey,
+				String(observation.normalizedValue),
+			]),
+		).toEqual([
+			["tds.tax-deducted", "12000"],
+			["tds.tds-deposited", "12000"],
+			["tds.tax-deducted", "2500"],
+		]);
+		expect(record.issues).toEqual([]);
+
+		session.stop();
+	});
+
 	test("a rejected file produces no extraction record or observations", async () => {
 		const session = createEligibleSession();
 
@@ -827,6 +878,7 @@ describe("observation extraction lifecycle", () => {
 					],
 					bankInterestObservations: [],
 					tdsObservations: [],
+					nonSalaryIncomeObservations: [],
 					issues: [],
 					pages: [],
 				} satisfies DocumentExtractionOutcome),
@@ -860,6 +912,7 @@ describe("observation extraction lifecycle", () => {
 					],
 					bankInterestObservations: [],
 					tdsObservations: [],
+					nonSalaryIncomeObservations: [],
 					issues: [],
 					pages: [],
 				} satisfies DocumentExtractionOutcome),
@@ -987,6 +1040,7 @@ describe("new-regime salary computation exposure", () => {
 					],
 					bankInterestObservations: [],
 					tdsObservations: [],
+					nonSalaryIncomeObservations: [],
 					issues: [
 						{
 							code: DOCUMENT_REVIEW_ISSUE_CODES.salaryFieldAmbiguous,
@@ -1171,6 +1225,7 @@ describe("refund-or-payable estimate exposure", () => {
 							"2000",
 						),
 					],
+					nonSalaryIncomeObservations: [],
 					tdsObservations: [],
 					issues: [
 						{
@@ -1197,6 +1252,109 @@ describe("refund-or-payable estimate exposure", () => {
 					String(issue.code) === "FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
 			),
 		).toBe(true);
+
+		session.stop();
+	});
+
+	test("reconciles Form 16A certificate evidence into the estimate when it is the only TDS source", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+				{
+					displayName: "openitr-sentinel-ais-export.json",
+					bytes: utf8Bytes(createAisJsonBankInterestFixture()),
+				},
+				{
+					displayName: "openitr-sentinel-form16a-certificate.pdf",
+					bytes: createForm16APdfFixture(),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 3 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		expect(estimate.summary.nonSalaryIncomeTotal).toBe("145000");
+		expect(estimate.summary.totalIncome).toBe("1173570");
+		expect(estimate.summary.taxesPaid).toBe("12000");
+		expect(estimate.outcome).toEqual({
+			kind: "estimated-refund",
+			difference: "12000",
+		});
+		expect(
+			estimate.sources
+				.filter((source) => source.role === "non-salary-income")
+				.map((source) => String(source.factKey)),
+		).toEqual([
+			"non-salary-income.dividends",
+			"non-salary-income.interest-other-than-securities",
+		]);
+		const taxesPaidSource = estimate.sources.find(
+			(source) => source.role === "taxes-paid",
+		);
+		expect(taxesPaidSource?.sourceDocumentId).toBe(
+			estimate.sources.find((source) => source.role === "non-salary-income")
+				?.sourceDocumentId,
+		);
+
+		session.stop();
+	});
+
+	test("blocks rather than double-counting deposits across a tax-credit statement and a certificate", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+				{
+					displayName: "openitr-sentinel-ais-export.json",
+					bytes: utf8Bytes(createAisJsonBankInterestFixture()),
+				},
+				{
+					displayName: "openitr-sentinel-26as-export.txt",
+					bytes: utf8Bytes(createForm26AsTextFixture()),
+				},
+				{
+					displayName: "openitr-sentinel-form16a-certificate.pdf",
+					bytes: createForm16APdfFixture(),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 4 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("blocked");
+		if (estimate?.kind !== "blocked") {
+			throw new Error("expected a blocked estimate");
+		}
+		const codes = estimate.issues.map((issue) => String(issue.code));
+		expect(codes).toContain("FACT_TDS_MULTIPLE_DOCUMENTS");
+		expect(codes).not.toContain("FACT_NON_SALARY_INCOME_MULTIPLE_DOCUMENTS");
 
 		session.stop();
 	});

@@ -34,6 +34,7 @@ export {
 } from "./computations/estimate-refund-or-payable";
 export type {
 	AcceptedBankInterestDocumentFacts,
+	AcceptedNonSalaryIncomeDocumentFacts,
 	AcceptedTdsDocumentFacts,
 	EstimateEvidenceReference,
 	EstimateEvidenceRole,

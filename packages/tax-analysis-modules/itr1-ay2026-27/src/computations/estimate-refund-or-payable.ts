@@ -14,6 +14,7 @@ import type {
 	ExactMoney,
 	FactKey,
 	IssueCode,
+	NonSalaryIncomeObservation,
 	Sha256Digest,
 	TdsObservation,
 } from "@openitr/model";
@@ -42,10 +43,18 @@ const BANK_INTEREST_FACT_KEYS = [
 	parseFactKey("bank-interest.deposits"),
 ] as const;
 
+const NON_SALARY_INCOME_FACT_KEYS = [
+	parseFactKey("non-salary-income.dividends"),
+	parseFactKey("non-salary-income.interest-other-than-securities"),
+] as const;
+
 const TDS_DEPOSITED_FACT_KEY = parseFactKey("tds.tds-deposited");
 
 const BANK_INTEREST_TOTAL_NODE_ID = parseFactKey(
 	"derived.bank-interest-total",
+);
+const NON_SALARY_INCOME_TOTAL_NODE_ID = parseFactKey(
+	"derived.non-salary-income-total",
 );
 const AGGREGATE_INCOME_NODE_ID = parseFactKey(
 	"derived.total-income-aggregate",
@@ -65,6 +74,9 @@ export const ESTIMATE_ISSUE_CODES = Object.freeze({
 	multipleBankInterestDocuments: parseIssueCode(
 		"FACT_BANK_INTEREST_MULTIPLE_DOCUMENTS",
 	),
+	multipleNonSalaryIncomeDocuments: parseIssueCode(
+		"FACT_NON_SALARY_INCOME_MULTIPLE_DOCUMENTS",
+	),
 	tdsEvidenceRequired: parseIssueCode("FACT_TDS_EVIDENCE_REQUIRED"),
 	multipleTdsDocuments: parseIssueCode("FACT_TDS_MULTIPLE_DOCUMENTS"),
 });
@@ -72,6 +84,11 @@ export const ESTIMATE_ISSUE_CODES = Object.freeze({
 export type AcceptedBankInterestDocumentFacts = Readonly<{
 	documentId: Sha256Digest;
 	observations: readonly BankInterestObservation[];
+}>;
+
+export type AcceptedNonSalaryIncomeDocumentFacts = Readonly<{
+	documentId: Sha256Digest;
+	observations: readonly NonSalaryIncomeObservation[];
 }>;
 
 export type AcceptedTdsDocumentFacts = Readonly<{
@@ -96,6 +113,7 @@ export type EstimateOutcome =
 export type EstimateEvidenceRole =
 	| "salary-income"
 	| "bank-interest-income"
+	| "non-salary-income"
 	| "taxes-paid";
 
 export type EstimateEvidenceReference = Readonly<{
@@ -108,6 +126,7 @@ export type EstimateEvidenceReference = Readonly<{
 export type RefundOrPayableEstimateSummary = Readonly<{
 	salaryAdjustedIncome: ExactMoney;
 	bankInterestTotal: ExactMoney;
+	nonSalaryIncomeTotal: ExactMoney;
 	totalIncome: ExactMoney;
 	incomeTaxBeforeAdjustments: ExactMoney;
 	rebateApplied: ExactMoney;
@@ -123,6 +142,7 @@ export type RefundOrAmountPayableEstimateInput = Readonly<{
 	residentAnswer: AttestedAnswer;
 	salaryDocuments: readonly AcceptedSalaryDocumentFacts[];
 	bankInterestDocuments: readonly AcceptedBankInterestDocumentFacts[];
+	nonSalaryIncomeDocuments: readonly AcceptedNonSalaryIncomeDocumentFacts[];
 	tdsDocuments: readonly AcceptedTdsDocumentFacts[];
 }>;
 
@@ -132,6 +152,7 @@ export type EstimateFromSalaryScenarioInput = Readonly<{
 	salaryScenario: NewRegimeSalaryComputation;
 	salaryDocuments: readonly AcceptedSalaryDocumentFacts[];
 	bankInterestDocuments: readonly AcceptedBankInterestDocumentFacts[];
+	nonSalaryIncomeDocuments: readonly AcceptedNonSalaryIncomeDocumentFacts[];
 	tdsDocuments: readonly AcceptedTdsDocumentFacts[];
 }>;
 
@@ -263,10 +284,12 @@ type MutableEvidenceReference = {
 const collectSources = ({
 	salaryDocuments,
 	bankInterestObservations,
+	nonSalaryIncomeObservations,
 	tdsDepositedObservations,
 }: Readonly<{
 	salaryDocuments: readonly AcceptedSalaryDocumentFacts[];
 	bankInterestObservations: readonly BankInterestObservation[];
+	nonSalaryIncomeObservations: readonly NonSalaryIncomeObservation[];
 	tdsDepositedObservations: readonly TdsObservation[];
 }>): readonly EstimateEvidenceReference[] => {
 	const references: MutableEvidenceReference[] = [];
@@ -312,6 +335,14 @@ const collectSources = ({
 			observation.observationId,
 		);
 	}
+	for (const observation of nonSalaryIncomeObservations) {
+		push(
+			"non-salary-income",
+			observation.factKey,
+			observation.sourceDocumentId,
+			observation.observationId,
+		);
+	}
 	for (const observation of tdsDepositedObservations) {
 		push(
 			"taxes-paid",
@@ -326,7 +357,8 @@ const collectSources = ({
 			Object.freeze({
 				"salary-income": 0,
 				"bank-interest-income": 1,
-				"taxes-paid": 2,
+				"non-salary-income": 2,
+				"taxes-paid": 3,
 			});
 		return (
 			roleOrder[left.role] - roleOrder[right.role] ||
@@ -356,6 +388,7 @@ export const computeRefundOrAmountPayableEstimate = ({
 	residentAnswer,
 	salaryDocuments,
 	bankInterestDocuments,
+	nonSalaryIncomeDocuments,
 	tdsDocuments,
 }: RefundOrAmountPayableEstimateInput): RefundOrAmountPayableEstimate =>
 	estimateRefundOrAmountPayableFromSalaryScenario({
@@ -368,6 +401,7 @@ export const computeRefundOrAmountPayableEstimate = ({
 		}),
 		salaryDocuments,
 		bankInterestDocuments,
+		nonSalaryIncomeDocuments,
 		tdsDocuments,
 	});
 
@@ -381,6 +415,7 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	salaryScenario,
 	salaryDocuments,
 	bankInterestDocuments,
+	nonSalaryIncomeDocuments,
 	tdsDocuments,
 }: EstimateFromSalaryScenarioInput): RefundOrAmountPayableEstimate => {
 	const issues: RefundOrPayableEstimateIssue[] = [];
@@ -408,6 +443,29 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 		issues,
 	});
 
+	// Non-salary certificate evidence is situational, not owed: a user with
+	// no Form 16A at all still gets an estimate. Only the double-counting
+	// guard applies, because two certificates naming one payment would both
+	// feed the same gross-receipt facts.
+	const contributingNonSalaryDocuments = nonSalaryIncomeDocuments.filter(
+		(document) => document.observations.length > 0,
+	);
+	if (contributingNonSalaryDocuments.length > 1) {
+		issues.push(
+			estimateIssue(
+				ESTIMATE_ISSUE_CODES.multipleNonSalaryIncomeDocuments,
+				"This estimate reads one Form 16A certificate's income evidence at a time. Keep exactly one such certificate selected so its gross receipts cannot be counted twice.",
+				NON_SALARY_INCOME_FACT_KEYS,
+			),
+		);
+	}
+	const onlyNonSalaryDocument = contributingNonSalaryDocuments[0];
+	const sortedNonSalaryIncome =
+		contributingNonSalaryDocuments.length === 1 && onlyNonSalaryDocument !== undefined
+			? [...onlyNonSalaryDocument.observations].sort(byObservationOrder)
+			: [];
+	const nonSalaryIncomeTotal = sumObservations(sortedNonSalaryIncome);
+
 	// Only deposits feed taxes paid; the paid/credited and deducted columns
 	// stay untouched as evidence and never enter the arithmetic.
 	const tdsDepositedObservations = acceptSingleSlice<TdsObservation>({
@@ -421,12 +479,12 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 		multipleDocuments: {
 			code: ESTIMATE_ISSUE_CODES.multipleTdsDocuments,
 			recoveryAction:
-				"This estimate reads one Form 26AS export at a time. Keep exactly one Form 26AS text export selected so deposits cannot be counted twice.",
+				"This estimate reads one tax-credit statement or TDS certificate at a time. Keep exactly one such export selected so deposits cannot be counted twice.",
 		},
 		issues,
 	}).filter((observation) => observation.factKey === TDS_DEPOSITED_FACT_KEY);
 
-	// A Form 26AS can arrive whose records print paid or deducted columns but
+	// A statement can arrive whose records print paid or deducted columns but
 	// no deposited cell at all. Deposits are the creditable amount, so their
 	// total absence is unresolved evidence rather than a zero to estimate on.
 	// This applies once one export has been accepted; slice-count problems
@@ -444,7 +502,7 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 		issues.push(
 			estimateIssue(
 				ESTIMATE_ISSUE_CODES.tdsEvidenceRequired,
-				"Select an official Form 26AS text export whose Part I records print the Total TDS Deposited column so accepted deposits can feed the estimate.",
+				"Select an official tax-credit statement or TDS certificate whose records print the Total TDS Deposited column so accepted deposits can feed the estimate.",
 				[TDS_DEPOSITED_FACT_KEY],
 			),
 		);
@@ -478,9 +536,11 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	);
 	const bankInterestTotal = sumObservations(sortedBankInterest);
 
+	// Section 14 aggregates income from other sources with the salary slice,
+	// so reviewed certificate receipts join the same pre-rounding total.
 	const aggregateIncome = addExactMoney(
-		salaryAdjustedIncome,
-		bankInterestTotal,
+		addExactMoney(salaryAdjustedIncome, bankInterestTotal),
+		nonSalaryIncomeTotal,
 	);
 	const totalIncome = roundToNearestMultipleOf(
 		aggregateIncome,
@@ -509,12 +569,24 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 				roundedValue: bankInterestTotal,
 			},
 			{
+				nodeId: NON_SALARY_INCOME_TOTAL_NODE_ID,
+				ruleId: ESTIMATE_RULE_IDS.interestIncome,
+				operation: "sum-of-accepted-observations",
+				inputs: sortedNonSalaryIncome.map((observation) =>
+					factInput(observation.factKey, observation.normalizedValue),
+				),
+				unroundedValue: nonSalaryIncomeTotal,
+				roundedValue: nonSalaryIncomeTotal,
+				note: "Gross receipts from reviewed Form 16A summary records, chargeable as income from other sources.",
+			},
+			{
 				nodeId: AGGREGATE_INCOME_NODE_ID,
 				ruleId: ESTIMATE_RULE_IDS.incomeAggregation,
 				operation: "aggregate-total-income",
 				inputs: [
 					nodeInput(SALARY_ADJUSTED_INCOME_NODE_ID, salaryAdjustedIncome),
 					nodeInput(BANK_INTEREST_TOTAL_NODE_ID, bankInterestTotal),
+					nodeInput(NON_SALARY_INCOME_TOTAL_NODE_ID, nonSalaryIncomeTotal),
 				],
 				unroundedValue: aggregateIncome,
 				roundedValue: aggregateIncome,
@@ -559,6 +631,7 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 		summary: Object.freeze({
 			salaryAdjustedIncome,
 			bankInterestTotal,
+			nonSalaryIncomeTotal,
 			totalIncome,
 			incomeTaxBeforeAdjustments: liability.summary.incomeTaxBeforeAdjustments,
 			rebateApplied: liability.summary.rebateApplied,
@@ -571,6 +644,7 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 		sources: collectSources({
 			salaryDocuments,
 			bankInterestObservations: sortedBankInterest,
+			nonSalaryIncomeObservations: sortedNonSalaryIncome,
 			tdsDepositedObservations: sortedTds,
 		}),
 	});

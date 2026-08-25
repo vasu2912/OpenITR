@@ -10,6 +10,7 @@ import {
 import type {
 	AttestedAnswer,
 	BankInterestObservation,
+	NonSalaryIncomeObservation,
 	SalaryObservation,
 	TdsObservation,
 } from "@openitr/model";
@@ -27,6 +28,7 @@ import {
 } from "./estimate-refund-or-payable";
 import type {
 	AcceptedBankInterestDocumentFacts,
+	AcceptedNonSalaryIncomeDocumentFacts,
 	AcceptedTdsDocumentFacts,
 	RefundOrAmountPayableEstimate,
 } from "./estimate-refund-or-payable";
@@ -34,6 +36,7 @@ import type {
 const salaryDocumentId = parseSha256Digest("ab".repeat(32));
 const aisDocumentId = parseSha256Digest("cd".repeat(32));
 const form26asDocumentId = parseSha256Digest("ef".repeat(32));
+const form16aDocumentId = parseSha256Digest("9a".repeat(32));
 
 const residentAnswer = (): AttestedAnswer => ({
 	questionId: parseQuestionId("itr1-resident-individual"),
@@ -192,10 +195,93 @@ const reviewedTdsDocument = (): AcceptedTdsDocumentFacts => ({
 	],
 });
 
+const form16aIncomeObservation = ({
+	factKey,
+	amount,
+	row,
+}: Readonly<{ factKey: string; amount: string; row: number }>): NonSalaryIncomeObservation => ({
+	observationId: `${factKey}@${form16aDocumentId}:1:${row}`,
+	factKey: parseFactKey(factKey),
+	sourceDocumentId: form16aDocumentId,
+	adapterId: "form16a-pdf",
+	adapterVersion: "1",
+	originalText: `${row} | certificate summary row`,
+	normalizedValue: parseExactMoney(amount),
+	transformationSteps: [],
+	evidence: {
+		kind: "pdf-page-region",
+		page: 1,
+		x: 72,
+		y: 600 - row * 16,
+		width: 300,
+		height: 12,
+	},
+	ruleCitation: {
+		ruleId: parseRuleId("FORM16A-INCOME-INTEREST-OTHER-THAN-SECURITIES"),
+		description: "Form 16A summary record fact.",
+	},
+});
+
+// The reviewed Form 16A certificate mirrors the synthetic adapter's output:
+// a 1,20,000 interest receipt and a 25,000 dividend receipt, with 12,000 of
+// TDS deposited against the interest row.
+const reviewedForm16aIncomeDocument =
+	(): AcceptedNonSalaryIncomeDocumentFacts => ({
+		documentId: form16aDocumentId,
+		observations: [
+			form16aIncomeObservation({
+				factKey: "non-salary-income.dividends",
+				amount: "25000",
+				row: 2,
+			}),
+			form16aIncomeObservation({
+				factKey: "non-salary-income.interest-other-than-securities",
+				amount: "120000",
+				row: 1,
+			}),
+		],
+	});
+
+const form16aTdsDocument = (): AcceptedTdsDocumentFacts => ({
+	documentId: form16aDocumentId,
+	observations: [
+		{
+			...tdsDepositedObservation({
+				amount: "12000",
+				lineNumber: 9,
+				serialNumber: "1",
+				deductorTan: "MUMA12345B",
+			}),
+			sourceDocumentId: form16aDocumentId,
+			observationId: `tds.tds-deposited@${form16aDocumentId}:1:1`,
+			evidence: {
+				kind: "pdf-page-region",
+				page: 1,
+				x: 72,
+				y: 584,
+				width: 300,
+				height: 12,
+			},
+			record: {
+				medium: "pdf",
+				page: 1,
+				rowNumber: 1,
+				serialNumber: "1",
+				deductorName: "OpenITR Synthetic Payers Private Limited",
+				deductorTan: "MUMA12345B",
+				amountPaidCreditedRaw: "1,20,000.00",
+				taxDeductedRaw: "12,000.00",
+				tdsDepositedRaw: "12,000.00",
+			},
+		},
+	],
+});
+
 const computeReviewedEstimate = (
 	overrides: Partial<{
 		salaryDocuments: readonly AcceptedSalaryDocumentFacts[];
 		bankInterestDocuments: readonly AcceptedBankInterestDocumentFacts[];
+		nonSalaryIncomeDocuments: readonly AcceptedNonSalaryIncomeDocumentFacts[];
 		tdsDocuments: readonly AcceptedTdsDocumentFacts[];
 		answer: AttestedAnswer;
 	}> = {},
@@ -206,6 +292,7 @@ const computeReviewedEstimate = (
 		salaryDocuments: overrides.salaryDocuments ?? [reviewedSalaryDocument()],
 		bankInterestDocuments:
 			overrides.bankInterestDocuments ?? [reviewedBankInterestDocument()],
+		nonSalaryIncomeDocuments: overrides.nonSalaryIncomeDocuments ?? [],
 		tdsDocuments: overrides.tdsDocuments ?? [reviewedTdsDocument()],
 	});
 
@@ -216,6 +303,7 @@ describe("refund or payable estimate", () => {
 			residentAnswer: residentAnswer(),
 			salaryDocuments: [reviewedSalaryDocument()],
 			bankInterestDocuments: [reviewedBankInterestDocument()],
+			nonSalaryIncomeDocuments: [],
 			tdsDocuments: [reviewedTdsDocument()],
 		});
 
@@ -237,6 +325,7 @@ describe("refund or payable estimate", () => {
 		expect(estimate.summary).toEqual({
 			salaryAdjustedIncome: "975000",
 			bankInterestTotal: "53569.15",
+			nonSalaryIncomeTotal: "0",
 			totalIncome: "1028570",
 			incomeTaxBeforeAdjustments: "42857",
 			rebateApplied: "42857",
@@ -394,6 +483,7 @@ describe("refund or payable estimate", () => {
 			residentAnswer: residentAnswer(),
 			salaryDocuments: [higherSalary()],
 			bankInterestDocuments: [savingsOnly()],
+			nonSalaryIncomeDocuments: [],
 			tdsDocuments: [oneDeposit()],
 		});
 
@@ -408,6 +498,7 @@ describe("refund or payable estimate", () => {
 		expect(estimate.summary).toEqual({
 			salaryAdjustedIncome: "1525000",
 			bankInterestTotal: "20000",
+			nonSalaryIncomeTotal: "0",
 			totalIncome: "1545000",
 			incomeTaxBeforeAdjustments: "111750",
 			rebateApplied: "0",
@@ -470,6 +561,7 @@ describe("refund or payable estimate", () => {
 			residentAnswer: residentAnswer(),
 			salaryDocuments: [higherSalary()],
 			bankInterestDocuments: [savingsOnly()],
+			nonSalaryIncomeDocuments: [],
 			tdsDocuments: [balancedTds()],
 		});
 
@@ -630,6 +722,185 @@ describe("blocked estimates fail closed and name what needs review", () => {
 	});
 });
 
+describe("accepted Form 16A evidence feeds the income and tax-paid totals", () => {
+	const issueCodesOf = (estimate: RefundOrAmountPayableEstimate) =>
+		estimate.kind === "blocked"
+			? estimate.issues.map((issue) => String(issue.code))
+			: [];
+
+	test("adds accepted non-salary gross receipts to total income before rounding", () => {
+		// 975000 salary + 53569.15 interest + 145000 receipts = 1173569.15,
+		// rounded once under section 288A to 1173570. Slab tax 57357 is fully
+		// rebated under section 87A, so the certificate's deposits decide the
+		// refund.
+		const estimate = computeReviewedEstimate({
+			nonSalaryIncomeDocuments: [reviewedForm16aIncomeDocument()],
+		});
+
+		expect(estimate.kind).toBe("computed");
+		if (estimate.kind !== "computed") {
+			return;
+		}
+		expect(estimate.summary.nonSalaryIncomeTotal).toBe("145000");
+		expect(estimate.summary.totalIncome).toBe("1173570");
+		expect(estimate.summary.incomeTaxBeforeAdjustments).toBe("57357");
+		expect(estimate.summary.rebateApplied).toBe("57357");
+		expect(estimate.summary.finalTaxLiability).toBe("0");
+		expect(estimate.outcome).toEqual({
+			kind: "estimated-refund",
+			difference: "61250",
+		});
+
+		const nonSalaryNode = estimate.nodes.find(
+			(candidate) => candidate.nodeId === "derived.non-salary-income-total",
+		);
+		expect(nonSalaryNode).toEqual(
+			expect.objectContaining({
+				ruleId: parseRuleId("ITR1-INTEREST-INCOME-SECTION-56"),
+				unroundedValue: "145000",
+				roundedValue: "145000",
+			}),
+		);
+		const aggregate = estimate.nodes.find(
+			(candidate) => candidate.nodeId === "derived.total-income-aggregate",
+		);
+		expect(aggregate?.inputs).toContainEqual({
+			kind: "node",
+			nodeId: "derived.non-salary-income-total",
+			value: "145000",
+		});
+	});
+
+	test("feeds taxes paid from certificate deposits when the certificate is the only TDS document", () => {
+		const estimate = computeReviewedEstimate({
+			nonSalaryIncomeDocuments: [reviewedForm16aIncomeDocument()],
+			tdsDocuments: [form16aTdsDocument()],
+		});
+
+		expect(estimate.kind).toBe("computed");
+		if (estimate.kind !== "computed") {
+			return;
+		}
+		expect(estimate.summary.taxesPaid).toBe("12000");
+		expect(estimate.outcome).toEqual({
+			kind: "estimated-refund",
+			difference: "12000",
+		});
+	});
+
+	test("blocks when two certificates could double-count gross receipts", () => {
+		const secondCertificateId = parseSha256Digest("9b".repeat(32));
+		const secondCertificate = (): AcceptedNonSalaryIncomeDocumentFacts => ({
+			documentId: secondCertificateId,
+			observations: [
+				form16aIncomeObservation({
+					factKey: "non-salary-income.dividends",
+					amount: "25000",
+					row: 1,
+				}),
+			],
+		});
+
+		const estimate = computeReviewedEstimate({
+			bankInterestDocuments: [],
+			nonSalaryIncomeDocuments: [
+				reviewedForm16aIncomeDocument(),
+				secondCertificate(),
+			],
+			tdsDocuments: [],
+		});
+
+		expect(estimate.kind).toBe("blocked");
+		expect(issueCodesOf(estimate)).toEqual([
+			"FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
+			"FACT_NON_SALARY_INCOME_MULTIPLE_DOCUMENTS",
+			"FACT_TDS_EVIDENCE_REQUIRED",
+		]);
+	});
+
+	test("never demands a certificate: absent non-salary evidence alone keeps the estimate computable", () => {
+		const estimate = computeReviewedEstimate();
+
+		expect(estimate.kind).toBe("computed");
+		if (estimate.kind !== "computed") {
+			return;
+		}
+		expect(estimate.summary.nonSalaryIncomeTotal).toBe("0");
+	});
+
+	test("lists income evidence separately from tax-paid evidence in its sources", () => {
+		const estimate = computeReviewedEstimate({
+			nonSalaryIncomeDocuments: [reviewedForm16aIncomeDocument()],
+			tdsDocuments: [form16aTdsDocument()],
+		});
+
+		expect(estimate.kind).toBe("computed");
+		if (estimate.kind !== "computed") {
+			return;
+		}
+		expect(estimate.sources).toEqual([
+			{
+				role: "salary-income",
+				factKey: "salary.exempt-allowances-section-10",
+				sourceDocumentId: salaryDocumentId,
+				observationIds: [
+					`salary.exempt-allowances-section-10@${salaryDocumentId}`,
+				],
+			},
+			{
+				role: "salary-income",
+				factKey: "salary.section-17-1",
+				sourceDocumentId: salaryDocumentId,
+				observationIds: [`salary.section-17-1@${salaryDocumentId}`],
+			},
+			{
+				role: "salary-income",
+				factKey: "salary.taxable-total",
+				sourceDocumentId: salaryDocumentId,
+				observationIds: [`salary.taxable-total@${salaryDocumentId}`],
+			},
+			{
+				role: "bank-interest-income",
+				factKey: "bank-interest.deposits",
+				sourceDocumentId: aisDocumentId,
+				observationIds: [
+					`bank-interest.deposits@${aisDocumentId}:/interestInformation/bankInterest/1`,
+				],
+			},
+			{
+				role: "bank-interest-income",
+				factKey: "bank-interest.savings-account",
+				sourceDocumentId: aisDocumentId,
+				observationIds: [
+					`bank-interest.savings-account@${aisDocumentId}:/interestInformation/bankInterest/0`,
+				],
+			},
+			{
+				role: "non-salary-income",
+				factKey: "non-salary-income.dividends",
+				sourceDocumentId: form16aDocumentId,
+				observationIds: [
+					`non-salary-income.dividends@${form16aDocumentId}:1:2`,
+				],
+			},
+			{
+				role: "non-salary-income",
+				factKey: "non-salary-income.interest-other-than-securities",
+				sourceDocumentId: form16aDocumentId,
+				observationIds: [
+					`non-salary-income.interest-other-than-securities@${form16aDocumentId}:1:1`,
+				],
+			},
+			{
+				role: "taxes-paid",
+				factKey: "tds.tds-deposited",
+				sourceDocumentId: form16aDocumentId,
+				observationIds: [`tds.tds-deposited@${form16aDocumentId}:1:1`],
+			},
+		]);
+	});
+});
+
 describe("determinism of accepted facts, rule pack, and trace", () => {
 	test("replays byte-identical estimates for identical facts", () => {
 		const first = computeReviewedEstimate();
@@ -650,6 +921,7 @@ describe("determinism of accepted facts, rule pack, and trace", () => {
 			residentAnswer: answer,
 			salaryDocuments,
 			bankInterestDocuments,
+			nonSalaryIncomeDocuments: [],
 			tdsDocuments,
 		});
 		const sharedSalary = estimateRefundOrAmountPayableFromSalaryScenario({
@@ -662,6 +934,7 @@ describe("determinism of accepted facts, rule pack, and trace", () => {
 			}),
 			salaryDocuments,
 			bankInterestDocuments,
+			nonSalaryIncomeDocuments: [],
 			tdsDocuments,
 		});
 

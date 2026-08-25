@@ -63,6 +63,7 @@ export const createAisJsonAdapter = (): SourceDocumentAdapter => ({
 			kind: "extracted",
 			observations: [],
 			bankInterestObservations: observations,
+			nonSalaryIncomeObservations: [],
 			tdsObservations: [],
 			issues,
 			pages: [],

@@ -113,7 +113,11 @@ const acceptedObservationsOf = <TObservation extends { factKey: FactKey }>(
 // observation of that kind; the computation layer then judges every accepted
 // value and fails closed on gaps or duplicates.
 const sliceRecords = <
-	TKey extends "observations" | "bankInterestObservations" | "tdsObservations",
+	TKey extends
+		| "observations"
+		| "bankInterestObservations"
+		| "nonSalaryIncomeObservations"
+		| "tdsObservations",
 >(
 	extractions: readonly DocumentExtractionRecord[],
 	observationField: TKey,
@@ -174,10 +178,15 @@ const computeEstimateScenario = ({
 		extractions,
 		"bankInterestObservations",
 	);
+	const nonSalaryIncomeRecords = sliceRecords(
+		extractions,
+		"nonSalaryIncomeObservations",
+	);
 	const tdsRecords = sliceRecords(extractions, "tdsObservations");
 	if (
 		salaryRecords.length === 0 &&
 		bankInterestRecords.length === 0 &&
+		nonSalaryIncomeRecords.length === 0 &&
 		tdsRecords.length === 0
 	) {
 		return undefined;
@@ -203,6 +212,9 @@ const computeEstimateScenario = ({
 			bankInterestDocuments: bankInterestRecords.map((record) =>
 				toDocument(record, record.bankInterestObservations),
 			),
+			nonSalaryIncomeDocuments: nonSalaryIncomeRecords.map((record) =>
+				toDocument(record, record.nonSalaryIncomeObservations),
+			),
 			tdsDocuments: tdsRecords.map((record) =>
 				toDocument(record, record.tdsObservations),
 			),
@@ -216,6 +228,9 @@ const computeEstimateScenario = ({
 		),
 		bankInterestDocuments: bankInterestRecords.map((record) =>
 			toDocument(record, record.bankInterestObservations),
+		),
+		nonSalaryIncomeDocuments: nonSalaryIncomeRecords.map((record) =>
+			toDocument(record, record.nonSalaryIncomeObservations),
 		),
 		tdsDocuments: tdsRecords.map((record) =>
 			toDocument(record, record.tdsObservations),
@@ -328,6 +343,7 @@ const settleExtractionRecord = (
 				status: "done",
 				observations: outcome.observations,
 				bankInterestObservations: outcome.bankInterestObservations,
+				nonSalaryIncomeObservations: outcome.nonSalaryIncomeObservations,
 				tdsObservations: outcome.tdsObservations,
 				issues: outcome.issues,
 				pages: outcome.pages,

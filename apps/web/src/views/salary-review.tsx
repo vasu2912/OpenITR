@@ -1,6 +1,9 @@
 import type {
 	DocumentExtractionRecord,
+	NonSalaryIncomeObservation,
+	ObservationTransformationStep,
 	SalaryObservation,
+	TdsObservation,
 } from "@openitr/model";
 import {
 	Alert,
@@ -12,17 +15,74 @@ import {
 } from "@patternfly/react-core";
 import { useState } from "react";
 
+import { rupeeFormat } from "./computation-trace-view";
+
 type PagesList = Extract<DocumentExtractionRecord, { status: "done" }>["pages"];
 
 const rupeeDisplay = new Intl.NumberFormat("en-IN", {
-	maximumFractionDigits: 0,
+	maximumFractionDigits: 2,
+});
+
+// One view-model entry per extracted observation regardless of which slice
+// produced it, so every card renders the same way while its slice decides
+// which labelled group it appears under.
+type ReviewObservation = Readonly<{
+	observationId: string;
+	factKey: string;
+	valueText: string;
+	evidenceText: string;
+	transformationSteps: readonly ObservationTransformationStep[];
+	ruleId: string;
+	ruleDescription: string;
+	evidence:
+		| SalaryObservation["evidence"]
+		| NonSalaryIncomeObservation["evidence"]
+		| TdsObservation["evidence"];
+}>;
+
+// Exact-money values stay strings all the way into grouped display text.
+const moneyDisplay = (value: string): string => rupeeFormat(value);
+
+const salaryToReview = (observation: SalaryObservation): ReviewObservation => ({
+	observationId: observation.observationId,
+	factKey: String(observation.factKey),
+	valueText: rupeeDisplay.format(observation.normalizedValue),
+	evidenceText: observation.originalText,
+	transformationSteps: observation.transformationSteps,
+	ruleId: String(observation.ruleCitation.ruleId),
+	ruleDescription: observation.ruleCitation.description,
+	evidence: observation.evidence,
+});
+
+const nonSalaryIncomeToReview = (
+	observation: NonSalaryIncomeObservation,
+): ReviewObservation => ({
+	observationId: observation.observationId,
+	factKey: String(observation.factKey),
+	valueText: moneyDisplay(observation.normalizedValue),
+	evidenceText: observation.originalText,
+	transformationSteps: observation.transformationSteps,
+	ruleId: String(observation.ruleCitation.ruleId),
+	ruleDescription: observation.ruleCitation.description,
+	evidence: observation.evidence,
+});
+
+const tdsToReview = (observation: TdsObservation): ReviewObservation => ({
+	observationId: observation.observationId,
+	factKey: String(observation.factKey),
+	valueText: moneyDisplay(observation.normalizedValue),
+	evidenceText: observation.originalValue,
+	transformationSteps: observation.transformationSteps,
+	ruleId: String(observation.ruleCitation.ruleId),
+	ruleDescription: observation.ruleCitation.description,
+	evidence: observation.evidence,
 });
 
 const ObservationEvidencePanel = ({
 	observation,
 	pages,
 }: Readonly<{
-	observation: SalaryObservation;
+	observation: ReviewObservation;
 	pages: PagesList;
 }>) => {
 	const evidence = observation.evidence;
@@ -39,7 +99,8 @@ const ObservationEvidencePanel = ({
 			description: `Evidence location: Page ${evidence.page} · x ${evidence.x} · y ${evidence.y} · width ${Math.round(evidence.width)} pt · height ${Math.round(evidence.height)} pt`,
 			lines: page?.lines ?? [],
 			isEvidenceLine: (text: string): boolean =>
-				text === observation.originalText,
+				text === observation.evidenceText ||
+				text.includes(observation.evidenceText),
 		};
 	} else if (evidence.kind === "json-pointer") {
 		locator = {
@@ -48,7 +109,31 @@ const ObservationEvidencePanel = ({
 			lines: [
 				{
 					lineNumber: 1,
-					text: observation.originalText,
+					text: observation.evidenceText,
+				},
+			],
+			isEvidenceLine: (): boolean => true,
+		};
+	} else if (evidence.kind === "text-line-range") {
+		locator = {
+			heading: "Evidence — Statement lines",
+			description: `Evidence location: lines ${evidence.firstLine} to ${evidence.lastLine}`,
+			lines: [
+				{
+					lineNumber: evidence.firstLine,
+					text: observation.evidenceText,
+				},
+			],
+			isEvidenceLine: (): boolean => true,
+		};
+	} else if (evidence.kind === "spreadsheet-cell") {
+		locator = {
+			heading: "Evidence — Spreadsheet cell",
+			description: `Evidence location: sheet ${evidence.sheet}, cell ${evidence.cell}`,
+			lines: [
+				{
+					lineNumber: evidence.rowNumber,
+					text: observation.evidenceText,
 				},
 			],
 			isEvidenceLine: (): boolean => true,
@@ -56,7 +141,7 @@ const ObservationEvidencePanel = ({
 	} else {
 		const _exhaustive: never = evidence;
 		throw new Error(
-			`Unsupported salary evidence locator: ${String(_exhaustive)}`,
+			`Unsupported observation evidence locator: ${String(_exhaustive)}`,
 		);
 	}
 	return (
@@ -98,7 +183,7 @@ const ObservationEvidencePanel = ({
 const ObservationCard = ({
 	observation,
 	pages,
-}: Readonly<{ observation: SalaryObservation; pages: PagesList }>) => {
+}: Readonly<{ observation: ReviewObservation; pages: PagesList }>) => {
 	const [evidenceOpen, setEvidenceOpen] = useState(false);
 	const detailsId = `evidence-${observation.observationId}`;
 	return (
@@ -106,11 +191,11 @@ const ObservationCard = ({
 			<header className="openitr-observation-header">
 				<strong>{observation.factKey}</strong>
 				<span className="openitr-observation-value">
-					₹ {rupeeDisplay.format(observation.normalizedValue)}
+					₹ {observation.valueText}
 				</span>
 			</header>
 			<p className="openitr-observation-original">
-				Original text: <q>{observation.originalText}</q>
+				Original text: <q>{observation.evidenceText}</q>
 			</p>
 			<details className="openitr-observation-steps">
 				<summary>Normalization steps</summary>
@@ -124,8 +209,7 @@ const ObservationCard = ({
 				</ol>
 			</details>
 			<p className="openitr-observation-rule">
-				Field definition {observation.ruleCitation.ruleId}:{" "}
-				{observation.ruleCitation.description}
+				Field definition {observation.ruleId}: {observation.ruleDescription}
 			</p>
 			<Button
 				aria-controls={detailsId}
@@ -143,6 +227,34 @@ const ObservationCard = ({
 	);
 };
 
+type ObservationGroup = Readonly<{
+	label: string;
+	role: "salary-income" | "non-salary-income" | "taxes-paid";
+	observations: readonly ReviewObservation[];
+}>;
+
+const groupsOfRecord = (
+	record: Extract<DocumentExtractionRecord, { status: "done" }>,
+): readonly ObservationGroup[] => [
+	{
+		label: "Salary evidence",
+		role: "salary-income",
+		observations: record.observations.map(salaryToReview),
+	},
+	{
+		label: "Non-salary income evidence",
+		role: "non-salary-income",
+		observations: record.nonSalaryIncomeObservations.map(
+			nonSalaryIncomeToReview,
+		),
+	},
+	{
+		label: "Tax-paid evidence",
+		role: "taxes-paid",
+		observations: record.tdsObservations.map(tdsToReview),
+	},
+];
+
 export const SalaryReviewView = ({
 	extractions,
 }: Readonly<{ extractions: readonly DocumentExtractionRecord[] }>) => {
@@ -155,7 +267,7 @@ export const SalaryReviewView = ({
 		<Card className="openitr-review-card" component="section">
 			<CardTitle>
 				<Title headingLevel="h2" size="lg">
-					Extracted salary observations
+					Extracted observations
 				</Title>
 			</CardTitle>
 			<CardBody>
@@ -164,9 +276,10 @@ export const SalaryReviewView = ({
 					title="Review every observation against its evidence"
 					variant="info"
 				>
-					Each value below was read locally from your document. The original
-					text stays beside the normalized value, and every normalization step
-					is listed in order.
+					Each value below was read locally from your documents. The original
+					text stays beside the normalized value, and every normalization
+					step is listed in order. Income evidence and tax-paid evidence are
+					listed separately because they feed different totals.
 				</Alert>
 				{doneRecords.map((record) => (
 					<section
@@ -183,17 +296,32 @@ export const SalaryReviewView = ({
 								{issue.recoveryAction}
 							</Alert>
 						))}
-						{record.observations.length === 0 ? (
-							<p>No salary fields could be extracted from this document.</p>
-						) : (
-							record.observations.map((observation) => (
-								<ObservationCard
-									key={observation.observationId}
-									observation={observation}
-									pages={record.pages}
-								/>
-							))
+						{groupsOfRecord(record).map(
+							(group) =>
+								group.observations.length > 0 && (
+									<div
+										className="openitr-review-group"
+										data-evidence-role={group.role}
+										key={group.label}
+									>
+										<h3 className="openitr-review-group-heading">
+											{group.label}
+										</h3>
+										{group.observations.map((observation) => (
+											<ObservationCard
+												key={observation.observationId}
+												observation={observation}
+												pages={record.pages}
+											/>
+										))}
+									</div>
+								),
 						)}
+						{record.observations.length === 0 &&
+						record.nonSalaryIncomeObservations.length === 0 &&
+						record.tdsObservations.length === 0 ? (
+							<p>No observations could be extracted from this document.</p>
+						) : null}
 					</section>
 				))}
 			</CardBody>
