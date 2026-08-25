@@ -47,6 +47,7 @@ export const createForm26AsExcelAdapter = (): SourceDocumentAdapter => ({
 			kind: "extracted",
 			observations: [],
 			bankInterestObservations: [],
+			nonSalaryIncomeObservations: [],
 			tdsObservations: observations,
 			issues,
 			pages: [],

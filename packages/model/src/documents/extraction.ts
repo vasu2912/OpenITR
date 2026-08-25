@@ -7,6 +7,7 @@ import type {
 } from "./inspection-outcome";
 import type {
 	BankInterestObservation,
+	NonSalaryIncomeObservation,
 	SalaryObservation,
 	TdsObservation,
 } from "./observation";
@@ -32,6 +33,15 @@ export const DOCUMENT_REVIEW_ISSUE_CODES = Object.freeze({
 		"DOCUMENT_TDS_COLUMN_HEADER_MALFORMED",
 	),
 	tdsRecordMalformed: parseIssueCode("DOCUMENT_TDS_RECORD_MALFORMED"),
+	form16aSectionMissing: parseIssueCode(
+		"DOCUMENT_FORM16A_SUMMARY_SECTION_MISSING",
+	),
+	form16aColumnHeaderMalformed: parseIssueCode(
+		"DOCUMENT_FORM16A_SUMMARY_COLUMN_HEADER_MALFORMED",
+	),
+	form16aRecordMalformed: parseIssueCode("DOCUMENT_FORM16A_RECORD_MALFORMED"),
+	form16aRecordAmbiguous: parseIssueCode("DOCUMENT_FORM16A_RECORD_AMBIGUOUS"),
+	form16aCategoryUnknown: parseIssueCode("DOCUMENT_FORM16A_CATEGORY_UNKNOWN"),
 });
 
 export type DocumentReviewIssue = Readonly<{
@@ -74,6 +84,21 @@ export const TDS_RECORD_MALFORMED_RECOVERY_ACTION =
 export const PREFILLED_ITR1_TDS_RECORD_MALFORMED_RECOVERY_ACTION =
 	"Select an unmodified official prefilled ITR-1 JSON export so every TDS-on-salary record carries its serial number, deductor name, TAN, and amount properties.";
 
+export const FORM16A_SUMMARY_SECTION_MISSING_RECOVERY_ACTION =
+	"Select a machine-generated Form 16A PDF of the supported revision that prints its Summary of Payment(s) table, or continue without non-salary facts.";
+
+export const FORM16A_SUMMARY_COLUMN_HEADER_MALFORMED_RECOVERY_ACTION =
+	"Select an unmodified official Form 16A download so the Summary of Payment(s) table prints the reviewed column header row.";
+
+export const FORM16A_RECORD_MALFORMED_RECOVERY_ACTION =
+	"Select an unmodified official Form 16A download so every summary record carries its serial number, section, nature of payment, and amount columns.";
+
+export const FORM16A_RECORD_AMBIGUOUS_RECOVERY_ACTION =
+	"Select the official Form 16A certificate for the period so each payment appears once with one set of amounts.";
+
+export const FORM16A_CATEGORY_UNKNOWN_RECOVERY_ACTION =
+	"Select a Form 16A certificate whose summary records use the sections and natures of payment this revision defines.";
+
 // One snapshot per PDF page, kept in browser memory only. The evidence viewer
 // renders these lines beside the observation's locator.
 export type EvidencePageLine = Readonly<{
@@ -91,6 +116,7 @@ export type DocumentExtractionOutcome =
 			kind: "extracted";
 			observations: readonly SalaryObservation[];
 			bankInterestObservations: readonly BankInterestObservation[];
+			nonSalaryIncomeObservations: readonly NonSalaryIncomeObservation[];
 			tdsObservations: readonly TdsObservation[];
 			issues: readonly DocumentReviewIssue[];
 			pages: readonly EvidencePage[];
@@ -115,6 +141,7 @@ export type DocumentExtractionRecord =
 			status: "done";
 			observations: readonly SalaryObservation[];
 			bankInterestObservations: readonly BankInterestObservation[];
+			nonSalaryIncomeObservations: readonly NonSalaryIncomeObservation[];
 			tdsObservations: readonly TdsObservation[];
 			issues: readonly DocumentReviewIssue[];
 			pages: readonly EvidencePage[];

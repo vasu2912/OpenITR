@@ -1,7 +1,4 @@
-import {
-	computeSourceDocumentIdentity,
-	DOCUMENT_ISSUE_CODES,
-} from "@openitr/model";
+import { computeSourceDocumentIdentity } from "@openitr/model";
 import type { Sha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
@@ -9,6 +6,7 @@ import { buildSyntheticPdf } from "./fixtures/pdf-fixture-builder";
 import {
 	createAisJsonBankInterestFixture,
 	createForm16SalaryPdfFixture,
+	createForm16APdfFixture,
 	createForm26AsTextFixture,
 	utf8Bytes,
 } from "./testing";
@@ -40,28 +38,50 @@ describe("registry extraction routing", () => {
 		}
 	});
 
-	test("rejects extraction for revisions without extraction support", async () => {
-		const bytes = buildSyntheticPdf({
-			pages: [
-				{
-					textLines: [
-						"FORM 16A",
-						"Certificate under section 203(2A) of the Income-tax Act, 1961",
-					],
-				},
-			],
-		});
+	test("routes an identified Form 16A revision to its non-salary income and TDS extraction", async () => {
+		const bytes = createForm16APdfFixture();
 		const outcome = await createDocumentInspectionRegistry().extractDocument({
-			identity: await identityOf(copyBytes(bytes)),
+			identity: await identityOf(bytes),
 			displayName: "form16a.pdf",
 			bytes: copyBytes(bytes),
 		});
 
-		expect(outcome).toMatchObject({
-			kind: "rejected",
-			rejection: "extraction-unsupported",
-			issue: { code: DOCUMENT_ISSUE_CODES.documentExtractionUnsupported },
-		});
+		expect(outcome.kind).toBe("extracted");
+		if (outcome.kind === "extracted") {
+			expect(
+				outcome.nonSalaryIncomeObservations.map((observation) => [
+					observation.factKey,
+					String(observation.normalizedValue),
+					observation.adapterId,
+					observation.evidence.kind,
+				]),
+			).toEqual([
+				[
+					"non-salary-income.dividends",
+					"25000",
+					"form16a-pdf",
+					"pdf-page-region",
+				],
+				[
+					"non-salary-income.interest-other-than-securities",
+					"120000",
+					"form16a-pdf",
+					"pdf-page-region",
+				],
+			]);
+			expect(
+				outcome.tdsObservations.map((observation) => [
+					observation.factKey,
+					String(observation.normalizedValue),
+					observation.adapterId,
+				]),
+			).toEqual([
+				["tds.tax-deducted", "12000", "form16a-pdf"],
+				["tds.tds-deposited", "12000", "form16a-pdf"],
+				["tds.tax-deducted", "2500", "form16a-pdf"],
+			]);
+			expect(outcome.issues).toEqual([]);
+		}
 	});
 
 	test("routes an identified AIS JSON revision to its bank-interest extraction", async () => {

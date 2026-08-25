@@ -239,6 +239,129 @@ export const createForm16SalaryPdfFixture = (
 	});
 };
 
+// Machine-generated synthetic Form 16A non-salary TDS certificate for the
+// one supported revision: two marker lines, a certificate header block, the
+// Summary of Payment(s) section title, one reviewed column header row, and
+// one line per payment record with six " | "-separated cells, followed by an
+// aggregate row that starts with "Total". Amounts print Indian digit-grouped
+// exact rupees. Every value is invented; sentinel amounts exist so privacy
+// tests can detect leakage. The layout constants below intentionally mirror
+// the adapter's expectations without importing them, so any drift fails
+// tests.
+export const FORM16A_SENTINEL_INTEREST_GROSS = "1,20,000.00";
+export const FORM16A_SENTINEL_INTEREST_TAX_DEDUCTED = "12,000.00";
+export const FORM16A_SENTINEL_INTEREST_TDS_DEPOSITED = "12,000.00";
+export const FORM16A_SENTINEL_DIVIDEND_GROSS = "25,000.00";
+export const FORM16A_SENTINEL_DIVIDEND_TAX_DEDUCTED = "2,500.00";
+
+export const FORM16A_DEDUCTOR_NAME_LINE =
+	"Name and address of the Deductor: OpenITR Synthetic Payers Private Limited";
+export const FORM16A_DEDUCTOR_TAN_LINE = "TAN of the Deductor: MUMA12345B";
+export const FORM16A_SUMMARY_SECTION_TITLE_LINE = "Summary of Payment(s)";
+export const FORM16A_SUMMARY_COLUMN_HEADER_LINE =
+	"Sr. No. | Section | Nature of Payment | Gross Amount Paid/Credited | Tax Deducted | TDS Deposited";
+
+const form16aSummaryRow = (cells: readonly string[]): string =>
+	cells.join(" | ");
+
+// Record two prints a blank TDS Deposited cell so tests can prove that a
+// blank cell stays unknown instead of becoming zero.
+export const FORM16A_SUMMARY_ROW_CELLS = Object.freeze([
+	Object.freeze([
+		"1",
+		"194A",
+		"Interest other than interest on securities",
+		FORM16A_SENTINEL_INTEREST_GROSS,
+		FORM16A_SENTINEL_INTEREST_TAX_DEDUCTED,
+		FORM16A_SENTINEL_INTEREST_TDS_DEPOSITED,
+	]),
+	Object.freeze([
+		"2",
+		"194",
+		"Dividends",
+		FORM16A_SENTINEL_DIVIDEND_GROSS,
+		FORM16A_SENTINEL_DIVIDEND_TAX_DEDUCTED,
+		"",
+	]),
+] as const);
+
+const FORM16A_AGGREGATE_ROW = form16aSummaryRow([
+	"Total",
+	"",
+	"",
+	"1,45,000.00",
+	"14,500.00",
+	"12,000.00",
+]);
+
+export type Form16AFixtureOptions = Readonly<{
+	omitSummarySection?: boolean;
+	omitColumnHeader?: boolean;
+	rows?: readonly string[];
+	duplicateSerial?: "identical" | "conflicting";
+	addUnknownCategoryRow?: boolean;
+}>;
+
+export const createForm16APdfFixture = (
+	options: Form16AFixtureOptions = {},
+): Uint8Array<ArrayBuffer> => {
+	const summaryRows =
+		options.rows ??
+		FORM16A_SUMMARY_ROW_CELLS.map((cells) => form16aSummaryRow([...cells]));
+	const firstSummaryRow = summaryRows[0];
+	const repeatedRow =
+		options.duplicateSerial === undefined || firstSummaryRow === undefined
+			? []
+			: [
+					options.duplicateSerial === "identical"
+						? firstSummaryRow
+						: form16aSummaryRow([
+								...FORM16A_SUMMARY_ROW_CELLS[0].slice(0, 3),
+								"9,99,999.00",
+								"99,999.00",
+								"99,999.00",
+							]),
+				];
+	const unknownCategoryRows =
+		options.addUnknownCategoryRow === true
+			? [
+					form16aSummaryRow([
+						"3",
+						"194J",
+						"Professional fees",
+						"50,000.00",
+						"5,000.00",
+						"5,000.00",
+					]),
+				]
+			: [];
+	return buildSyntheticPdf({
+		pages: [
+			{
+				textLines: [
+					...FORM16A_MARKER_LINES,
+					"Assessment Year 2026-27",
+					FORM16A_DEDUCTOR_NAME_LINE,
+					FORM16A_DEDUCTOR_TAN_LINE,
+					"PAN of the Deductee: PANXXXX9999X",
+					...(options.omitSummarySection
+						? []
+						: [
+								FORM16A_SUMMARY_SECTION_TITLE_LINE,
+								...(options.omitColumnHeader
+									? []
+									: [FORM16A_SUMMARY_COLUMN_HEADER_LINE]),
+								...summaryRows,
+								...repeatedRow,
+								...unknownCategoryRows,
+								FORM16A_AGGREGATE_ROW,
+							]),
+				],
+			},
+		],
+	});
+};
+
 export const createUnknownBytesFixture = (): Uint8Array<ArrayBuffer> => {
 	const text =
 		"openitr-synthetic-unknown-document-bytes that no reviewed adapter claims";

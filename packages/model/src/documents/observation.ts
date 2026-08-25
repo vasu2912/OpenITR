@@ -112,7 +112,8 @@ export type BankInterestObservation = Readonly<{
 export type TdsSourceRecord =
 	| TextTdsSourceRecord
 	| SpreadsheetTdsSourceRecord
-	| JsonTdsSourceRecord;
+	| JsonTdsSourceRecord
+	| PdfTdsSourceRecord;
 
 // A Part I record read from the plain-text export. The record occupies one
 // line, so its location is that line's 1-based number.
@@ -158,6 +159,34 @@ export type JsonTdsSourceRecord = Readonly<{
 	tdsDepositedRaw: string | undefined;
 }>;
 
+// A summary-table record read from a machine-generated TDS-certificate PDF.
+// The record occupies one printed table row, so its location is that row's
+// page and its 1-based row number within the certificate's summary table.
+export type PdfTdsSourceRecord = Readonly<{
+	medium: "pdf";
+	page: number;
+	rowNumber: number;
+	serialNumber: string;
+	deductorName: string;
+	deductorTan: string;
+	amountPaidCreditedRaw: string | undefined;
+	taxDeductedRaw: string | undefined;
+	tdsDepositedRaw: string | undefined;
+}>;
+
+export type NonSalaryIncomeObservation = Readonly<{
+	observationId: string;
+	factKey: FactKey;
+	sourceDocumentId: Sha256Digest;
+	adapterId: string;
+	adapterVersion: string;
+	originalText: string;
+	normalizedValue: ExactMoney;
+	transformationSteps: readonly ObservationTransformationStep[];
+	evidence: PdfEvidenceLocator;
+	ruleCitation: ExtractionRuleCitation;
+}>;
+
 export type TdsObservation = Readonly<{
 	observationId: string;
 	factKey: FactKey;
@@ -168,6 +197,7 @@ export type TdsObservation = Readonly<{
 	normalizedValue: ExactMoney;
 	transformationSteps: readonly ObservationTransformationStep[];
 	evidence:
+		| PdfEvidenceLocator
 		| TextLineRangeEvidenceLocator
 		| SpreadsheetEvidenceLocator
 		| JsonPointerEvidenceLocator;

@@ -61,13 +61,24 @@ const extractionStatusLine = (
 ): string => {
 	switch (record?.status) {
 		case "extracting":
-			return "Extracting salary observations…";
+			return "Extracting observations…";
 		case "done": {
+			const parts = [
+				`${record.observations.length} salary observation${record.observations.length === 1 ? "" : "s"}`,
+			];
+			if (record.nonSalaryIncomeObservations.length > 0) {
+				parts.push(
+					`${record.nonSalaryIncomeObservations.length} non-salary income`,
+				);
+			}
+			if (record.tdsObservations.length > 0) {
+				parts.push(`${record.tdsObservations.length} TDS`);
+			}
 			const issueNote =
 				record.issues.length > 0
 					? `, ${record.issues.length} review item${record.issues.length === 1 ? "" : "s"}`
 					: "";
-			return `${record.observations.length} salary observation${record.observations.length === 1 ? "" : "s"}${issueNote}`;
+			return `${parts.join(", ")}${issueNote}`;
 		}
 		case "failed":
 			return `Observation extraction failed (${String(record.issue.code)})`;

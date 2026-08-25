@@ -64,6 +64,7 @@ export const createAisCsvAdapter = (): SourceDocumentAdapter => ({
 			kind: "extracted",
 			observations: [],
 			bankInterestObservations: observations,
+			nonSalaryIncomeObservations: [],
 			tdsObservations: [],
 			issues,
 			pages: [],

@@ -196,6 +196,7 @@ export const extractPdfLines = async (
 	const { doc, destroy } = opened;
 	try {
 		const pages: (readonly PdfLineGeometry[])[] = [];
+		let sawAnyText = false;
 		for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
 			if (options.signal?.aborted) {
 				throw new DOMException("Inspection cancelled", "AbortError");
@@ -207,6 +208,9 @@ export const extractPdfLines = async (
 				if (!("str" in item)) {
 					continue;
 				}
+				if (item.str.trim().length > 0) {
+					sawAnyText = true;
+				}
 				lines.push({
 					text: item.str,
 					x: item.transform[4] ?? 0,
@@ -216,6 +220,12 @@ export const extractPdfLines = async (
 				});
 			}
 			pages.push(lines);
+		}
+		// A document whose pages carry no extractable text is a scan; it
+		// fails closed exactly like the plain-text layer path instead of
+		// looking like an empty text layout.
+		if (!sawAnyText) {
+			return { outcome: "no-text-layer" };
 		}
 		return { outcome: "text", pages };
 	} catch (error: unknown) {
