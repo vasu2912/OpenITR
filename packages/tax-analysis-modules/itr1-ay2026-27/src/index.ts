@@ -36,6 +36,8 @@ export type {
 	AcceptedBankInterestDocumentFacts,
 	AcceptedNonSalaryIncomeDocumentFacts,
 	AcceptedTdsDocumentFacts,
+	AcceptedTaxPaymentDocumentFacts,
+	AcceptedTaxPaymentReceipt,
 	EstimateEvidenceReference,
 	EstimateEvidenceRole,
 	EstimateOutcome,

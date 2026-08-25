@@ -16,6 +16,7 @@ import type {
 	IssueCode,
 	NonSalaryIncomeObservation,
 	Sha256Digest,
+	TaxPaymentObservation,
 	TdsObservation,
 } from "@openitr/model";
 
@@ -50,6 +51,11 @@ const NON_SALARY_INCOME_FACT_KEYS = [
 
 const TDS_DEPOSITED_FACT_KEY = parseFactKey("tds.tds-deposited");
 
+const TAX_PAYMENT_FACT_KEYS = [
+	parseFactKey("tax-payment.advance-tax"),
+	parseFactKey("tax-payment.self-assessment-tax"),
+] as const;
+
 const BANK_INTEREST_TOTAL_NODE_ID = parseFactKey(
 	"derived.bank-interest-total",
 );
@@ -59,12 +65,14 @@ const NON_SALARY_INCOME_TOTAL_NODE_ID = parseFactKey(
 const AGGREGATE_INCOME_NODE_ID = parseFactKey(
 	"derived.total-income-aggregate",
 );
-const TAXES_PAID_NODE_ID = parseFactKey("derived.taxes-paid-tds-credit");
+const TAXES_PAID_NODE_ID = parseFactKey("derived.taxes-paid-total");
 
 const ESTIMATE_RULE_IDS = Object.freeze({
 	incomeAggregation: parseRuleId("ITR1-INCOME-AGGREGATION-SECTION-14"),
 	interestIncome: parseRuleId("ITR1-INTEREST-INCOME-SECTION-56"),
 	tdsCredit: parseRuleId("ITR1-TDS-CREDIT-SECTION-199"),
+	taxPayments:
+		parseRuleId("ITR1-TAXES-PAID-SECTIONS-199-207-211-140A"),
 });
 
 export const ESTIMATE_ISSUE_CODES = Object.freeze({
@@ -79,6 +87,9 @@ export const ESTIMATE_ISSUE_CODES = Object.freeze({
 	),
 	tdsEvidenceRequired: parseIssueCode("FACT_TDS_EVIDENCE_REQUIRED"),
 	multipleTdsDocuments: parseIssueCode("FACT_TDS_MULTIPLE_DOCUMENTS"),
+	taxPaymentDuplicateChallan: parseIssueCode(
+		"FACT_TAX_PAYMENT_DUPLICATE_CHALLAN",
+	),
 });
 
 export type AcceptedBankInterestDocumentFacts = Readonly<{
@@ -94,6 +105,20 @@ export type AcceptedNonSalaryIncomeDocumentFacts = Readonly<{
 export type AcceptedTdsDocumentFacts = Readonly<{
 	documentId: Sha256Digest;
 	observations: readonly TdsObservation[];
+}>;
+
+export type AcceptedTaxPaymentDocumentFacts = Readonly<{
+	documentId: Sha256Digest;
+	observations: readonly TaxPaymentObservation[];
+}>;
+
+// One accepted receipt named in the computed result, so the analysis can
+// explain exactly which challan payment moved taxes paid.
+export type AcceptedTaxPaymentReceipt = Readonly<{
+	sourceDocumentId: Sha256Digest;
+	factKey: FactKey;
+	amount: ExactMoney;
+	challanReference: string;
 }>;
 
 export type RefundOrPayableEstimateIssue = Readonly<{
@@ -114,7 +139,8 @@ export type EstimateEvidenceRole =
 	| "salary-income"
 	| "bank-interest-income"
 	| "non-salary-income"
-	| "taxes-paid";
+	| "taxes-paid"
+	| "tax-payments";
 
 export type EstimateEvidenceReference = Readonly<{
 	role: EstimateEvidenceRole;
@@ -144,6 +170,7 @@ export type RefundOrAmountPayableEstimateInput = Readonly<{
 	bankInterestDocuments: readonly AcceptedBankInterestDocumentFacts[];
 	nonSalaryIncomeDocuments: readonly AcceptedNonSalaryIncomeDocumentFacts[];
 	tdsDocuments: readonly AcceptedTdsDocumentFacts[];
+	taxPaymentDocuments: readonly AcceptedTaxPaymentDocumentFacts[];
 }>;
 
 export type EstimateFromSalaryScenarioInput = Readonly<{
@@ -154,6 +181,7 @@ export type EstimateFromSalaryScenarioInput = Readonly<{
 	bankInterestDocuments: readonly AcceptedBankInterestDocumentFacts[];
 	nonSalaryIncomeDocuments: readonly AcceptedNonSalaryIncomeDocumentFacts[];
 	tdsDocuments: readonly AcceptedTdsDocumentFacts[];
+	taxPaymentDocuments: readonly AcceptedTaxPaymentDocumentFacts[];
 }>;
 
 export type RefundOrAmountPayableEstimate =
@@ -165,6 +193,7 @@ export type RefundOrAmountPayableEstimate =
 			nodes: readonly ComputationTraceNode[];
 			summary: RefundOrPayableEstimateSummary;
 			sources: readonly EstimateEvidenceReference[];
+			acceptedTaxPayments: readonly AcceptedTaxPaymentReceipt[];
 	  }>
 	| Readonly<{
 			kind: "blocked";
@@ -286,11 +315,13 @@ const collectSources = ({
 	bankInterestObservations,
 	nonSalaryIncomeObservations,
 	tdsDepositedObservations,
+	taxPaymentObservations,
 }: Readonly<{
 	salaryDocuments: readonly AcceptedSalaryDocumentFacts[];
 	bankInterestObservations: readonly BankInterestObservation[];
 	nonSalaryIncomeObservations: readonly NonSalaryIncomeObservation[];
 	tdsDepositedObservations: readonly TdsObservation[];
+	taxPaymentObservations: readonly TaxPaymentObservation[];
 }>): readonly EstimateEvidenceReference[] => {
 	const references: MutableEvidenceReference[] = [];
 	const push = (
@@ -351,6 +382,14 @@ const collectSources = ({
 			observation.observationId,
 		);
 	}
+	for (const observation of taxPaymentObservations) {
+		push(
+			"tax-payments",
+			observation.factKey,
+			observation.sourceDocumentId,
+			observation.observationId,
+		);
+	}
 
 	references.sort((left, right) => {
 		const roleOrder: Readonly<Record<EstimateEvidenceRole, number>> =
@@ -359,6 +398,7 @@ const collectSources = ({
 				"bank-interest-income": 1,
 				"non-salary-income": 2,
 				"taxes-paid": 3,
+				"tax-payments": 4,
 			});
 		return (
 			roleOrder[left.role] - roleOrder[right.role] ||
@@ -390,6 +430,7 @@ export const computeRefundOrAmountPayableEstimate = ({
 	bankInterestDocuments,
 	nonSalaryIncomeDocuments,
 	tdsDocuments,
+	taxPaymentDocuments,
 }: RefundOrAmountPayableEstimateInput): RefundOrAmountPayableEstimate =>
 	estimateRefundOrAmountPayableFromSalaryScenario({
 		rulePack,
@@ -403,6 +444,7 @@ export const computeRefundOrAmountPayableEstimate = ({
 		bankInterestDocuments,
 		nonSalaryIncomeDocuments,
 		tdsDocuments,
+		taxPaymentDocuments,
 	});
 
 // The reconciliation over an already-derived salary scenario. Callers that
@@ -417,6 +459,7 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	bankInterestDocuments,
 	nonSalaryIncomeDocuments,
 	tdsDocuments,
+	taxPaymentDocuments,
 }: EstimateFromSalaryScenarioInput): RefundOrAmountPayableEstimate => {
 	const issues: RefundOrPayableEstimateIssue[] = [];
 
@@ -508,6 +551,45 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 		);
 	}
 
+	// Unlike the single-export slices, several receipts are normal: each
+	// receipt documents its own challan payment. The guard is the challan
+	// identity itself, so two selected files claiming one paid challan block
+	// the estimate instead of counting that payment twice.
+	const acceptedTaxPaymentObservations = taxPaymentDocuments.flatMap(
+		(document) => document.observations,
+	);
+	const duplicateChallanGroups = new Map<
+		string,
+		readonly TaxPaymentObservation[]
+	>();
+	for (const observation of acceptedTaxPaymentObservations) {
+		const identity = `${observation.record.bsrCode}|${observation.record.challanSerialNumber}|${observation.record.paymentDateDayMonthYear}`;
+		const group = duplicateChallanGroups.get(identity) ?? [];
+		duplicateChallanGroups.set(identity, [...group, observation]);
+	}
+	const duplicatedObservations = new Set<string>();
+	for (const group of duplicateChallanGroups.values()) {
+		if (group.length <= 1) {
+			continue;
+		}
+		for (const observation of group) {
+			duplicatedObservations.add(observation.observationId);
+		}
+	}
+	if (duplicatedObservations.size > 0) {
+		issues.push(
+			estimateIssue(
+				ESTIMATE_ISSUE_CODES.taxPaymentDuplicateChallan,
+				"Keep exactly one e-Pay Tax receipt per paid challan so a payment cannot be counted twice. Remove the repeated receipt before estimating.",
+				TAX_PAYMENT_FACT_KEYS,
+			),
+		);
+	}
+	const countedTaxPaymentObservations =
+		acceptedTaxPaymentObservations.filter(
+			(observation) => !duplicatedObservations.has(observation.observationId),
+		);
+
 	if (issues.length > 0 || salaryScenario.kind === "blocked") {
 		return Object.freeze({ kind: "blocked", issues: Object.freeze(issues) });
 	}
@@ -548,7 +630,15 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	);
 
 	const sortedTds = [...tdsDepositedObservations].sort(byObservationOrder);
-	const taxesPaid = sumObservations(sortedTds);
+	// Taxes paid combine the two creditable streams: deposits reported by the
+	// reviewed statement slice, plus challan payments from accepted e-Pay Tax
+	// receipts. Both streams are already exact money.
+	const sortedTaxPayments = [...countedTaxPaymentObservations].sort(
+		byObservationOrder,
+	);
+	const tdsPaidTotal = sumObservations(sortedTds);
+	const taxPaymentsTotal = sumObservations(sortedTaxPayments);
+	const taxesPaid = addExactMoney(tdsPaidTotal, taxPaymentsTotal);
 
 	const liability = buildNewRegimeLiabilityNodes({
 		roundedIncomeValue: totalIncome,
@@ -607,16 +697,24 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 				unroundedValue: aggregateIncome,
 				roundedValue: totalIncome,
 			},
-			{
-				nodeId: TAXES_PAID_NODE_ID,
-				ruleId: ESTIMATE_RULE_IDS.tdsCredit,
-				operation: "sum-of-accepted-observations",
-				inputs: sortedTds.map((observation) =>
-					factInput(observation.factKey, observation.normalizedValue),
-				),
-				unroundedValue: taxesPaid,
-				roundedValue: taxesPaid,
-			},
+		{
+			nodeId: TAXES_PAID_NODE_ID,
+			ruleId:
+				sortedTaxPayments.length > 0
+					? ESTIMATE_RULE_IDS.taxPayments
+					: ESTIMATE_RULE_IDS.tdsCredit,
+			operation: "sum-of-accepted-observations",
+			inputs: [...sortedTds, ...sortedTaxPayments].map((observation) =>
+				factInput(observation.factKey, observation.normalizedValue),
+			),
+			unroundedValue: taxesPaid,
+			roundedValue: taxesPaid,
+			...(sortedTaxPayments.length > 0
+				? {
+						note: "Accepted TDS deposits under section 199 plus paid challan receipts under sections 207 to 211 and 140A.",
+					}
+				: {}),
+		},
 			...liability.nodes,
 		],
 		revision,
@@ -646,6 +744,15 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 			bankInterestObservations: sortedBankInterest,
 			nonSalaryIncomeObservations: sortedNonSalaryIncome,
 			tdsDepositedObservations: sortedTds,
+			taxPaymentObservations: sortedTaxPayments,
 		}),
+		acceptedTaxPayments: Object.freeze(
+			sortedTaxPayments.map((observation) => ({
+				sourceDocumentId: observation.sourceDocumentId,
+				factKey: observation.factKey,
+				amount: observation.normalizedValue,
+				challanReference: `BSR ${observation.record.bsrCode} · Serial ${observation.record.challanSerialNumber} · dated ${observation.record.paymentDateDayMonthYear}`,
+			})),
+		),
 	});
 };

@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import { buildSyntheticPdf } from "./fixtures/pdf-fixture-builder";
 import {
 	createAisJsonBankInterestFixture,
+	createEpayTaxPdfFixture,
 	createForm16SalaryPdfFixture,
 	createForm16APdfFixture,
 	createForm26AsTextFixture,
@@ -79,6 +80,35 @@ describe("registry extraction routing", () => {
 				["tds.tax-deducted", "12000", "form16a-pdf"],
 				["tds.tds-deposited", "12000", "form16a-pdf"],
 				["tds.tax-deducted", "2500", "form16a-pdf"],
+			]);
+			expect(outcome.issues).toEqual([]);
+		}
+	});
+
+	test("routes an identified e-Pay Tax receipt to its tax-payment extraction", async () => {
+		const bytes = createEpayTaxPdfFixture();
+		const outcome = await createDocumentInspectionRegistry().extractDocument({
+			identity: await identityOf(bytes),
+			displayName: "epay-tax-receipt.pdf",
+			bytes: copyBytes(bytes),
+		});
+
+		expect(outcome.kind).toBe("extracted");
+		if (outcome.kind === "extracted") {
+			expect(
+				outcome.taxPaymentObservations.map((observation) => [
+					observation.factKey,
+					String(observation.normalizedValue),
+					observation.adapterId,
+					observation.evidence.kind,
+				]),
+			).toEqual([
+				[
+					"tax-payment.self-assessment-tax",
+					"45670",
+					"epay-tax-receipt-pdf",
+					"pdf-page-region",
+				],
 			]);
 			expect(outcome.issues).toEqual([]);
 		}

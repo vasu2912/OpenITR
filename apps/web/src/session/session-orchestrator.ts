@@ -117,7 +117,8 @@ const sliceRecords = <
 		| "observations"
 		| "bankInterestObservations"
 		| "nonSalaryIncomeObservations"
-		| "tdsObservations",
+		| "tdsObservations"
+		| "taxPaymentObservations",
 >(
 	extractions: readonly DocumentExtractionRecord[],
 	observationField: TKey,
@@ -183,11 +184,16 @@ const computeEstimateScenario = ({
 		"nonSalaryIncomeObservations",
 	);
 	const tdsRecords = sliceRecords(extractions, "tdsObservations");
+	const taxPaymentRecords = sliceRecords(
+		extractions,
+		"taxPaymentObservations",
+	);
 	if (
 		salaryRecords.length === 0 &&
 		bankInterestRecords.length === 0 &&
 		nonSalaryIncomeRecords.length === 0 &&
-		tdsRecords.length === 0
+		tdsRecords.length === 0 &&
+		taxPaymentRecords.length === 0
 	) {
 		return undefined;
 	}
@@ -218,6 +224,9 @@ const computeEstimateScenario = ({
 			tdsDocuments: tdsRecords.map((record) =>
 				toDocument(record, record.tdsObservations),
 			),
+			taxPaymentDocuments: taxPaymentRecords.map((record) =>
+				toDocument(record, record.taxPaymentObservations),
+			),
 		});
 	}
 	return computeRefundOrAmountPayableEstimate({
@@ -234,6 +243,9 @@ const computeEstimateScenario = ({
 		),
 		tdsDocuments: tdsRecords.map((record) =>
 			toDocument(record, record.tdsObservations),
+		),
+		taxPaymentDocuments: taxPaymentRecords.map((record) =>
+			toDocument(record, record.taxPaymentObservations),
 		),
 	});
 };
@@ -345,6 +357,7 @@ const settleExtractionRecord = (
 				bankInterestObservations: outcome.bankInterestObservations,
 				nonSalaryIncomeObservations: outcome.nonSalaryIncomeObservations,
 				tdsObservations: outcome.tdsObservations,
+				taxPaymentObservations: outcome.taxPaymentObservations,
 				issues: outcome.issues,
 				pages: outcome.pages,
 			} satisfies DocumentExtractionRecord

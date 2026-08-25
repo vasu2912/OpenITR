@@ -3,6 +3,7 @@ import type {
 	NonSalaryIncomeObservation,
 	ObservationTransformationStep,
 	SalaryObservation,
+	TaxPaymentObservation,
 	TdsObservation,
 } from "@openitr/model";
 import {
@@ -37,7 +38,9 @@ type ReviewObservation = Readonly<{
 	evidence:
 		| SalaryObservation["evidence"]
 		| NonSalaryIncomeObservation["evidence"]
+		| TaxPaymentObservation["evidence"]
 		| TdsObservation["evidence"];
+	recordDetails?: readonly Readonly<{ label: string; value: string }>[];
 }>;
 
 // Exact-money values stay strings all the way into grouped display text.
@@ -76,6 +79,31 @@ const tdsToReview = (observation: TdsObservation): ReviewObservation => ({
 	ruleId: String(observation.ruleCitation.ruleId),
 	ruleDescription: observation.ruleCitation.description,
 	evidence: observation.evidence,
+});
+
+const taxPaymentToReview = (
+	observation: TaxPaymentObservation,
+): ReviewObservation => ({
+	observationId: observation.observationId,
+	factKey: String(observation.factKey),
+	valueText: moneyDisplay(observation.normalizedValue),
+	evidenceText: observation.originalValue,
+	transformationSteps: observation.transformationSteps,
+	ruleId: String(observation.ruleCitation.ruleId),
+	ruleDescription: observation.ruleCitation.description,
+	evidence: observation.evidence,
+	recordDetails: [
+		{
+			label: "Challan identity",
+			value: `BSR ${observation.record.bsrCode} · Serial ${observation.record.challanSerialNumber} · dated ${observation.record.paymentDateDayMonthYear}`,
+		},
+		{ label: "Type of payment", value: observation.record.typeOfPaymentLabel },
+		{ label: "Taxpayer", value: `${observation.record.taxpayerName} (${observation.record.taxpayerPan})` },
+		{
+			label: "Bank reference",
+			value: observation.record.bankReferenceNumber,
+		},
+	],
 });
 
 const ObservationEvidencePanel = ({
@@ -197,6 +225,18 @@ const ObservationCard = ({
 			<p className="openitr-observation-original">
 				Original text: <q>{observation.evidenceText}</q>
 			</p>
+			{observation.recordDetails ? (
+				<dl className="openitr-observation-details">
+					{observation.recordDetails.map((detail) => (
+						<div key={detail.label}>
+							<dt>{detail.label}:</dt>
+							<dd>
+								<code>{detail.value}</code>
+							</dd>
+						</div>
+					))}
+				</dl>
+			) : null}
 			<details className="openitr-observation-steps">
 				<summary>Normalization steps</summary>
 				<ol className="openitr-step-list">
@@ -229,7 +269,7 @@ const ObservationCard = ({
 
 type ObservationGroup = Readonly<{
 	label: string;
-	role: "salary-income" | "non-salary-income" | "taxes-paid";
+	role: "salary-income" | "non-salary-income" | "taxes-paid" | "tax-payments";
 	observations: readonly ReviewObservation[];
 }>;
 
@@ -252,6 +292,11 @@ const groupsOfRecord = (
 		label: "Tax-paid evidence",
 		role: "taxes-paid",
 		observations: record.tdsObservations.map(tdsToReview),
+	},
+	{
+		label: "Tax payment evidence",
+		role: "tax-payments",
+		observations: record.taxPaymentObservations.map(taxPaymentToReview),
 	},
 ];
 
@@ -319,7 +364,8 @@ export const SalaryReviewView = ({
 						)}
 						{record.observations.length === 0 &&
 						record.nonSalaryIncomeObservations.length === 0 &&
-						record.tdsObservations.length === 0 ? (
+						record.tdsObservations.length === 0 &&
+						record.taxPaymentObservations.length === 0 ? (
 							<p>No observations could be extracted from this document.</p>
 						) : null}
 					</section>

@@ -11,6 +11,7 @@ import {
 
 import { createAisJsonAdapter } from "./ais-json/ais-json-adapter";
 import { createAisCsvAdapter } from "./ais-csv/ais-csv-adapter";
+import { createEpayTaxPdfAdapter } from "./epay-tax/epay-tax-pdf-adapter";
 import { createForm16PdfAdapter } from "./form16/form16-pdf-adapter";
 import { createForm26AsTextAdapter } from "./form26as/form26as-text-adapter";
 import { createForm26AsExcelAdapter } from "./form26as/form26as-excel-adapter";
@@ -70,6 +71,7 @@ const defaultAdapters = (): readonly SourceDocumentAdapter[] => [
 	createAisCsvAdapter(),
 	createForm16PdfAdapter(),
 	createForm16APdfAdapter(),
+	createEpayTaxPdfAdapter(),
 	createForm26AsTextAdapter(),
 	createForm26AsExcelAdapter(),
 ];

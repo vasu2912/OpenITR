@@ -9,17 +9,13 @@ import type {
 	DocumentAdapterManifest,
 	SourceDocumentAdapter,
 } from "../registry";
-import { extractForm16APaymentSummary } from "./form16a-summary-extraction";
+import { extractEpayTaxPayment } from "./receipt-extraction";
+import { EPAY_REQUIRED_MARKERS } from "./receipt-layout";
 
-const FORM16A_REQUIRED_MARKERS = [
-	"FORM 16A",
-	"Certificate under section 203(2A) of the Income-tax Act, 1961",
-] as const;
-
-export const FORM16A_PDF_MANIFEST: DocumentAdapterManifest = Object.freeze({
-	adapterId: "form16a-pdf",
+const EPAY_PDF_MANIFEST: DocumentAdapterManifest = Object.freeze({
+	adapterId: "epay-tax-receipt-pdf",
 	adapterVersion: "1",
-	documentKind: parseDocumentKind("form16a-pdf"),
+	documentKind: parseDocumentKind("epay-tax-receipt-pdf"),
 	templateRevision: parseTemplateRevision("2026-27"),
 });
 
@@ -32,17 +28,17 @@ const EXTRACTION_REJECTIONS = {
 	"no-text-layer": "image-only",
 } as const;
 
-const form16aMarkersPresent = (outcome: Extract<
+const epayMarkersPresent = (outcome: Extract<
 	PdfLinesOutcome,
 	{ outcome: "text" }
 >): boolean =>
 	normalizedTextContainsAll(
 		outcome.pages.map((lines) => lines.map((line) => line.text).join("\n")).join("\n"),
-		FORM16A_REQUIRED_MARKERS,
+		EPAY_REQUIRED_MARKERS,
 	);
 
-export const createForm16APdfAdapter = (): SourceDocumentAdapter => ({
-	manifest: FORM16A_PDF_MANIFEST,
+export const createEpayTaxPdfAdapter = (): SourceDocumentAdapter => ({
+	manifest: EPAY_PDF_MANIFEST,
 	inspect: async (input, options = {}): Promise<AdapterVerdict> => {
 		const linesOutcome = await extractPdfLines(input.bytes, options);
 		switch (linesOutcome.outcome) {
@@ -55,7 +51,7 @@ export const createForm16APdfAdapter = (): SourceDocumentAdapter => ({
 			case "no-text-layer":
 				return { verdict: "rejected", rejection: "image-only" };
 			case "text":
-				return form16aMarkersPresent(linesOutcome)
+				return epayMarkersPresent(linesOutcome)
 					? { verdict: "exact-match" }
 					: { verdict: "no-match" };
 			default: {
@@ -72,23 +68,22 @@ export const createForm16APdfAdapter = (): SourceDocumentAdapter => ({
 				input.identity,
 			);
 		}
-		if (!form16aMarkersPresent(linesOutcome)) {
+		if (!epayMarkersPresent(linesOutcome)) {
 			return createExtractionRejectionOutcome("unknown-format", input.identity);
 		}
 
-		const { incomeObservations, tdsObservations, issues } =
-			extractForm16APaymentSummary({
-				pages: linesOutcome.pages,
-				sourceDocumentId: input.identity,
-				adapter: FORM16A_PDF_MANIFEST,
-			});
+		const { taxPaymentObservations, issues } = extractEpayTaxPayment({
+			pages: linesOutcome.pages,
+			sourceDocumentId: input.identity,
+			adapter: EPAY_PDF_MANIFEST,
+		});
 		return {
 			kind: "extracted",
 			observations: [],
 			bankInterestObservations: [],
-			nonSalaryIncomeObservations: incomeObservations,
-			tdsObservations,
-			taxPaymentObservations: [],
+			nonSalaryIncomeObservations: [],
+			tdsObservations: [],
+			taxPaymentObservations,
 			issues,
 			pages: linesOutcome.pages.map((lines, pageIndex) => ({
 				page: pageIndex + 1,

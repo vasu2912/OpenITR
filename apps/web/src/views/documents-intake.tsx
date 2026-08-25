@@ -74,6 +74,11 @@ const extractionStatusLine = (
 			if (record.tdsObservations.length > 0) {
 				parts.push(`${record.tdsObservations.length} TDS`);
 			}
+			if (record.taxPaymentObservations.length > 0) {
+				parts.push(
+					`${record.taxPaymentObservations.length} tax payment${record.taxPaymentObservations.length === 1 ? "" : "s"}`,
+				);
+			}
 			const issueNote =
 				record.issues.length > 0
 					? `, ${record.issues.length} review item${record.issues.length === 1 ? "" : "s"}`

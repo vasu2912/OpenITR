@@ -362,6 +362,109 @@ export const createForm16APdfFixture = (
 	});
 };
 
+// Machine-generated synthetic official e-Pay Tax receipt PDF for the one
+// supported revision: two marker lines and one "Label : Value" line per
+// reviewed challan field, ending with the Total Tax Paid amount line. Every
+// value is invented; sentinel values exist so privacy tests can detect
+// leakage. The layout constants below intentionally mirror the adapter's
+// expectations without importing them, so any drift fails tests.
+export const EPAY_SENTINEL_TAXPAYER_NAME = "OpenITR Synthetic Taxpayer";
+export const EPAY_SENTINEL_PAN = "PANPD9999E";
+export const EPAY_SENTINEL_ASSESSMENT_YEAR = "2026-27";
+export const EPAY_SENTINEL_BSR_CODE = "0004321";
+export const EPAY_SENTINEL_PAYMENT_DATE = "26/03/2026";
+export const EPAY_SENTINEL_CHALLAN_SERIAL = "00517";
+export const EPAY_SENTINEL_BANK_REFERENCE = "OPENITRBNK1234567";
+export const EPAY_SENTINEL_TOTAL_TAX_PAID = "45,670.00";
+
+const EPAY_MARKER_LINES = [
+	"e-Pay Tax Receipt",
+	"Income Tax Department",
+] as const;
+
+const epayFieldLine = (label: string, value: string): string =>
+	`${label} : ${value}`;
+
+export type EpayTaxReceiptFixtureOptions = Readonly<{
+	status?: string;
+	assessmentYear?: string;
+	typeOfPayment?: string;
+	totalTaxPaid?: string;
+	malformedTotalTaxPaid?: boolean;
+	omitChallanDetails?: boolean;
+	omitReceiptFields?: boolean;
+	bankReference?: string;
+	duplicateChallanIdentity?: "identical" | "conflicting";
+}>;
+
+export const createEpayTaxPdfFixture = (
+	options: EpayTaxReceiptFixtureOptions = {},
+): Uint8Array<ArrayBuffer> => {
+	const bsrCode = options.duplicateChallanIdentity === "conflicting"
+		? "0004329"
+		: EPAY_SENTINEL_BSR_CODE;
+	const paymentDate = options.duplicateChallanIdentity === "conflicting"
+		? "27/03/2026"
+		: EPAY_SENTINEL_PAYMENT_DATE;
+	const challanSerial = options.duplicateChallanIdentity === "conflicting"
+		? "00999"
+		: EPAY_SENTINEL_CHALLAN_SERIAL;
+	const challanLines = [
+		epayFieldLine("BSR Code", EPAY_SENTINEL_BSR_CODE),
+		epayFieldLine("Date of Receipt (CIN)", EPAY_SENTINEL_PAYMENT_DATE),
+		epayFieldLine("Challan Serial Number", EPAY_SENTINEL_CHALLAN_SERIAL),
+	];
+	const repeatedChallanLines =
+		options.duplicateChallanIdentity === undefined
+			? []
+			: [
+					epayFieldLine("BSR Code", bsrCode),
+					epayFieldLine("Date of Receipt (CIN)", paymentDate),
+					epayFieldLine("Challan Serial Number", challanSerial),
+				];
+	if (options.omitReceiptFields === true) {
+		return buildSyntheticPdf({
+			pages: [{ textLines: [...EPAY_MARKER_LINES] }],
+		});
+	}
+	const totalAmount = options.malformedTotalTaxPaid === true
+		? "45.670.00"
+		: (options.totalTaxPaid ?? EPAY_SENTINEL_TOTAL_TAX_PAID);
+	return buildSyntheticPdf({
+		pages: [
+			{
+				textLines: [
+					...EPAY_MARKER_LINES,
+					epayFieldLine(
+						"Status of Payment",
+						options.status ?? "Paid",
+					),
+					epayFieldLine(
+						"Assessment Year",
+						options.assessmentYear ?? EPAY_SENTINEL_ASSESSMENT_YEAR,
+					),
+					epayFieldLine("Name of Taxpayer", EPAY_SENTINEL_TAXPAYER_NAME),
+					epayFieldLine(
+						"Permanent Account Number (PAN)",
+						EPAY_SENTINEL_PAN,
+					),
+					...(options.omitChallanDetails === true ? [] : challanLines),
+					epayFieldLine(
+						"Type of Payment",
+						options.typeOfPayment ?? "(300) Self Assessment Tax",
+					),
+					epayFieldLine(
+						"Bank Reference Number",
+						options.bankReference ?? EPAY_SENTINEL_BANK_REFERENCE,
+					),
+					epayFieldLine("Total Tax Paid", `Rs ${totalAmount}`),
+					...repeatedChallanLines,
+				],
+			},
+		],
+	});
+};
+
 export const createUnknownBytesFixture = (): Uint8Array<ArrayBuffer> => {
 	const text =
 		"openitr-synthetic-unknown-document-bytes that no reviewed adapter claims";
