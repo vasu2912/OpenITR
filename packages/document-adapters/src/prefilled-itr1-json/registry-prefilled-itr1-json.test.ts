@@ -114,6 +114,23 @@ describe("registry inspection of official prefilled ITR-1 JSON", () => {
 		});
 	});
 
+	test.each([
+		["a top-level JSON array", '[{"documentType":"ITR1_PREFILLED"}]'],
+		["a top-level JSON string", '"ITR1_PREFILLED"'],
+	])("rejects %s as unknown format", async (_label, text) => {
+		const bytes = utf8Bytes(text);
+		const outcome = await createDocumentInspectionRegistry().inspect({
+			identity: await identityOf(bytes),
+			displayName: "synthetic-prefilled-itr1.json",
+			bytes: copyBytes(bytes),
+		});
+
+		expect(outcome).toMatchObject({
+			kind: "rejected",
+			rejection: "unknown-format",
+		});
+	});
+
 	test("rejects bytes that are not valid UTF-8", async () => {
 		const bytes = new Uint8Array(new ArrayBuffer(4));
 		bytes.set([0xff, 0xfe, 0x7b, 0x7d]);

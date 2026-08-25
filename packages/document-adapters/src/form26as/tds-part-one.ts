@@ -7,7 +7,6 @@ import {
 	parseFactKey,
 	parseRuleId,
 } from "@openitr/model";
-
 // The reviewed vocabulary of Form 26AS Part I, shared by every adapter that
 // maps the statement's tax-deducted-at-source records onto canonical facts,
 // so the plain-text and spreadsheet adapters cannot drift apart.
@@ -94,9 +93,13 @@ export const tdsColumnHeaderMalformedIssue = (): DocumentReviewIssue => ({
 	recoveryAction: TDS_COLUMN_HEADER_MALFORMED_RECOVERY_ACTION,
 });
 
-export const tdsRecordMalformedIssue = (): DocumentReviewIssue => ({
+// The recovery action names the reviewed source family, so adapters for
+// other representations of the same records pass their own guidance.
+export const tdsRecordMalformedIssue = (
+	recoveryAction: string = TDS_RECORD_MALFORMED_RECOVERY_ACTION,
+): DocumentReviewIssue => ({
 	code: DOCUMENT_REVIEW_ISSUE_CODES.tdsRecordMalformed,
 	severity: "review",
 	affectedFactKeys: affectedTdsFactKeys(),
-	recoveryAction: TDS_RECORD_MALFORMED_RECOVERY_ACTION,
+	recoveryAction,
 });

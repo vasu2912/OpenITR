@@ -71,6 +71,9 @@ export const TDS_COLUMN_HEADER_MALFORMED_RECOVERY_ACTION =
 export const TDS_RECORD_MALFORMED_RECOVERY_ACTION =
 	"Select an unmodified official Form 26AS text export so every Part I record carries its serial number, deductor name, TAN, and amount columns.";
 
+export const PREFILLED_ITR1_TDS_RECORD_MALFORMED_RECOVERY_ACTION =
+	"Select an unmodified official prefilled ITR-1 JSON export so every TDS-on-salary record carries its serial number, deductor name, TAN, and amount properties.";
+
 // One snapshot per PDF page, kept in browser memory only. The evidence viewer
 // renders these lines beside the observation's locator.
 export type EvidencePageLine = Readonly<{
