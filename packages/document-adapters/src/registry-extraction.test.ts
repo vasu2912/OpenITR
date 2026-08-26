@@ -13,6 +13,7 @@ import {
 } from "./testing";
 import { createDocumentInspectionRegistry } from "./registry";
 
+
 const copyBytes = (source: Uint8Array): Uint8Array<ArrayBuffer> => {
 	const out = new Uint8Array(new ArrayBuffer(source.length));
 	out.set(source);
@@ -112,6 +113,20 @@ describe("registry extraction routing", () => {
 			]);
 			expect(outcome.issues).toEqual([]);
 		}
+	});
+
+	test("rejects an unsupported e-Pay Tax receipt revision before extracting any fact", async () => {
+		const bytes = createEpayTaxPdfFixture({ assessmentYear: "2027-28" });
+		const outcome = await createDocumentInspectionRegistry().extractDocument({
+			identity: await identityOf(bytes),
+			displayName: "epay-tax-receipt.pdf",
+			bytes: copyBytes(bytes),
+		});
+
+		expect(outcome).toMatchObject({
+			kind: "rejected",
+			rejection: "unknown-format",
+		});
 	});
 
 	test("routes an identified AIS JSON revision to its bank-interest extraction", async () => {
