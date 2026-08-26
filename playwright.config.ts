@@ -10,7 +10,7 @@ export default defineConfig({
 		baseURL: previewUrl,
 	},
 	webServer: {
-		command: `pnpm --filter @openitr/web build && pnpm --filter @openitr/web exec vite preview --port ${previewPort} --strictPort`,
+		command: `pnpm --filter @openitr/web build && pnpm --filter @openitr/web exec vite preview --host 127.0.0.1 --port ${previewPort} --strictPort`,
 		url: previewUrl,
 		reuseExistingServer: !process.env.CI,
 		timeout: 120_000,

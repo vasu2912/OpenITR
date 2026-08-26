@@ -63,7 +63,7 @@ test.describe("estimated refund or amount payable", () => {
 		).toBeVisible();
 
 		await expect(
-			estimateSection.getByText("Taxes paid (accepted TDS deposits)"),
+			estimateSection.getByText("Taxes paid (TDS deposits and challan payments)"),
 		).toBeVisible();
 		await expect(
 			estimateSection.getByText("Accepted bank interest"),

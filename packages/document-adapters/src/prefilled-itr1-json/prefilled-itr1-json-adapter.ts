@@ -65,6 +65,7 @@ export const createPrefilledItr1JsonAdapter = (): SourceDocumentAdapter => ({
 			});
 		return {
 			kind: "extracted",
+			taxPaymentObservations: [],
 			observations: salaryObservations,
 			bankInterestObservations: [],
 			nonSalaryIncomeObservations: [],

@@ -60,6 +60,7 @@ export const createForm26AsTextAdapter = (): SourceDocumentAdapter => ({
 		});
 		return {
 			kind: "extracted",
+			taxPaymentObservations: [],
 			observations: [],
 			bankInterestObservations: [],
 			nonSalaryIncomeObservations: [],

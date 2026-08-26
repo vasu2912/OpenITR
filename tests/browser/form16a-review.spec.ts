@@ -100,7 +100,7 @@ test.describe("Form 16A non-salary TDS review", () => {
 			estimateSection.getByText("₹ 1,45,000").first(),
 		).toBeVisible();
 		await expect(
-			estimateSection.getByText("Taxes paid (accepted TDS deposits)"),
+			estimateSection.getByText("Taxes paid (TDS deposits and challan payments)"),
 		).toBeVisible();
 		await expect(estimateSection.getByText("₹ 12,000").first()).toBeVisible();
 	});

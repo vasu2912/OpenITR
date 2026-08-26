@@ -204,3 +204,43 @@ export type TdsObservation = Readonly<{
 	ruleCitation: ExtractionRuleCitation;
 	record: TdsSourceRecord;
 }>;
+
+// The receipt-level details of one e-Pay Tax challan payment, exactly as the
+// official receipt printed them. The challan identity (BSR code, serial
+// number, and receipt date) is what distinguishes one government payment
+// from another, so a later duplicate check can compare receipts by it.
+export type EpayTaxReceiptSourceRecord = Readonly<{
+	medium: "pdf";
+	page: number;
+	taxpayerName: string;
+	taxpayerPan: string;
+	assessmentYear: string;
+	bsrCode: string;
+	challanSerialNumber: string;
+	paymentDateDayMonthYear: string;
+	typeOfPaymentCode: string;
+	typeOfPaymentLabel: string;
+	bankReferenceNumber: string;
+	totalAmountRaw: string;
+}>;
+
+export type TaxPaymentObservation = Readonly<{
+	observationId: string;
+	factKey: FactKey;
+	sourceDocumentId: Sha256Digest;
+	adapterId: string;
+	adapterVersion: string;
+	originalValue: string;
+	normalizedValue: ExactMoney;
+	transformationSteps: readonly ObservationTransformationStep[];
+	evidence: PdfEvidenceLocator;
+	ruleCitation: ExtractionRuleCitation;
+	record: EpayTaxReceiptSourceRecord;
+}>;
+
+// One canonical phrase naming a paid challan, so the estimate result and the
+// review UI cannot drift apart when describing the same receipt.
+export const epayChallanReferenceOf = (
+	record: EpayTaxReceiptSourceRecord,
+): string =>
+	`BSR ${record.bsrCode} · Serial ${record.challanSerialNumber} · dated ${record.paymentDateDayMonthYear}`;

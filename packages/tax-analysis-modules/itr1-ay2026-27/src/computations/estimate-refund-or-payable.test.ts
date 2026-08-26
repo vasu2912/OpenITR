@@ -12,6 +12,7 @@ import type {
 	BankInterestObservation,
 	NonSalaryIncomeObservation,
 	SalaryObservation,
+	TaxPaymentObservation,
 	TdsObservation,
 } from "@openitr/model";
 import { describe, expect, test } from "vitest";
@@ -30,6 +31,7 @@ import type {
 	AcceptedBankInterestDocumentFacts,
 	AcceptedNonSalaryIncomeDocumentFacts,
 	AcceptedTdsDocumentFacts,
+	AcceptedTaxPaymentDocumentFacts,
 	RefundOrAmountPayableEstimate,
 } from "./estimate-refund-or-payable";
 
@@ -37,6 +39,7 @@ const salaryDocumentId = parseSha256Digest("ab".repeat(32));
 const aisDocumentId = parseSha256Digest("cd".repeat(32));
 const form26asDocumentId = parseSha256Digest("ef".repeat(32));
 const form16aDocumentId = parseSha256Digest("9a".repeat(32));
+const epayDocumentId = parseSha256Digest("7c".repeat(32));
 
 const residentAnswer = (): AttestedAnswer => ({
 	questionId: parseQuestionId("itr1-resident-individual"),
@@ -277,12 +280,67 @@ const form16aTdsDocument = (): AcceptedTdsDocumentFacts => ({
 	],
 });
 
+const taxPaymentObservation = ({
+	amount = "45670",
+	factKey = "tax-payment.self-assessment-tax",
+	bsrCode = "0004321",
+	challanSerialNumber = "00517",
+	paymentDate = "26/03/2026",
+	documentId = epayDocumentId,
+}: Readonly<{
+	amount?: string;
+	factKey?: string;
+	bsrCode?: string;
+	challanSerialNumber?: string;
+	paymentDate?: string;
+	documentId?: typeof epayDocumentId;
+}> = {}): TaxPaymentObservation => ({
+	observationId: `${factKey}@${documentId}:cin-${bsrCode}-${challanSerialNumber}`,
+	factKey: parseFactKey(factKey),
+	sourceDocumentId: documentId,
+	adapterId: "epay-tax-receipt-pdf",
+	adapterVersion: "1",
+	originalValue: `Rs ${amount}`,
+	normalizedValue: parseExactMoney(amount),
+	transformationSteps: [],
+	evidence: {
+		kind: "pdf-page-region",
+		page: 1,
+		x: 72,
+		y: 544,
+		width: 220,
+		height: 12,
+	},
+	ruleCitation: {
+		ruleId: parseRuleId("EPAY-TAX-RECEIPT-SELF-ASSESSMENT-TAX"),
+		description: "e-Pay Tax receipt fact for a paid challan.",
+	},
+	record: {
+		medium: "pdf",
+		page: 1,
+		taxpayerName: "OpenITR Synthetic Taxpayer",
+		taxpayerPan: "PANPD9999E",
+		assessmentYear: "2026-27",
+		bsrCode,
+		challanSerialNumber,
+		paymentDateDayMonthYear: paymentDate,
+		typeOfPaymentCode: factKey === "tax-payment.advance-tax" ? "100" : "300",
+		typeOfPaymentLabel:
+			factKey === "tax-payment.advance-tax"
+				? "(100) Advance Tax"
+				: "(300) Self Assessment Tax",
+		bankReferenceNumber: "OPENITRBNK1234567",
+		totalAmountRaw: `Rs ${amount}`,
+	},
+});
+
 const computeReviewedEstimate = (
 	overrides: Partial<{
 		salaryDocuments: readonly AcceptedSalaryDocumentFacts[];
 		bankInterestDocuments: readonly AcceptedBankInterestDocumentFacts[];
 		nonSalaryIncomeDocuments: readonly AcceptedNonSalaryIncomeDocumentFacts[];
 		tdsDocuments: readonly AcceptedTdsDocumentFacts[];
+		taxPaymentDocuments: readonly AcceptedTaxPaymentDocumentFacts[];
 		answer: AttestedAnswer;
 	}> = {},
 ): RefundOrAmountPayableEstimate =>
@@ -294,6 +352,7 @@ const computeReviewedEstimate = (
 			overrides.bankInterestDocuments ?? [reviewedBankInterestDocument()],
 		nonSalaryIncomeDocuments: overrides.nonSalaryIncomeDocuments ?? [],
 		tdsDocuments: overrides.tdsDocuments ?? [reviewedTdsDocument()],
+		taxPaymentDocuments: overrides.taxPaymentDocuments ?? [],
 	});
 
 describe("refund or payable estimate", () => {
@@ -305,6 +364,7 @@ describe("refund or payable estimate", () => {
 			bankInterestDocuments: [reviewedBankInterestDocument()],
 			nonSalaryIncomeDocuments: [],
 			tdsDocuments: [reviewedTdsDocument()],
+			taxPaymentDocuments: [],
 		});
 
 		expect(estimate.kind).toBe("computed");
@@ -376,7 +436,7 @@ describe("refund or payable estimate", () => {
 		);
 		expect(rounded.roundedValue).toBe("1028570");
 
-		expect(nodeById("derived.taxes-paid-tds-credit")).toEqual(
+		expect(nodeById("derived.taxes-paid-total")).toEqual(
 			expect.objectContaining({
 				ruleId: parseRuleId("ITR1-TDS-CREDIT-SECTION-199"),
 				unroundedValue: "61250",
@@ -485,6 +545,7 @@ describe("refund or payable estimate", () => {
 			bankInterestDocuments: [savingsOnly()],
 			nonSalaryIncomeDocuments: [],
 			tdsDocuments: [oneDeposit()],
+			taxPaymentDocuments: [],
 		});
 
 		expect(estimate.kind).toBe("computed");
@@ -563,6 +624,7 @@ describe("refund or payable estimate", () => {
 			bankInterestDocuments: [savingsOnly()],
 			nonSalaryIncomeDocuments: [],
 			tdsDocuments: [balancedTds()],
+			taxPaymentDocuments: [],
 		});
 
 		expect(estimate.kind).toBe("computed");
@@ -901,6 +963,140 @@ describe("accepted Form 16A evidence feeds the income and tax-paid totals", () =
 	});
 });
 
+describe("accepted e-Pay Tax receipts", () => {
+	test("adds an accepted receipt to taxes paid and names the receipt that changed the estimate", () => {
+		const estimate = computeReviewedEstimate({
+			taxPaymentDocuments: [
+				{
+					documentId: epayDocumentId,
+					observations: [taxPaymentObservation()],
+				},
+			],
+		});
+		if (estimate.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+
+		// 61,250 of accepted TDS deposits plus the 45,670 challan payment.
+		expect(estimate.summary.taxesPaid).toBe("106920");
+		expect(estimate.outcome).toEqual({
+			kind: "estimated-refund",
+			difference: "106920",
+		});
+		expect(estimate.acceptedTaxPayments).toEqual([
+			{
+				sourceDocumentId: epayDocumentId,
+				factKey: "tax-payment.self-assessment-tax",
+				amount: "45670",
+				challanReference:
+					"BSR 0004321 · Serial 00517 · dated 26/03/2026",
+			},
+		]);
+
+		const taxesPaidNode = estimate.nodes.find(
+			(candidate) => candidate.nodeId === "derived.taxes-paid-total",
+		);
+		expect(taxesPaidNode).toBeDefined();
+		expect(taxesPaidNode?.inputs).toContainEqual({
+			kind: "fact",
+			factKey: "tax-payment.self-assessment-tax",
+			value: "45670",
+		});
+	});
+
+	test("counts every distinct challan when several receipts are selected", () => {
+		const estimate = computeReviewedEstimate({
+			taxPaymentDocuments: [
+				{
+					documentId: epayDocumentId,
+					observations: [taxPaymentObservation()],
+				},
+				{
+					documentId: parseSha256Digest("7d".repeat(32)),
+					observations: [
+						taxPaymentObservation({
+							factKey: "tax-payment.advance-tax",
+							bsrCode: "0004322",
+							challanSerialNumber: "00612",
+							paymentDate: "15/06/2025",
+							amount: "15000",
+						}),
+					],
+				},
+			],
+		});
+		if (estimate.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+
+		expect(estimate.summary.taxesPaid).toBe("121920");
+		expect(
+			estimate.acceptedTaxPayments.map((receipt) =>
+				receipt.challanReference,
+			),
+		).toEqual([
+			"BSR 0004322 · Serial 00612 · dated 15/06/2025",
+			"BSR 0004321 · Serial 00517 · dated 26/03/2026",
+		]);
+	});
+
+	test("blocks the estimate instead of counting one challan twice", () => {
+		const estimate = computeReviewedEstimate({
+			taxPaymentDocuments: [
+				{
+					documentId: epayDocumentId,
+					observations: [taxPaymentObservation()],
+				},
+				{
+					documentId: parseSha256Digest("7e".repeat(32)),
+					observations: [
+						taxPaymentObservation({ amount: "99,999.00".replace(/,/g, "") }),
+					],
+				},
+			],
+		});
+
+		expect(estimate.kind).toBe("blocked");
+		if (estimate.kind !== "blocked") {
+			return;
+		}
+		const duplicate = estimate.issues.find(
+			(issue) =>
+				String(issue.code) === "FACT_TAX_PAYMENT_DUPLICATE_CHALLAN",
+		);
+		expect(duplicate).toBeDefined();
+		expect(
+			duplicate?.affectedFactKeys.map((factKey) => String(factKey)).sort(),
+		).toEqual([
+			"tax-payment.advance-tax",
+			"tax-payment.self-assessment-tax",
+		]);
+	});
+
+	test("lists each accepted receipt among the estimate's evidence sources", () => {
+		const estimate = computeReviewedEstimate({
+			taxPaymentDocuments: [
+				{
+					documentId: epayDocumentId,
+					observations: [taxPaymentObservation()],
+				},
+			],
+		});
+		if (estimate.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+
+		expect(estimate.sources).toContainEqual({
+			role: "tax-payments",
+			factKey: "tax-payment.self-assessment-tax",
+			sourceDocumentId: epayDocumentId,
+			observationIds: [
+				`tax-payment.self-assessment-tax@${epayDocumentId}:cin-0004321-00517`,
+			],
+		});
+	});
+});
+
 describe("determinism of accepted facts, rule pack, and trace", () => {
 	test("replays byte-identical estimates for identical facts", () => {
 		const first = computeReviewedEstimate();
@@ -923,6 +1119,7 @@ describe("determinism of accepted facts, rule pack, and trace", () => {
 			bankInterestDocuments,
 			nonSalaryIncomeDocuments: [],
 			tdsDocuments,
+			taxPaymentDocuments: [],
 		});
 		const sharedSalary = estimateRefundOrAmountPayableFromSalaryScenario({
 			rulePack: itr1Ay202627RulePack20260824b,
@@ -936,6 +1133,7 @@ describe("determinism of accepted facts, rule pack, and trace", () => {
 			bankInterestDocuments,
 			nonSalaryIncomeDocuments: [],
 			tdsDocuments,
+			taxPaymentDocuments: [],
 		});
 
 		expect(JSON.stringify(sharedSalary)).toBe(JSON.stringify(direct));
@@ -955,7 +1153,7 @@ describe("determinism of accepted facts, rule pack, and trace", () => {
 			liabilityNode?.roundedValue,
 		);
 		const taxesPaidNode = estimate.nodes.find(
-			(candidate) => candidate.nodeId === "derived.taxes-paid-tds-credit",
+			(candidate) => candidate.nodeId === "derived.taxes-paid-total",
 		);
 		expect(estimate.summary.taxesPaid).toBe(taxesPaidNode?.roundedValue);
 

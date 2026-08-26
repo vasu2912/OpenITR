@@ -20,6 +20,7 @@ import {
 	createAisJsonFixture,
 	createAmbiguousPdfFixture,
 	createDamagedPdfFixture,
+	createEpayTaxPdfFixture,
 	createEncryptedPdfFixture,
 	createForm16PdfFixture,
 	createForm16APdfFixture,
@@ -873,6 +874,7 @@ describe("observation extraction lifecycle", () => {
 			.forEach((call) =>
 				call.resolve({
 					kind: "extracted",
+					taxPaymentObservations: [],
 					observations: [
 						fakeObservation(documentId, "salary.section-17-1", 1),
 					],
@@ -907,6 +909,7 @@ describe("observation extraction lifecycle", () => {
 			.forEach((call) =>
 				call.resolve({
 					kind: "extracted",
+					taxPaymentObservations: [],
 					observations: [
 						fakeObservation(documentId, "salary.section-17-1", 1),
 					],
@@ -1029,6 +1032,7 @@ describe("new-regime salary computation exposure", () => {
 			.forEach((call) =>
 				call.resolve({
 					kind: "extracted",
+					taxPaymentObservations: [],
 					observations: [
 						fakeObservation(documentId, "salary.section-17-1", 1200000),
 						fakeObservation(documentId, "salary.section-17-1", 1300000),
@@ -1212,6 +1216,7 @@ describe("refund-or-payable estimate exposure", () => {
 			.forEach((call) =>
 				call.resolve({
 					kind: "extracted",
+					taxPaymentObservations: [],
 					observations: [],
 					bankInterestObservations: [
 						fakeBankInterestObservation(
@@ -1449,6 +1454,154 @@ describe("refund-or-payable estimate exposure", () => {
 					String(issue.code) === "FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
 			),
 		).toBe(true);
+
+		session.stop();
+	});
+
+	test("feeds an accepted e-Pay Tax receipt into taxes paid and the estimated refund", async () => {
+		const session = createEligibleSession();
+
+		selectAllThreeDocuments(session);
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-epay-tax-receipt.pdf",
+					bytes: createEpayTaxPdfFixture(),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 4 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+
+		const receiptRecord = extractionRecords(session).find(
+			(record) =>
+				record.status === "done" &&
+				record.taxPaymentObservations.length > 0,
+		);
+		expect(receiptRecord?.status).toBe("done");
+		if (receiptRecord?.status !== "done") {
+			throw new Error("expected a done e-Pay Tax extraction record");
+		}
+		expect(receiptRecord.issues).toEqual([]);
+		expect(receiptRecord.taxPaymentObservations).toHaveLength(1);
+
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		// 61,250 of accepted TDS deposits plus the 45,670 challan payment.
+		expect(estimate.summary.taxesPaid).toBe("106920");
+		expect(estimate.outcome).toEqual({
+			kind: "estimated-refund",
+			difference: "106920",
+		});
+		expect(
+			estimate.acceptedTaxPayments.map(
+				(receipt) => receipt.challanReference,
+			),
+		).toEqual(["BSR 0004321 · Serial 00517 · dated 26/03/2026"]);
+
+		session.stop();
+	});
+
+	test("a receipt whose type of payment is unknown creates a review issue and no payment", async () => {
+		const session = createEligibleSession();
+
+		selectAllThreeDocuments(session);
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-epay-tax-receipt.pdf",
+					bytes: createEpayTaxPdfFixture({
+						typeOfPayment: "(102) Surcharge",
+					}),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 4 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+
+		const receiptCandidate = intakeDocuments(session).find(
+			(candidate) =>
+				candidate.displayName === "openitr-sentinel-epay-tax-receipt.pdf",
+		);
+		if (receiptCandidate === undefined) {
+			throw new Error("e-Pay Tax candidate missing");
+		}
+		const receiptRecord = extractionRecords(session).find(
+			(record) => record.candidateKey === receiptCandidate.candidateKey,
+		);
+		expect(receiptRecord?.status).toBe("done");
+		if (receiptRecord?.status !== "done") {
+			throw new Error("expected a done e-Pay Tax extraction record");
+		}
+		expect(
+			receiptRecord.issues.map((issue) => String(issue.code)),
+		).toEqual(["DOCUMENT_EPAY_RECEIPT_TYPE_OF_PAYMENT_UNKNOWN"]);
+
+		// The unknown receipt contributes nothing: taxes paid stay at the
+		// statement's 61,250 deposits alone.
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		expect(estimate.summary.taxesPaid).toBe("61250");
+
+		session.stop();
+	});
+
+	test("blocks rather than counting one paid challan across two selected receipts", async () => {
+		const session = createEligibleSession();
+
+		selectAllThreeDocuments(session);
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-epay-tax-receipt.pdf",
+					bytes: createEpayTaxPdfFixture(),
+				},
+				{
+					displayName: "openitr-sentinel-epay-tax-receipt-reprint.pdf",
+					bytes: createEpayTaxPdfFixture({
+						bankReference: "OPENITRBNK7654321",
+					}),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 5 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("blocked");
+		if (estimate?.kind !== "blocked") {
+			throw new Error("expected a blocked estimate");
+		}
+		const duplicate = estimate.issues.find(
+			(issue) =>
+				String(issue.code) === "FACT_TAX_PAYMENT_DUPLICATE_CHALLAN",
+		);
+		expect(duplicate).toBeDefined();
+		expect(duplicate?.recoveryAction.length).toBeGreaterThan(0);
 
 		session.stop();
 	});

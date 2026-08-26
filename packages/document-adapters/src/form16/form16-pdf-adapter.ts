@@ -228,6 +228,7 @@ export const createForm16PdfAdapter = (): SourceDocumentAdapter => ({
 		);
 		return {
 			kind: "extracted",
+			taxPaymentObservations: [],
 			observations,
 			bankInterestObservations: [],
 			nonSalaryIncomeObservations: [],
