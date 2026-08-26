@@ -251,6 +251,137 @@ describe("rejected resolutions", () => {
 });
 
 describe("re-evaluation when sources change", () => {
+	test("the most recent resolution for a group decides when an older one is inert", () => {
+		const firstAttempt = evaluateResolutionAttempt({
+			reconciliation: reconcileCanonicalFacts(conflictingInput()),
+			groupId: "bank-interest.savings-account",
+			choice: { kind: "observed", observationId: "obs-json-1" },
+			reason: "First decision.",
+			recordedAt,
+			attestableFactKeys: conflictingInput().attestableFactKeys,
+		});
+		if (firstAttempt.kind !== "accepted") {
+			throw new Error("expected an accepted first attempt");
+		}
+		// The chosen source disappears, so the first resolution goes inert
+		// and a fresh conflict between new candidates is resolved again.
+		const secondReconciliation = reconcileCanonicalFacts({
+			groups: [
+				savingsGroup([
+					{
+						observationId: "obs-csv-new",
+						sourceDocumentId: docA,
+						amount: "9000",
+					},
+					{
+						observationId: "obs-pdf-new",
+						sourceDocumentId: docB,
+						amount: "7000",
+					},
+				]),
+			],
+			resolutions: [firstAttempt.resolution],
+			attestableFactKeys: conflictingInput().attestableFactKeys,
+			resultRequirements: [],
+		});
+		expect(secondReconciliation.conflicts).toHaveLength(1);
+		const secondAttempt = evaluateResolutionAttempt({
+			reconciliation: secondReconciliation,
+			groupId: "bank-interest.savings-account",
+			choice: { kind: "observed", observationId: "obs-pdf-new" },
+			reason: "Second decision after the re-check.",
+			recordedAt,
+			attestableFactKeys: conflictingInput().attestableFactKeys,
+		});
+		if (secondAttempt.kind !== "accepted") {
+			throw new Error("expected an accepted second attempt");
+		}
+
+		const settled = reconcileCanonicalFacts({
+			groups: [
+				savingsGroup([
+					{
+						observationId: "obs-csv-new",
+						sourceDocumentId: docA,
+						amount: "9000",
+					},
+					{
+						observationId: "obs-pdf-new",
+						sourceDocumentId: docB,
+						amount: "7000",
+					},
+				]),
+			],
+			resolutions: [firstAttempt.resolution, secondAttempt.resolution],
+			attestableFactKeys: conflictingInput().attestableFactKeys,
+			resultRequirements: [],
+		});
+		expect(settled.conflicts).toEqual([]);
+		const accepted = settled.acceptedFacts[0];
+		if (accepted === undefined) {
+			throw new Error("expected one accepted fact");
+		}
+		expect(accepted.representativeObservationId).toBe("obs-pdf-new");
+	});
+
+	test("a brand-new disagreeing source re-opens a resolved conflict", () => {
+		const attempt = evaluateResolutionAttempt({
+			reconciliation: reconcileCanonicalFacts(conflictingInput()),
+			groupId: "bank-interest.savings-account",
+			choice: { kind: "observed", observationId: "obs-json-1" },
+			reason: "The JSON export matches my bank statement.",
+			recordedAt,
+			attestableFactKeys: conflictingInput().attestableFactKeys,
+		});
+		if (attempt.kind !== "accepted") {
+			throw new Error("expected an accepted attempt");
+		}
+		const before = reconcileCanonicalFacts({
+			...conflictingInput(),
+			resolutions: [attempt.resolution],
+		});
+		expect(before.conflicts).toEqual([]);
+
+		// A third source the taxpayer has never decided about arrives.
+		const after = reconcileCanonicalFacts({
+			groups: [
+				savingsGroup([
+					{
+						observationId: "obs-json-1",
+						sourceDocumentId: docB,
+						amount: "7890.25",
+					},
+					{
+						observationId: "obs-csv-1",
+						sourceDocumentId: docA,
+						amount: "9000",
+					},
+					{
+						observationId: "obs-pdf-new",
+						sourceDocumentId: parseSha256Digest(
+							"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+						),
+						amount: "5000",
+					},
+				]),
+			],
+			resolutions: [attempt.resolution],
+			attestableFactKeys: conflictingInput().attestableFactKeys,
+			resultRequirements: [],
+		});
+		expect(after.acceptedFacts).toEqual([]);
+		expect(after.conflicts).toHaveLength(1);
+		const reopened = after.conflicts[0];
+		if (reopened === undefined) {
+			throw new Error("expected the conflict to re-open");
+		}
+		expect(reopened.candidates.map((candidate) => candidate.value)).toEqual([
+			"9000",
+			"7890.25",
+			"5000",
+		]);
+	});
+
 	test("removing the disagreeing source dissolves the conflict and leaves a stored selection inert", () => {
 		const attempt = evaluateResolutionAttempt({
 			reconciliation: reconcileCanonicalFacts(conflictingInput()),

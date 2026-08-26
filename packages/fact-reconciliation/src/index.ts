@@ -44,8 +44,10 @@ export type ResultFactRequirement = Readonly<{
 }>;
 
 // A stored session fact recording how the taxpayer resolved one conflict.
-// It never replaces or edits the original observations; it only names the
-// chosen or attested value and why.
+// It never replaces or edits the original observations; it names the chosen
+// or attested value, every candidate the decision overruled, and why. The
+// overruled set is what keeps the decision honest: a source the taxpayer
+// never saw cannot be silently bound by it.
 export type FactResolution = Readonly<{
 	resolutionId: string;
 	groupId: string;
@@ -60,6 +62,10 @@ export type FactResolution = Readonly<{
 				kind: "attested";
 				value: ReturnType<typeof exactMoneyFromWholeRupees>;
 		  }>;
+	decidedAgainst: readonly {
+		observationId: string;
+		value: ReturnType<typeof exactMoneyFromWholeRupees>;
+	}[];
 	reason: string;
 	recordedAt: IsoTimestamp;
 }>;
@@ -183,6 +189,12 @@ export const evaluateResolutionAttempt = (
 				rejection: "observation-not-offered",
 			});
 		}
+		const decidedAgainst = conflict.candidates
+			.filter((candidate) => candidate !== selected)
+			.map((candidate) => ({
+				observationId: candidate.observationId,
+				value: candidate.value,
+			}));
 		return Object.freeze({
 			kind: "accepted",
 			resolution: Object.freeze({
@@ -203,6 +215,9 @@ export const evaluateResolutionAttempt = (
 					observationId: selected.observationId,
 					value: selected.value,
 				}),
+				decidedAgainst: Object.freeze(decidedAgainst.map((entry) =>
+					Object.freeze(entry),
+				)),
 				reason: input.reason,
 				recordedAt: input.recordedAt,
 			}),
@@ -223,15 +238,6 @@ export const evaluateResolutionAttempt = (
 			rejection: "invalid-attested-value",
 		});
 	}
-	const permitted = input.attestableFactKeys.some(
-		(factKey) => factKey === conflict.factKey,
-	);
-	if (!permitted || attestedValue === undefined) {
-		return Object.freeze({
-			kind: "rejected",
-			rejection: "attestation-not-permitted",
-		});
-	}
 	return Object.freeze({
 		kind: "accepted",
 		resolution: Object.freeze({
@@ -244,6 +250,14 @@ export const evaluateResolutionAttempt = (
 			groupId: input.groupId,
 			factKey: conflict.factKey,
 			choice: Object.freeze({ kind: "attested", value: attestedValue }),
+			decidedAgainst: Object.freeze(
+				conflict.candidates.map((candidate) =>
+					Object.freeze({
+						observationId: candidate.observationId,
+						value: candidate.value,
+					}),
+				),
+			),
 			reason: input.reason,
 			recordedAt: input.recordedAt,
 		}),
@@ -321,6 +335,22 @@ const conflictIdOf = ({
 // value the resolution recorded, or its choice was attested under a fact
 // key that still permits attestation. Anything else stays inert: the
 // resolution is kept as session history but decides nothing now.
+const resolutionCovers = ({
+	resolution,
+	candidate,
+}: Readonly<{
+	resolution: FactResolution;
+	candidate: CanonicalFactCandidate;
+}>): boolean =>
+	(resolution.choice.kind === "observed" &&
+		resolution.choice.observationId === candidate.observationId &&
+		resolution.choice.value === candidate.value) ||
+	resolution.decidedAgainst.some(
+		(entry) =>
+			entry.observationId === candidate.observationId &&
+			entry.value === candidate.value,
+	);
+
 const applicableResolutionOf = ({
 	group,
 	resolutions,
@@ -330,25 +360,44 @@ const applicableResolutionOf = ({
 	resolutions: readonly FactResolution[];
 	attestableFactKeys: readonly FactKey[];
 }>): FactResolution | undefined => {
-	const resolution = resolutions.find(
-		(candidate) => candidate.groupId === group.groupId,
-	);
-	if (resolution === undefined || resolution.factKey !== group.factKey) {
+	// Later resolutions for one group supersede earlier ones, so scan from
+	// the newest. An older resolution that no longer matches stays stored
+	// history and never shadows a fresh decision.
+	const candidates = [...group.candidates];
+	for (const resolution of [...resolutions].reverse()) {
+		if (resolution.groupId !== group.groupId) {
+			continue;
+		}
+		if (resolution.factKey !== group.factKey) {
+			continue;
+		}
+		const coversEveryCandidate = candidates.every((candidate) =>
+			resolutionCovers({ resolution, candidate }),
+		);
+		if (!coversEveryCandidate) {
+			continue;
+		}
+		if (resolution.choice.kind === "observed") {
+			const recordedChoice = resolution.choice;
+			const selected = candidates.find(
+				(candidate) =>
+					candidate.observationId === recordedChoice.observationId &&
+					candidate.value === recordedChoice.value,
+			);
+			if (selected === undefined) {
+				continue;
+			}
+			return resolution;
+		}
+		const stillPermitted = attestableFactKeys.some(
+			(factKey) => factKey === group.factKey,
+		);
+		if (stillPermitted) {
+			return resolution;
+		}
 		return undefined;
 	}
-	if (resolution.choice.kind === "observed") {
-		const recordedChoice = resolution.choice;
-		const selected = group.candidates.find(
-			(candidate) =>
-				candidate.observationId === recordedChoice.observationId &&
-				candidate.value === recordedChoice.value,
-		);
-		return selected === undefined ? undefined : resolution;
-	}
-	const stillPermitted = attestableFactKeys.some(
-		(factKey) => factKey === group.factKey,
-	);
-	return stillPermitted ? resolution : undefined;
+	return undefined;
 };
 
 // Reconcile every group's canonical observations into accepted facts and

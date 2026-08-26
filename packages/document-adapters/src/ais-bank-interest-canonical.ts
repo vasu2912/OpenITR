@@ -191,6 +191,10 @@ export const foldCanonicalBankInterestRecords = ({
 			ruleId: record.categoryDefinition.ruleId,
 			description: record.categoryDefinition.description,
 		},
+		record: {
+			institutionName: record.institutionName,
+			maskedAccountNumber: record.maskedAccountNumber,
+		},
 	}) satisfies BankInterestObservation);
 
 	return {

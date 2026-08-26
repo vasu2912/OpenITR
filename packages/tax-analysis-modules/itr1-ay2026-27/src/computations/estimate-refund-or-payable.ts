@@ -75,6 +75,9 @@ export const ESTIMATE_ISSUE_CODES = Object.freeze({
 	bankInterestEvidenceRequired: parseIssueCode(
 		"FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
 	),
+	multipleNonSalaryIncomeDocuments: parseIssueCode(
+		"FACT_NON_SALARY_INCOME_MULTIPLE_DOCUMENTS",
+	),
 	multipleTdsDocuments: parseIssueCode("FACT_TDS_MULTIPLE_DOCUMENTS"),
 	tdsEvidenceRequired: parseIssueCode("FACT_TDS_EVIDENCE_REQUIRED"),
 	taxFactConflicted: parseIssueCode("FACT_TAX_FACT_CONFLICTED"),
@@ -495,22 +498,29 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 		);
 	}
 
-	// Non-salary certificate evidence is situational, not owed: a user with
-	// no Form 16A at all still gets an estimate. Attested resolutions join
-	// the gross receipts the same way.
-	const nonSalaryIncomeObservations = nonSalaryIncomeDocuments.flatMap(
-		(document) => document.observations,
+	// Non-salary certificate rows are additive receipts, and their printed
+	// serials identify records only inside one certificate, so rows from two
+	// certificates cannot be judged compatible or duplicated. Rather than
+	// guess, gross receipts still come from exactly one reviewed
+	// certificate; its rows sum.
+	const contributingNonSalaryDocuments = nonSalaryIncomeDocuments.filter(
+		(document) => document.observations.length > 0,
 	);
-	const resolvedNonSalaryIncome = resolvedContributions.filter(
-		(contribution) =>
-			NON_SALARY_INCOME_FACT_KEYS.includes(contribution.factKey),
+	if (contributingNonSalaryDocuments.length > 1) {
+		issues.push(
+			estimateIssue(
+				ESTIMATE_ISSUE_CODES.multipleNonSalaryIncomeDocuments,
+				"Certificate summary rows print no shared identity across certificates, so this estimate reads one Form 16A certificate at a time. Keep exactly one such certificate selected so its gross receipts cannot be counted twice.",
+				NON_SALARY_INCOME_FACT_KEYS,
+			),
+		);
+	}
+	const nonSalaryIncomeObservations = contributingNonSalaryDocuments.flatMap(
+		(document) => document.observations,
 	);
 	const sortedNonSalaryIncome =
 		[...nonSalaryIncomeObservations].sort(byObservationOrder);
-	const nonSalaryIncomeTotal = resolvedNonSalaryIncome.reduce(
-		(total, contribution) => addExactMoney(total, contribution.value),
-		sumObservations(sortedNonSalaryIncome),
-	);
+	const nonSalaryIncomeTotal = sumObservations(sortedNonSalaryIncome);
 
 	// Only deposits feed taxes paid; the paid/credited and deducted columns
 	// stay untouched as evidence and never enter the arithmetic.
@@ -651,14 +661,9 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 				nodeId: NON_SALARY_INCOME_TOTAL_NODE_ID,
 				ruleId: ESTIMATE_RULE_IDS.interestIncome,
 				operation: "sum-of-accepted-observations",
-				inputs: [
-					...sortedNonSalaryIncome.map((observation) =>
-						factInput(observation.factKey, observation.normalizedValue),
-					),
-					...resolvedNonSalaryIncome.map((contribution) =>
-						factInput(contribution.factKey, contribution.value),
-					),
-				],
+				inputs: sortedNonSalaryIncome.map((observation) =>
+					factInput(observation.factKey, observation.normalizedValue),
+				),
 				unroundedValue: nonSalaryIncomeTotal,
 				roundedValue: nonSalaryIncomeTotal,
 				note: "Gross receipts from reviewed Form 16A summary records, chargeable as income from other sources.",

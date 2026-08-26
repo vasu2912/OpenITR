@@ -92,6 +92,16 @@ export type SalaryObservation = Readonly<{
 	ruleCitation: ExtractionRuleCitation;
 }>;
 
+// The source-record details of one AIS bank-interest record: the printed
+// institution and masked account that identify the underlying bank account
+// across repeats and across export formats. Two exports reporting one
+// account are two observations of the same fact; two accounts are two
+// facts that add up.
+export type BankInterestAccountRecord = Readonly<{
+	institutionName: string;
+	maskedAccountNumber: string;
+}>;
+
 export type BankInterestObservation = Readonly<{
 	observationId: string;
 	factKey: FactKey;
@@ -103,6 +113,7 @@ export type BankInterestObservation = Readonly<{
 	transformationSteps: readonly ObservationTransformationStep[];
 	evidence: JsonPointerEvidenceLocator | CsvEvidenceLocator;
 	ruleCitation: ExtractionRuleCitation;
+	record: BankInterestAccountRecord;
 }>;
 
 // The source-record details of one Form 26AS Part I record, exactly as the
