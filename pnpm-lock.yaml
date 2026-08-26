@@ -35,6 +35,9 @@ importers:
       '@openitr/document-adapters':
         specifier: workspace:*
         version: link:../../packages/document-adapters
+      '@openitr/fact-reconciliation':
+        specifier: workspace:*
+        version: link:../../packages/fact-reconciliation
       '@openitr/itr1-ay2026-27':
         specifier: workspace:*
         version: link:../../packages/tax-analysis-modules/itr1-ay2026-27
@@ -72,6 +75,12 @@ importers:
       pdfjs-dist:
         specifier: 6.2.108
         version: 6.2.108
+
+  packages/fact-reconciliation:
+    dependencies:
+      '@openitr/model':
+        specifier: workspace:*
+        version: link:../model
 
   packages/model:
     dependencies:

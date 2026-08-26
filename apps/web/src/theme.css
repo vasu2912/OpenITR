@@ -428,3 +428,88 @@ body,
 .openitr-summary-hint {
 	color: var(--pf-t--global--text--color--subtle);
 }
+
+.openitr-conflict-list {
+	display: grid;
+	gap: var(--pf-t--global--spacer--md);
+	list-style: none;
+	margin: var(--pf-t--global--spacer--md) 0 0;
+	padding: 0;
+}
+
+.openitr-conflict-item {
+	border: 1px solid var(--pf-t--global--border--color--default);
+	border-radius: var(--pf-t--global--border--radius--medium);
+	display: grid;
+	gap: var(--pf-t--global--spacer--sm);
+	padding: var(--pf-t--global--spacer--md);
+}
+
+.openitr-conflict-heading {
+	font-size: var(--pf-t--global--font--size--md);
+	margin: 0;
+	word-break: break-all;
+}
+
+.openitr-conflict-affected {
+	color: var(--pf-t--global--text--color--subtle);
+	margin: 0;
+}
+
+.openitr-conflict-options {
+	border: none;
+	display: grid;
+	gap: var(--pf-t--global--spacer--xs);
+	margin: 0;
+	padding: 0;
+}
+
+.openitr-conflict-options legend {
+	color: var(--pf-t--global--text--color--subtle);
+	font-weight: 600;
+	margin-bottom: var(--pf-t--global--spacer--xs);
+}
+
+.openitr-conflict-attest {
+	display: grid;
+	gap: var(--pf-t--global--spacer--xs);
+}
+
+.openitr-conflict-attest-input {
+	align-items: center;
+	display: flex;
+	font-size: var(--pf-t--global--font--size--sm);
+	gap: var(--pf-t--global--spacer--sm);
+}
+
+.openitr-conflict-attest-input input {
+	border: 1px solid var(--pf-t--global--border--color--default);
+	border-radius: var(--pf-t--global--border--radius--small);
+	max-width: 12rem;
+	padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+}
+
+.openitr-conflict-reason {
+	display: grid;
+	font-weight: 600;
+	gap: var(--pf-t--global--spacer--xs);
+}
+
+.openitr-conflict-error {
+	margin-top: var(--pf-t--global--spacer--sm);
+}
+
+.openitr-conflict-note {
+	color: var(--pf-t--global--text--color--subtle);
+	font-size: var(--pf-t--global--font--size--sm);
+	margin: var(--pf-t--global--spacer--sm) 0 0;
+}
+
+.openitr-resolutions {
+	margin-top: var(--pf-t--global--spacer--lg);
+}
+
+.openitr-resolutions-heading {
+	font-size: var(--pf-t--global--font--size--md);
+	margin: 0 0 var(--pf-t--global--spacer--sm);
+}

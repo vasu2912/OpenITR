@@ -34,6 +34,7 @@ import type { SessionOrchestrator } from "../session/session-orchestrator";
 	import { workerInspectionFacility } from "../session/worker-inspection-facility";
 	import { activeAnalysisRelease } from "./release-manifest";
 	import { DocumentsIntakeView } from "../views/documents-intake";
+import { FactConflictsView } from "../views/fact-conflicts";
 import { SalaryReviewView } from "../views/salary-review";
 import { SalaryComputationView } from "../views/salary-computation";
 import { EstimateView } from "../views/estimate-view";
@@ -293,6 +294,10 @@ const ScopeInteraction = ({
 		snapshot.kind === "document-intake" ? snapshot.documents : [];
 	const extractions =
 		snapshot.kind === "document-intake" ? snapshot.extractions : [];
+	const factConflicts =
+		snapshot.kind === "document-intake" ? snapshot.factConflicts : [];
+	const factResolutions =
+		snapshot.kind === "document-intake" ? snapshot.factResolutions : [];
 	const salaryComputation =
 		snapshot.kind === "document-intake"
 			? snapshot.salaryComputation
@@ -374,6 +379,12 @@ const ScopeInteraction = ({
 			<DocumentsIntakeView
 				documents={documents}
 				extractions={extractions}
+				session={session}
+			/>
+			<FactConflictsView
+				conflicts={factConflicts}
+				documents={documents}
+				resolutions={factResolutions}
 				session={session}
 			/>
 			<SalaryReviewView extractions={extractions} />

@@ -281,6 +281,353 @@ describe("source document intake", () => {
 	});
 });
 
+describe("cross-source conflict resolution", () => {
+	const estimateOf = (session: SessionOrchestrator) => {
+		const snapshot = session.getSnapshot();
+		return snapshot.kind === "document-intake"
+			? snapshot.estimateComputation
+			: undefined;
+	};
+	const salaryOf = (session: SessionOrchestrator) => {
+		const snapshot = session.getSnapshot();
+		return snapshot.kind === "document-intake"
+			? snapshot.salaryComputation
+			: undefined;
+	};
+	const intakeSnapshot = (session: SessionOrchestrator) => {
+		const snapshot = session.getSnapshot();
+		if (snapshot.kind !== "document-intake") {
+			throw new Error("expected the document-intake stage");
+		}
+		return snapshot;
+	};
+
+	const selectSalaryAndAisSources = (
+		session: SessionOrchestrator,
+		csvSavingsAmount: string,
+	): void => {
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+				{
+					displayName: "openitr-sentinel-ais-export.json",
+					bytes: utf8Bytes(createAisJsonBankInterestFixture()),
+				},
+				{
+					displayName: "openitr-sentinel-ais-export.csv",
+					bytes: utf8Bytes(
+						createAisCsvBankInterestFixture({
+							bankInterestRows: [
+								{
+									recordCategory: "SAVINGS_ACCOUNT",
+									institutionName: "OpenITR Synthetic Bank",
+									maskedAccountNumber: "XXXXXX0001",
+									interestAmount: csvSavingsAmount,
+								},
+								{
+									recordCategory: "DEPOSITS",
+									institutionName: "OpenITR Synthetic Co-operative Bank",
+									maskedAccountNumber: "XXXXXX0002",
+									interestAmount: "45,678.90",
+								},
+							],
+						}),
+					),
+				},
+				{
+					displayName: "openitr-sentinel-26as-export.txt",
+					bytes: utf8Bytes(createForm26AsTextFixture()),
+				},
+			]),
+		);
+	};
+
+	const waitUntilAllExtracted = async (session: SessionOrchestrator) => {
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 4 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+	};
+
+	test("identical values from an AIS JSON and an AIS CSV export coexist without a conflict", async () => {
+		const session = createEligibleSession();
+
+		selectSalaryAndAisSources(session, "7,890.25");
+		await waitUntilAllExtracted(session);
+
+		const snapshot = intakeSnapshot(session);
+		expect(snapshot.factConflicts).toEqual([]);
+		expect(snapshot.factResolutions).toEqual([]);
+
+		const estimate = estimateOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		// The shared savings value enters once, not once per source.
+		expect(estimate.summary.bankInterestTotal).toBe("53569.15");
+
+		session.stop();
+	});
+
+	test("disagreeing sources create one conflict naming both documents and the blocked result", async () => {
+		const session = createEligibleSession();
+
+		selectSalaryAndAisSources(session, "9,000.00");
+		await waitUntilAllExtracted(session);
+
+		const snapshot = intakeSnapshot(session);
+		expect(snapshot.factConflicts).toHaveLength(1);
+		const conflict = snapshot.factConflicts[0];
+		if (conflict === undefined) {
+			throw new Error("expected a conflict");
+		}
+		expect(String(conflict.factKey)).toBe("bank-interest.savings-account");
+		expect(conflict.attestationPermitted).toBe(true);
+		const sourceDocuments = new Set(
+			conflict.candidates.map((candidate) =>
+				String(candidate.sourceDocumentId),
+			),
+		);
+		expect(sourceDocuments.size).toBe(2);
+		for (const candidate of conflict.candidates) {
+			expect(candidate.value).toMatch(/^(7890\.25|9000)$/);
+		}
+		expect(conflict.affectedResults).toEqual([
+			{
+				resultId: "refund-or-payable-estimate",
+				label: "Estimated refund or amount payable",
+			},
+		]);
+
+		// Only the disputed fact blocks the estimate; the salary scenario
+		// needs no bank-interest facts and still computes.
+		expect(salaryOf(session)?.kind).toBe("computed");
+		const estimate = estimateOf(session);
+		expect(estimate?.kind).toBe("blocked");
+		if (estimate?.kind !== "blocked") {
+			throw new Error("expected a blocked estimate");
+		}
+		expect(
+			estimate.issues.some(
+				(issue) => String(issue.code) === "FACT_TAX_FACT_CONFLICTED",
+			),
+		).toBe(true);
+
+		session.stop();
+	});
+
+	test("resolving by selecting a source's value stores a separate resolution fact and unblocks the estimate", async () => {
+		const session = createEligibleSession();
+
+		selectSalaryAndAisSources(session, "9,000.00");
+		await waitUntilAllExtracted(session);
+		const before = intakeSnapshot(session);
+
+		const jsonRecord = before.extractions.find(
+			(record) =>
+				record.status === "done" && record.bankInterestObservations.length > 0,
+		);
+		if (jsonRecord?.status !== "done") {
+			throw new Error("expected a done AIS record");
+		}
+		const jsonObservation = jsonRecord.bankInterestObservations.find(
+			(observation) =>
+				String(observation.factKey) === "bank-interest.savings-account" &&
+				jsonRecord.documentId === observation.sourceDocumentId &&
+				observation.normalizedValue === "7890.25",
+		);
+		if (jsonRecord.status !== "done" || jsonObservation === undefined) {
+			throw new Error("expected the JSON savings observation");
+		}
+
+		session.send({
+			kind: "resolve-fact-conflict",
+			groupId: "bank-interest.savings-account",
+			choice: { kind: "observed", observationId: jsonObservation.observationId },
+			reason: "The JSON export matches the bank statement I checked.",
+			executionContext: { recordedAt: fixedAnswerTime },
+		});
+
+		const after = intakeSnapshot(session);
+		expect(after.factConflicts).toEqual([]);
+		expect(after.factResolutions).toHaveLength(1);
+		const resolution = after.factResolutions[0];
+		if (resolution === undefined) {
+			throw new Error("expected a stored resolution");
+		}
+		expect(resolution.groupId).toBe("bank-interest.savings-account");
+		expect(resolution.choice).toEqual({
+			kind: "observed",
+			observationId: jsonObservation.observationId,
+			value: "7890.25",
+		});
+		expect(resolution.reason).toContain("JSON export");
+		expect(resolution.recordedAt).toBe(fixedAnswerTime);
+
+		// Original evidence is untouched: every observation, issue, and page
+		// stays exactly as extracted.
+		expect(after.extractions).toEqual(before.extractions);
+
+		const estimate = estimateOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		expect(estimate.summary.bankInterestTotal).toBe("53569.15");
+
+		session.stop();
+	});
+
+	test("attesting a permitted value resolves the conflict and feeds the attested amount", async () => {
+		const session = createEligibleSession();
+
+		selectSalaryAndAisSources(session, "9,000.00");
+		await waitUntilAllExtracted(session);
+
+		session.send({
+			kind: "resolve-fact-conflict",
+			groupId: "bank-interest.savings-account",
+			choice: { kind: "attested", value: "8000" },
+			reason: "The bank confirmed 8,000 by letter.",
+			executionContext: { recordedAt: fixedAnswerTime },
+		});
+
+		const after = intakeSnapshot(session);
+		expect(after.factConflicts).toEqual([]);
+		const estimate = estimateOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		expect(estimate.summary.bankInterestTotal).toBe("53678.9");
+
+		session.stop();
+	});
+
+	test("a resolution without a reason is refused", async () => {
+		const session = createEligibleSession();
+
+		selectSalaryAndAisSources(session, "9,000.00");
+		await waitUntilAllExtracted(session);
+
+		expect(() =>
+			session.send({
+				kind: "resolve-fact-conflict",
+				groupId: "bank-interest.savings-account",
+				choice: { kind: "attested", value: "8000" },
+				reason: "   ",
+				executionContext: { recordedAt: fixedAnswerTime },
+			}),
+		).toThrow(/reason/i);
+
+		session.stop();
+	});
+
+	test("removing the disagreeing source re-evaluates the conflict away", async () => {
+		const session = createEligibleSession();
+
+		selectSalaryAndAisSources(session, "9,000.00");
+		await waitUntilAllExtracted(session);
+		expect(intakeSnapshot(session).factConflicts).toHaveLength(1);
+
+		const csvCandidate = intakeDocuments(session).find(
+			(candidate) =>
+				candidate.displayName === "openitr-sentinel-ais-export.csv",
+		);
+		if (csvCandidate === undefined) {
+			throw new Error("CSV candidate missing");
+		}
+		session.send({
+			kind: "remove-source-document",
+			documentId: csvCandidate.documentId,
+		});
+		await waitFor(
+			() => intakeSnapshot(session).factConflicts.length === 0,
+		);
+
+		const estimate = estimateOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		expect(estimate.summary.bankInterestTotal).toBe("53569.15");
+
+		session.stop();
+	});
+
+	const selectTrioPlusReceipts = (
+		session: SessionOrchestrator,
+		receipts: readonly {
+			displayName: string;
+			bytes: Uint8Array<ArrayBuffer>;
+		}[],
+	): void => {
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+				{
+					displayName: "openitr-sentinel-ais-export.json",
+					bytes: utf8Bytes(createAisJsonBankInterestFixture()),
+				},
+				{
+					displayName: "openitr-sentinel-26as-export.txt",
+					bytes: utf8Bytes(createForm26AsTextFixture()),
+				},
+				...receipts,
+			]),
+		);
+	};
+
+	test("agreeing reprints of one paid challan coalesce so the payment counts once", async () => {
+		const session = createEligibleSession();
+
+		selectTrioPlusReceipts(session, [
+			{
+				displayName: "openitr-sentinel-epay-tax-receipt.pdf",
+				bytes: createEpayTaxPdfFixture(),
+			},
+			{
+				displayName: "openitr-sentinel-epay-tax-receipt-reprint.pdf",
+				bytes: createEpayTaxPdfFixture({
+					bankReference: "OPENITRBNK7654321",
+				}),
+			},
+		]);
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 5 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+
+		const snapshot = intakeSnapshot(session);
+		expect(snapshot.factConflicts).toEqual([]);
+		const estimate = estimateOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		// 61,250 deposits plus the single 45,670 challan payment.
+		expect(estimate.summary.taxesPaid).toBe("106920");
+		expect(estimate.acceptedTaxPayments).toHaveLength(1);
+
+		session.stop();
+	});
+});
+
 describe("rejected documents contribute nothing", () => {
 	test("a rejected candidate carries its issue and carries no observations or facts", async () => {
 		const session = createEligibleSession();
@@ -1564,7 +1911,7 @@ describe("refund-or-payable estimate exposure", () => {
 		session.stop();
 	});
 
-	test("blocks rather than counting one paid challan across two selected receipts", async () => {
+	test("conflicts on one challan printed with two different amounts instead of counting either", async () => {
 		const session = createEligibleSession();
 
 		selectAllThreeDocuments(session);
@@ -1577,7 +1924,7 @@ describe("refund-or-payable estimate exposure", () => {
 				{
 					displayName: "openitr-sentinel-epay-tax-receipt-reprint.pdf",
 					bytes: createEpayTaxPdfFixture({
-						bankReference: "OPENITRBNK7654321",
+						totalTaxPaid: "45,000",
 					}),
 				},
 			]),
@@ -1591,17 +1938,27 @@ describe("refund-or-payable estimate exposure", () => {
 			);
 		});
 
+		const snapshot = session.getSnapshot();
+		if (snapshot.kind !== "document-intake") {
+			throw new Error("expected the document-intake stage");
+		}
+		const paymentConflicts = snapshot.factConflicts.filter((conflict) =>
+			String(conflict.factKey).startsWith("tax-payment."),
+		);
+		expect(paymentConflicts).toHaveLength(1);
+		expect(paymentConflicts[0]?.attestationPermitted).toBe(false);
+		expect(new Set(paymentConflicts[0]?.candidates.map((candidate) => candidate.value)).size).toBe(2);
+
 		const estimate = estimateComputationOf(session);
 		expect(estimate?.kind).toBe("blocked");
 		if (estimate?.kind !== "blocked") {
 			throw new Error("expected a blocked estimate");
 		}
-		const duplicate = estimate.issues.find(
-			(issue) =>
-				String(issue.code) === "FACT_TAX_PAYMENT_DUPLICATE_CHALLAN",
-		);
-		expect(duplicate).toBeDefined();
-		expect(duplicate?.recoveryAction.length).toBeGreaterThan(0);
+		expect(
+			estimate.issues.some(
+				(issue) => String(issue.code) === "FACT_TAX_FACT_CONFLICTED",
+			),
+		).toBe(true);
 
 		session.stop();
 	});

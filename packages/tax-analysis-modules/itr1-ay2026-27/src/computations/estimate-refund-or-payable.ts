@@ -52,11 +52,6 @@ const NON_SALARY_INCOME_FACT_KEYS = [
 
 const TDS_DEPOSITED_FACT_KEY = parseFactKey("tds.tds-deposited");
 
-const TAX_PAYMENT_FACT_KEYS = [
-	parseFactKey("tax-payment.advance-tax"),
-	parseFactKey("tax-payment.self-assessment-tax"),
-] as const;
-
 const BANK_INTEREST_TOTAL_NODE_ID = parseFactKey(
 	"derived.bank-interest-total",
 );
@@ -80,17 +75,9 @@ export const ESTIMATE_ISSUE_CODES = Object.freeze({
 	bankInterestEvidenceRequired: parseIssueCode(
 		"FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
 	),
-	multipleBankInterestDocuments: parseIssueCode(
-		"FACT_BANK_INTEREST_MULTIPLE_DOCUMENTS",
-	),
-	multipleNonSalaryIncomeDocuments: parseIssueCode(
-		"FACT_NON_SALARY_INCOME_MULTIPLE_DOCUMENTS",
-	),
-	tdsEvidenceRequired: parseIssueCode("FACT_TDS_EVIDENCE_REQUIRED"),
 	multipleTdsDocuments: parseIssueCode("FACT_TDS_MULTIPLE_DOCUMENTS"),
-	taxPaymentDuplicateChallan: parseIssueCode(
-		"FACT_TAX_PAYMENT_DUPLICATE_CHALLAN",
-	),
+	tdsEvidenceRequired: parseIssueCode("FACT_TDS_EVIDENCE_REQUIRED"),
+	taxFactConflicted: parseIssueCode("FACT_TAX_FACT_CONFLICTED"),
 });
 
 export type AcceptedBankInterestDocumentFacts = Readonly<{
@@ -164,6 +151,16 @@ export type RefundOrPayableEstimateSummary = Readonly<{
 	taxesPaid: ExactMoney;
 }>;
 
+// A fact value contributed by a stored resolution rather than by an
+// observation: the taxpayer attested it, so no source document carries it.
+// The estimate records it beside the observed evidence instead of
+// fabricating an observation for it.
+export type ResolvedFactContribution = Readonly<{
+	resolutionId: string;
+	factKey: FactKey;
+	value: ExactMoney;
+}>;
+
 export type RefundOrAmountPayableEstimateInput = Readonly<{
 	rulePack: SalaryComputationRulePackInput;
 	residentAnswer: AttestedAnswer;
@@ -172,6 +169,13 @@ export type RefundOrAmountPayableEstimateInput = Readonly<{
 	nonSalaryIncomeDocuments: readonly AcceptedNonSalaryIncomeDocumentFacts[];
 	tdsDocuments: readonly AcceptedTdsDocumentFacts[];
 	taxPaymentDocuments: readonly AcceptedTaxPaymentDocumentFacts[];
+	// Fact keys withheld because their sources conflict and no resolution
+	// exists yet. The caller's fact reconciliation owns that decision; this
+	// estimate only refuses to compute on a disputed base and says which
+	// facts it is waiting for.
+	withheldFactKeys?: readonly FactKey[];
+	// Values decided by attested resolutions, joined into the totals.
+	resolvedFactContributions?: readonly ResolvedFactContribution[];
 }>;
 
 export type EstimateFromSalaryScenarioInput = Readonly<{
@@ -183,6 +187,8 @@ export type EstimateFromSalaryScenarioInput = Readonly<{
 	nonSalaryIncomeDocuments: readonly AcceptedNonSalaryIncomeDocumentFacts[];
 	tdsDocuments: readonly AcceptedTdsDocumentFacts[];
 	taxPaymentDocuments: readonly AcceptedTaxPaymentDocumentFacts[];
+	withheldFactKeys?: readonly FactKey[];
+	resolvedFactContributions?: readonly ResolvedFactContribution[];
 }>;
 
 export type RefundOrAmountPayableEstimate =
@@ -195,16 +201,12 @@ export type RefundOrAmountPayableEstimate =
 			summary: RefundOrPayableEstimateSummary;
 			sources: readonly EstimateEvidenceReference[];
 			acceptedTaxPayments: readonly AcceptedTaxPaymentReceipt[];
+			resolvedFactContributions: readonly ResolvedFactContribution[];
 	  }>
 	| Readonly<{
 			kind: "blocked";
 			issues: readonly RefundOrPayableEstimateIssue[];
 	  }>;
-
-type SliceDocument<TObservation> = Readonly<{
-	documentId: Sha256Digest;
-	observations: readonly TObservation[];
-}>;
 
 const estimateIssue = (
 	code: IssueCode,
@@ -217,49 +219,6 @@ const estimateIssue = (
 		affectedFactKeys: Object.freeze([...affectedFactKeys]),
 		recoveryAction,
 	});
-
-// One reviewed export per slice keeps every record countable exactly once.
-// A slice with no accepted observations cannot feed a final estimate, so the
-// failure names the evidence the user still owes rather than assuming zero.
-const acceptSingleSlice = <TObservation>({
-	documents,
-	requiredFactKeys,
-	evidenceRequired,
-	multipleDocuments,
-	issues,
-}: Readonly<{
-	documents: readonly SliceDocument<TObservation>[];
-	requiredFactKeys: readonly FactKey[];
-	evidenceRequired: { code: IssueCode; recoveryAction: string };
-	multipleDocuments: { code: IssueCode; recoveryAction: string };
-	issues: RefundOrPayableEstimateIssue[];
-}>): readonly TObservation[] => {
-	const contributing = documents.filter(
-		(document) => document.observations.length > 0,
-	);
-	if (contributing.length === 0) {
-		issues.push(
-			estimateIssue(
-				evidenceRequired.code,
-				evidenceRequired.recoveryAction,
-				requiredFactKeys,
-			),
-		);
-		return [];
-	}
-	if (contributing.length > 1) {
-		issues.push(
-			estimateIssue(
-				multipleDocuments.code,
-				multipleDocuments.recoveryAction,
-				requiredFactKeys,
-			),
-		);
-		return [];
-	}
-	const [only] = contributing;
-	return only?.observations ?? [];
-};
 
 const byObservationOrder = (
 	left: { factKey: FactKey; observationId: string },
@@ -432,6 +391,8 @@ export const computeRefundOrAmountPayableEstimate = ({
 	nonSalaryIncomeDocuments,
 	tdsDocuments,
 	taxPaymentDocuments,
+	withheldFactKeys,
+	resolvedFactContributions,
 }: RefundOrAmountPayableEstimateInput): RefundOrAmountPayableEstimate =>
 	estimateRefundOrAmountPayableFromSalaryScenario({
 		rulePack,
@@ -446,12 +407,22 @@ export const computeRefundOrAmountPayableEstimate = ({
 		nonSalaryIncomeDocuments,
 		tdsDocuments,
 		taxPaymentDocuments,
+		...(withheldFactKeys === undefined ? {} : { withheldFactKeys }),
+		...(resolvedFactContributions === undefined
+			? {}
+			: { resolvedFactContributions }),
 	});
 
 // The reconciliation over an already-derived salary scenario. Callers that
 // computed the salary slice for the same inputs (the session derives it for
 // its own card) pass it here instead of paying for a second run; the public
 // entry point above keeps the derive-it-for-me behavior.
+//
+// Slice observations arrive from the caller's fact reconciliation: every
+// fact key carries only accepted representatives, so agreeing sources have
+// been collapsed to one value and conflicted keys are named in
+// `withheldFactKeys` instead of being passed through. This estimate
+// therefore sums what it receives without re-judging source multiplicity.
 export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	rulePack,
 	residentAnswer,
@@ -461,8 +432,24 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	nonSalaryIncomeDocuments,
 	tdsDocuments,
 	taxPaymentDocuments,
+	withheldFactKeys,
+	resolvedFactContributions,
 }: EstimateFromSalaryScenarioInput): RefundOrAmountPayableEstimate => {
 	const issues: RefundOrPayableEstimateIssue[] = [];
+
+	// Attested values join the totals beside observed evidence, sorted for a
+	// deterministic trace.
+	const resolvedContributions = (resolvedFactContributions ?? [])
+		.map((contribution, index) => ({ contribution, index }))
+		.sort(
+			(left, right) =>
+				left.contribution.factKey < right.contribution.factKey
+					? -1
+					: left.contribution.factKey > right.contribution.factKey
+					? 1
+					: left.index - right.index,
+		)
+		.map((entry) => entry.contribution);
 
 	// The salary slice owns every Form 16 validation; its blocking issues join
 	// any bank-interest or TDS gaps so one blocked screen lists everything
@@ -471,73 +458,89 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 		issues.push(...salaryScenario.issues);
 	}
 
-	const bankInterestObservations = acceptSingleSlice<BankInterestObservation>({
-		documents: bankInterestDocuments,
-		requiredFactKeys: BANK_INTEREST_FACT_KEYS,
-		evidenceRequired: {
-			code: ESTIMATE_ISSUE_CODES.bankInterestEvidenceRequired,
-			recoveryAction:
-				"Select the official AIS JSON export of the supported revision so its reviewed bank-interest observations can feed the estimate.",
-		},
-		multipleDocuments: {
-			code: ESTIMATE_ISSUE_CODES.multipleBankInterestDocuments,
-			recoveryAction:
-				"This estimate reads one AIS export at a time. Keep exactly one AIS JSON export selected so interest records cannot be counted twice.",
-		},
-		issues,
-	});
-
-	// Non-salary certificate evidence is situational, not owed: a user with
-	// no Form 16A at all still gets an estimate. Only the double-counting
-	// guard applies, because two certificates naming one payment would both
-	// feed the same gross-receipt facts.
-	const contributingNonSalaryDocuments = nonSalaryIncomeDocuments.filter(
-		(document) => document.observations.length > 0,
-	);
-	if (contributingNonSalaryDocuments.length > 1) {
+	// A disputed fact blocks this estimate outright, even when other facts
+	// are intact: any accepted value here would silently pick a side.
+	const withheld =
+		withheldFactKeys === undefined ? [] : [...withheldFactKeys].sort();
+	if (withheld.length > 0) {
 		issues.push(
 			estimateIssue(
-				ESTIMATE_ISSUE_CODES.multipleNonSalaryIncomeDocuments,
-				"This estimate reads one Form 16A certificate's income evidence at a time. Keep exactly one such certificate selected so its gross receipts cannot be counted twice.",
-				NON_SALARY_INCOME_FACT_KEYS,
+				ESTIMATE_ISSUE_CODES.taxFactConflicted,
+				"Sources disagree about these facts and no resolution has been recorded yet. Resolve each conflict in the review panel by selecting one source's value or attesting the correct amount with a reason.",
+				withheld,
 			),
 		);
 	}
-	const onlyNonSalaryDocument = contributingNonSalaryDocuments[0];
+
+	// Every accepted interest observation feeds the total; the caller's fact
+	// reconciliation guarantees one representative per fact key. Attested
+	// resolutions join here too. Only the complete absence of evidence still
+	// blocks, naming what is missing.
+	const bankInterestObservations = bankInterestDocuments.flatMap(
+		(document) => document.observations,
+	);
+	const resolvedBankInterest = resolvedContributions.filter((contribution) =>
+		BANK_INTEREST_FACT_KEYS.includes(contribution.factKey),
+	);
+	if (
+		bankInterestObservations.length === 0 &&
+		resolvedBankInterest.length === 0
+	) {
+		issues.push(
+			estimateIssue(
+				ESTIMATE_ISSUE_CODES.bankInterestEvidenceRequired,
+				"Select the official AIS export of the supported revision so its reviewed bank-interest observations can feed the estimate.",
+				BANK_INTEREST_FACT_KEYS,
+			),
+		);
+	}
+
+	// Non-salary certificate evidence is situational, not owed: a user with
+	// no Form 16A at all still gets an estimate. Attested resolutions join
+	// the gross receipts the same way.
+	const nonSalaryIncomeObservations = nonSalaryIncomeDocuments.flatMap(
+		(document) => document.observations,
+	);
+	const resolvedNonSalaryIncome = resolvedContributions.filter(
+		(contribution) =>
+			NON_SALARY_INCOME_FACT_KEYS.includes(contribution.factKey),
+	);
 	const sortedNonSalaryIncome =
-		contributingNonSalaryDocuments.length === 1 && onlyNonSalaryDocument !== undefined
-			? [...onlyNonSalaryDocument.observations].sort(byObservationOrder)
-			: [];
-	const nonSalaryIncomeTotal = sumObservations(sortedNonSalaryIncome);
+		[...nonSalaryIncomeObservations].sort(byObservationOrder);
+	const nonSalaryIncomeTotal = resolvedNonSalaryIncome.reduce(
+		(total, contribution) => addExactMoney(total, contribution.value),
+		sumObservations(sortedNonSalaryIncome),
+	);
 
 	// Only deposits feed taxes paid; the paid/credited and deducted columns
 	// stay untouched as evidence and never enter the arithmetic.
-	const tdsDepositedObservations = acceptSingleSlice<TdsObservation>({
-		documents: tdsDocuments,
-		requiredFactKeys: [TDS_DEPOSITED_FACT_KEY],
-		evidenceRequired: {
-			code: ESTIMATE_ISSUE_CODES.tdsEvidenceRequired,
-			recoveryAction:
-				"Select the official Form 26AS text export of the supported revision so its reviewed tax-deducted-at-source observations can feed the estimate.",
-		},
-		multipleDocuments: {
-			code: ESTIMATE_ISSUE_CODES.multipleTdsDocuments,
-			recoveryAction:
-				"This estimate reads one tax-credit statement or TDS certificate at a time. Keep exactly one such export selected so deposits cannot be counted twice.",
-		},
-		issues,
-	}).filter((observation) => observation.factKey === TDS_DEPOSITED_FACT_KEY);
+	const contributingTdsDocuments = tdsDocuments.filter(
+		(document) => document.observations.length > 0,
+	);
+	// Deposit records print no cross-document identity (no challan CIN), so
+	// two statements cannot be judged compatible or duplicated. Rather than
+	// guess, deposits still come from exactly one reviewed export.
+	if (contributingTdsDocuments.length > 1) {
+		issues.push(
+			estimateIssue(
+				ESTIMATE_ISSUE_CODES.multipleTdsDocuments,
+				"Deposit records print no shared identity across statements, so this estimate reads one tax-credit statement or TDS certificate at a time. Keep exactly one such export selected.",
+				[TDS_DEPOSITED_FACT_KEY],
+			),
+		);
+	}
+	const tdsObservations = contributingTdsDocuments.flatMap(
+		(document) => document.observations,
+	);
+	const tdsDepositedObservations = tdsObservations.filter(
+		(observation) => observation.factKey === TDS_DEPOSITED_FACT_KEY,
+	);
 
 	// A statement can arrive whose records print paid or deducted columns but
 	// no deposited cell at all. Deposits are the creditable amount, so their
 	// total absence is unresolved evidence rather than a zero to estimate on.
-	// This applies once one export has been accepted; slice-count problems
-	// already carry their own issue above.
-	const singleTdsDocument =
-		tdsDocuments.filter((document) => document.observations.length > 0).length ===
-		1;
 	if (
-		singleTdsDocument &&
+		tdsObservations.length > 0 &&
 		tdsDepositedObservations.length === 0 &&
 		!issues.some(
 			(issue) => issue.code === ESTIMATE_ISSUE_CODES.tdsEvidenceRequired,
@@ -551,35 +554,22 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 			),
 		);
 	}
-
-	// Unlike the single-export slices, several receipts are normal: each
-	// receipt documents its own challan payment. The guard is the printed
-	// challan identity itself, so two selected files claiming one paid
-	// challan block the estimate instead of counting that payment twice.
-	// The scan stops at the first repeated identity because every duplicate
-	// produces the same blocking outcome.
-	const acceptedTaxPaymentObservations = taxPaymentDocuments.flatMap(
-		(document) => document.observations,
-	);
-	const seenChallanIdentities = new Set<string>();
-	let hasDuplicateChallan = false;
-	for (const observation of acceptedTaxPaymentObservations) {
-		const identity = `${observation.record.bsrCode}|${observation.record.challanSerialNumber}|${observation.record.paymentDateDayMonthYear}`;
-		if (seenChallanIdentities.has(identity)) {
-			hasDuplicateChallan = true;
-			break;
-		}
-		seenChallanIdentities.add(identity);
-	}
-	if (hasDuplicateChallan) {
+	if (tdsObservations.length === 0) {
 		issues.push(
 			estimateIssue(
-				ESTIMATE_ISSUE_CODES.taxPaymentDuplicateChallan,
-				"Keep exactly one e-Pay Tax receipt per paid challan so a payment cannot be counted twice. Remove the repeated receipt before estimating.",
-				TAX_PAYMENT_FACT_KEYS,
+				ESTIMATE_ISSUE_CODES.tdsEvidenceRequired,
+				"Select the official Form 26AS text export of the supported revision so its reviewed tax-deducted-at-source observations can feed the estimate.",
+				[TDS_DEPOSITED_FACT_KEY],
 			),
 		);
 	}
+
+	// Each receipt documents its own challan payment, so several receipts are
+	// normal. Duplicate-identity guarding happens in fact reconciliation,
+	// which collapses agreeing reprints and conflicts on disagreements.
+	const acceptedTaxPaymentObservations = taxPaymentDocuments.flatMap(
+		(document) => document.observations,
+	);
 
 	if (issues.length > 0 || salaryScenario.kind === "blocked") {
 		return Object.freeze({ kind: "blocked", issues: Object.freeze(issues) });
@@ -607,7 +597,10 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	const sortedBankInterest = [...bankInterestObservations].sort(
 		byObservationOrder,
 	);
-	const bankInterestTotal = sumObservations(sortedBankInterest);
+	const bankInterestTotal = resolvedBankInterest.reduce(
+		(total, contribution) => addExactMoney(total, contribution.value),
+		sumObservations(sortedBankInterest),
+	);
 
 	// Section 14 aggregates income from other sources with the salary slice,
 	// so reviewed certificate receipts join the same pre-rounding total.
@@ -643,9 +636,14 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 				nodeId: BANK_INTEREST_TOTAL_NODE_ID,
 				ruleId: ESTIMATE_RULE_IDS.interestIncome,
 				operation: "sum-of-accepted-observations",
-				inputs: sortedBankInterest.map((observation) =>
-					factInput(observation.factKey, observation.normalizedValue),
-				),
+				inputs: [
+					...sortedBankInterest.map((observation) =>
+						factInput(observation.factKey, observation.normalizedValue),
+					),
+					...resolvedBankInterest.map((contribution) =>
+						factInput(contribution.factKey, contribution.value),
+					),
+				],
 				unroundedValue: bankInterestTotal,
 				roundedValue: bankInterestTotal,
 			},
@@ -653,9 +651,14 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 				nodeId: NON_SALARY_INCOME_TOTAL_NODE_ID,
 				ruleId: ESTIMATE_RULE_IDS.interestIncome,
 				operation: "sum-of-accepted-observations",
-				inputs: sortedNonSalaryIncome.map((observation) =>
-					factInput(observation.factKey, observation.normalizedValue),
-				),
+				inputs: [
+					...sortedNonSalaryIncome.map((observation) =>
+						factInput(observation.factKey, observation.normalizedValue),
+					),
+					...resolvedNonSalaryIncome.map((contribution) =>
+						factInput(contribution.factKey, contribution.value),
+					),
+				],
 				unroundedValue: nonSalaryIncomeTotal,
 				roundedValue: nonSalaryIncomeTotal,
 				note: "Gross receipts from reviewed Form 16A summary records, chargeable as income from other sources.",
@@ -745,5 +748,6 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 				challanReference: epayChallanReferenceOf(observation.record),
 			})),
 		),
+		resolvedFactContributions: Object.freeze(resolvedContributions),
 	});
 };

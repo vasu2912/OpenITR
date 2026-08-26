@@ -213,6 +213,14 @@ export const EstimateView = ({
 							<code>{String(source.sourceDocumentId).slice(0, 16)}…</code>
 						</li>
 					))}
+					{estimate.resolvedFactContributions.map((contribution) => (
+						<li key={contribution.resolutionId}>
+							<strong>Attested by you</strong>{" "}
+							<code>{String(contribution.factKey)}</code> ·{" "}
+							{rupeeFormat(contribution.value)} · resolution{" "}
+							<code>{contribution.resolutionId.slice(0, 24)}…</code>
+						</li>
+					))}
 				</ul>
 				<ComputationTraceList nodes={estimate.nodes} />
 			</CardBody>

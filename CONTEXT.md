@@ -20,6 +20,10 @@ _Avoid_: Parsed fact, detected value
 A value that the taxpayer explicitly supplies when the rule pack permits an answer as its origin.
 _Avoid_: Manual override, assumed value
 
+**Conflict**:
+Incompatible canonical observations of one tax fact from different sources, named together with every affected result until the taxpayer records a resolution. Equivalent observations never become a conflict.
+_Avoid_: Mismatch, discrepancy, duplicate
+
 **Resolution**:
 The taxpayer's explicit choice between conflicting observations or permitted values, with the original evidence preserved.
 _Avoid_: Edit, correction
