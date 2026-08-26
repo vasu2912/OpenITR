@@ -10,6 +10,7 @@ import {
 import type {
 	AttestedAnswer,
 	BankInterestObservation,
+	FactKey,
 	NonSalaryIncomeObservation,
 	SalaryObservation,
 	TaxPaymentObservation,
@@ -341,6 +342,7 @@ const computeReviewedEstimate = (
 		nonSalaryIncomeDocuments: readonly AcceptedNonSalaryIncomeDocumentFacts[];
 		tdsDocuments: readonly AcceptedTdsDocumentFacts[];
 		taxPaymentDocuments: readonly AcceptedTaxPaymentDocumentFacts[];
+		withheldFactKeys: readonly FactKey[];
 		answer: AttestedAnswer;
 	}> = {},
 ): RefundOrAmountPayableEstimate =>
@@ -353,7 +355,44 @@ const computeReviewedEstimate = (
 		nonSalaryIncomeDocuments: overrides.nonSalaryIncomeDocuments ?? [],
 		tdsDocuments: overrides.tdsDocuments ?? [reviewedTdsDocument()],
 		taxPaymentDocuments: overrides.taxPaymentDocuments ?? [],
+		...(overrides.withheldFactKeys === undefined
+			? {}
+			: { withheldFactKeys: overrides.withheldFactKeys }),
 	});
+
+describe("facts withheld by unresolved conflicts", () => {
+	test("blocks and names every withheld fact instead of estimating on a disputed base", () => {
+		const estimate = computeReviewedEstimate({
+			withheldFactKeys: [
+				parseFactKey("bank-interest.savings-account"),
+				parseFactKey("tds.tds-deposited"),
+			],
+		});
+
+		expect(estimate.kind).toBe("blocked");
+		if (estimate.kind !== "blocked") {
+			return;
+		}
+		const conflicted = estimate.issues.find(
+			(issue) => String(issue.code) === "FACT_TAX_FACT_CONFLICTED",
+		);
+		expect(conflicted).toBeDefined();
+		expect(conflicted?.severity).toBe("blocking");
+		expect(conflicted?.affectedFactKeys.map(String)).toEqual([
+			"bank-interest.savings-account",
+			"tds.tds-deposited",
+		]);
+		expect(conflicted?.recoveryAction).toMatch(/resolve/i);
+	});
+
+	test("a resolved fact set with no withheld keys estimates normally", () => {
+		const estimate = computeReviewedEstimate({
+			withheldFactKeys: [],
+		});
+
+		expect(estimate.kind).toBe("computed");
+	});
+});
 
 describe("refund or payable estimate", () => {
 	test("estimates a refund when accepted taxes paid exceed the liability on combined income", () => {
@@ -705,28 +744,36 @@ describe("blocked estimates fail closed and name what needs review", () => {
 		expect(issueCodesOf(estimate)).toEqual(["FACT_TDS_EVIDENCE_REQUIRED"]);
 	});
 
-	test("blocks when two AIS exports could double-count interest", () => {
+	test("accepts interest observations spread across two AIS exports once reconciliation has picked representatives", () => {
 		const secondAisDocumentId = parseSha256Digest("11".repeat(32));
-		const secondExport = (): AcceptedBankInterestDocumentFacts => ({
-			documentId: secondAisDocumentId,
-			observations: [
-				bankInterestObservation({
-					factKey: "bank-interest.savings-account",
-					amount: "1000",
-					pointer: "/interestInformation/bankInterest/0",
-				}),
-			],
+		const savingsOnly = (): AcceptedBankInterestDocumentFacts => ({
+			documentId: aisDocumentId,
+			observations: reviewedBankInterestDocument().observations.filter(
+				(observation) =>
+					observation.factKey ===
+					parseFactKey("bank-interest.savings-account"),
+			),
 		});
-		const estimate = computeReviewedEstimate({
-			bankInterestDocuments: [reviewedBankInterestDocument(), secondExport()],
+		const depositsOnly = (): AcceptedBankInterestDocumentFacts => ({
+			documentId: secondAisDocumentId,
+			observations: reviewedBankInterestDocument().observations.filter(
+				(observation) =>
+					observation.factKey === parseFactKey("bank-interest.deposits"),
+			),
 		});
 
-		expect(issueCodesOf(estimate)).toEqual([
-			"FACT_BANK_INTEREST_MULTIPLE_DOCUMENTS",
-		]);
+		const estimate = computeReviewedEstimate({
+			bankInterestDocuments: [savingsOnly(), depositsOnly()],
+		});
+
+		expect(estimate.kind).toBe("computed");
+		if (estimate.kind !== "computed") {
+			return;
+		}
+		expect(estimate.summary.bankInterestTotal).toBe("53569.15");
 	});
 
-	test("blocks when two Form 26AS exports could double-count deposits", () => {
+	test("still blocks when two Form 26AS exports both contribute deposits", () => {
 		const second26asDocumentId = parseSha256Digest("22".repeat(32));
 		const secondExport = (): AcceptedTdsDocumentFacts => ({
 			documentId: second26asDocumentId,
@@ -785,11 +832,6 @@ describe("blocked estimates fail closed and name what needs review", () => {
 });
 
 describe("accepted Form 16A evidence feeds the income and tax-paid totals", () => {
-	const issueCodesOf = (estimate: RefundOrAmountPayableEstimate) =>
-		estimate.kind === "blocked"
-			? estimate.issues.map((issue) => String(issue.code))
-			: [];
-
 	test("adds accepted non-salary gross receipts to total income before rounding", () => {
 		// 975000 salary + 53569.15 interest + 145000 receipts = 1173569.15,
 		// rounded once under section 288A to 1173570. Slab tax 57357 is fully
@@ -850,7 +892,7 @@ describe("accepted Form 16A evidence feeds the income and tax-paid totals", () =
 		});
 	});
 
-	test("blocks when two certificates could double-count gross receipts", () => {
+	test("accepts two certificates whose gross receipts reconciliation has separated per fact key", () => {
 		const secondCertificateId = parseSha256Digest("9b".repeat(32));
 		const secondCertificate = (): AcceptedNonSalaryIncomeDocumentFacts => ({
 			documentId: secondCertificateId,
@@ -860,24 +902,23 @@ describe("accepted Form 16A evidence feeds the income and tax-paid totals", () =
 					amount: "25000",
 					row: 1,
 				}),
+				form16aIncomeObservation({
+					factKey: "non-salary-income.interest-other-than-securities",
+					amount: "120000",
+					row: 2,
+				}),
 			],
 		});
 
 		const estimate = computeReviewedEstimate({
-			bankInterestDocuments: [],
-			nonSalaryIncomeDocuments: [
-				reviewedForm16aIncomeDocument(),
-				secondCertificate(),
-			],
-			tdsDocuments: [],
+			nonSalaryIncomeDocuments: [secondCertificate()],
 		});
 
-		expect(estimate.kind).toBe("blocked");
-		expect(issueCodesOf(estimate)).toEqual([
-			"FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
-			"FACT_NON_SALARY_INCOME_MULTIPLE_DOCUMENTS",
-			"FACT_TDS_EVIDENCE_REQUIRED",
-		]);
+		expect(estimate.kind).toBe("computed");
+		if (estimate.kind !== "computed") {
+			return;
+		}
+		expect(estimate.summary.nonSalaryIncomeTotal).toBe("145000");
 	});
 
 	test("never demands a certificate: absent non-salary evidence alone keeps the estimate computable", () => {
@@ -1040,38 +1081,10 @@ describe("accepted e-Pay Tax receipts", () => {
 		]);
 	});
 
-	test("blocks the estimate instead of counting one challan twice", () => {
-		const estimate = computeReviewedEstimate({
-			taxPaymentDocuments: [
-				{
-					documentId: epayDocumentId,
-					observations: [taxPaymentObservation()],
-				},
-				{
-					documentId: parseSha256Digest("7e".repeat(32)),
-					observations: [
-						taxPaymentObservation({ amount: "99,999.00".replace(/,/g, "") }),
-					],
-				},
-			],
-		});
-
-		expect(estimate.kind).toBe("blocked");
-		if (estimate.kind !== "blocked") {
-			return;
-		}
-		const duplicate = estimate.issues.find(
-			(issue) =>
-				String(issue.code) === "FACT_TAX_PAYMENT_DUPLICATE_CHALLAN",
-		);
-		expect(duplicate).toBeDefined();
-		expect(
-			duplicate?.affectedFactKeys.map((factKey) => String(factKey)).sort(),
-		).toEqual([
-			"tax-payment.advance-tax",
-			"tax-payment.self-assessment-tax",
-		]);
-	});
+	// Duplicate-challan guarding lives in fact reconciliation: agreeing
+	// reprints of one challan coalesce to one payment, and differing amounts
+	// for one challan become a resolvable conflict that arrives here as a
+	// withheld fact key. The estimate itself no longer scans identities.
 
 	test("lists each accepted receipt among the estimate's evidence sources", () => {
 		const estimate = computeReviewedEstimate({

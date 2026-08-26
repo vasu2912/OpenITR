@@ -1,4 +1,5 @@
 import type {
+	BankInterestObservation,
 	DocumentExtractionRecord,
 	NonSalaryIncomeObservation,
 	ObservationTransformationStep,
@@ -39,6 +40,7 @@ type ReviewObservation = Readonly<{
 	evidence:
 		| SalaryObservation["evidence"]
 		| NonSalaryIncomeObservation["evidence"]
+		| BankInterestObservation["evidence"]
 		| TaxPaymentObservation["evidence"]
 		| TdsObservation["evidence"];
 	recordDetails?: readonly Readonly<{ label: string; value: string }>[];
@@ -65,6 +67,19 @@ const nonSalaryIncomeToReview = (
 	factKey: String(observation.factKey),
 	valueText: moneyDisplay(observation.normalizedValue),
 	evidenceText: observation.originalText,
+	transformationSteps: observation.transformationSteps,
+	ruleId: String(observation.ruleCitation.ruleId),
+	ruleDescription: observation.ruleCitation.description,
+	evidence: observation.evidence,
+});
+
+const bankInterestToReview = (
+	observation: BankInterestObservation,
+): ReviewObservation => ({
+	observationId: observation.observationId,
+	factKey: String(observation.factKey),
+	valueText: moneyDisplay(observation.normalizedValue),
+	evidenceText: observation.originalValue,
 	transformationSteps: observation.transformationSteps,
 	ruleId: String(observation.ruleCitation.ruleId),
 	ruleDescription: observation.ruleCitation.description,
@@ -163,6 +178,18 @@ const ObservationEvidencePanel = ({
 				{
 					lineNumber: evidence.rowNumber,
 					text: observation.evidenceText,
+				},
+			],
+			isEvidenceLine: (): boolean => true,
+		};
+	} else if (evidence.kind === "csv-record-column") {
+		locator = {
+			heading: "Evidence — CSV record",
+			description: `Evidence location: line ${evidence.line}, column "${evidence.columnHeader}"`,
+			lines: [
+				{
+					lineNumber: evidence.line,
+					text: evidence.rawValue,
 				},
 			],
 			isEvidenceLine: (): boolean => true,
@@ -270,7 +297,12 @@ const ObservationCard = ({
 
 type ObservationGroup = Readonly<{
 	label: string;
-	role: "salary-income" | "non-salary-income" | "taxes-paid" | "tax-payments";
+	role:
+		| "salary-income"
+		| "bank-interest-income"
+		| "non-salary-income"
+		| "taxes-paid"
+		| "tax-payments";
 	observations: readonly ReviewObservation[];
 }>;
 
@@ -281,6 +313,11 @@ const groupsOfRecord = (
 		label: "Salary evidence",
 		role: "salary-income",
 		observations: record.observations.map(salaryToReview),
+	},
+	{
+		label: "Bank-interest evidence",
+		role: "bank-interest-income",
+		observations: record.bankInterestObservations.map(bankInterestToReview),
 	},
 	{
 		label: "Non-salary income evidence",

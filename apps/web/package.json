@@ -10,6 +10,7 @@
 	},
 	"dependencies": {
 		"@openitr/document-adapters": "workspace:*",
+		"@openitr/fact-reconciliation": "workspace:*",
 		"@openitr/itr1-ay2026-27": "workspace:*",
 		"@openitr/model": "workspace:*",
 		"@patternfly/react-core": "6.6.1",

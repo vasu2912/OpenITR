@@ -2,6 +2,8 @@ import {
 	computeSourceDocumentIdentity,
 	createExtractionRejectionOutcome,
 	createInspectionFailedOutcome,
+	parseExactMoney,
+	parseFactKey,
 	parseIsoTimestamp,
 } from "@openitr/model";
 import type {
@@ -29,6 +31,17 @@ import {
 import type { RefundOrAmountPayableEstimate } from "@openitr/itr1-ay2026-27";
 import { createActor, setup } from "xstate";
 import type { Subscription } from "xstate";
+import {
+	evaluateResolutionAttempt,
+	reconcileCanonicalFacts,
+} from "@openitr/fact-reconciliation";
+import type {
+	AffectedResult,
+	CanonicalFactGroup,
+	FactResolution,
+	ReconciliationResult,
+	UnresolvedFactConflict,
+} from "@openitr/fact-reconciliation";
 
 export type SessionCommand =
 	| Readonly<{
@@ -43,6 +56,15 @@ export type SessionCommand =
 	  }>
 	| Readonly<{ kind: "remove-source-document"; documentId: Sha256Digest }>
 	| Readonly<{ kind: "cancel-document-inspection"; documentId: Sha256Digest }>
+	| Readonly<{
+			kind: "resolve-fact-conflict";
+			groupId: string;
+			choice:
+				| Readonly<{ kind: "observed"; observationId: string }>
+				| Readonly<{ kind: "attested"; value: string }>;
+			reason: string;
+			executionContext: Readonly<{ recordedAt: string }>;
+	  }>
 	| Readonly<{ kind: "reset" }>;
 
 // One facility runs both worker-backed stages for a candidate document:
@@ -66,6 +88,8 @@ export type DocumentIntakeSnapshot = Readonly<{
 	completedScopeCheck: CompletedScopeCheck;
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
+	factConflicts: readonly UnresolvedFactConflict[];
+	factResolutions: readonly FactResolution[];
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 }>;
@@ -92,6 +116,7 @@ type SessionContext = Readonly<{
 	documentsStageEntered: boolean;
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
+	resolutions: readonly FactResolution[];
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 }>;
@@ -135,13 +160,156 @@ type SliceComputationInput = Readonly<{
 	rulePack: ScopeRulePack;
 	scopeCheck: SessionContext["scopeCheck"];
 	extractions: readonly DocumentExtractionRecord[];
+	resolutions: readonly FactResolution[];
 }>;
+
+// Fact keys whose conflicts the taxpayer may resolve by attesting a value.
+// Tax-payment facts are excluded on purpose: attesting a payment without
+// receipt evidence would invent taxes paid, and salary facts stay outside
+// reconciliation because that slice analyses one employer document.
+const ATTESTABLE_FACT_KEYS = [
+	parseFactKey("bank-interest.savings-account"),
+	parseFactKey("bank-interest.deposits"),
+	parseFactKey("non-salary-income.dividends"),
+	parseFactKey("non-salary-income.interest-other-than-securities"),
+] as const;
+
+const ESTIMATE_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "refund-or-payable-estimate",
+	label: "Estimated refund or amount payable",
+});
+
+const upsertGroup = (
+	groups: Map<string, CanonicalFactGroup>,
+	group: CanonicalFactGroup,
+): void => {
+	const existing = groups.get(group.groupId);
+	if (existing === undefined) {
+		groups.set(group.groupId, group);
+		return;
+	}
+	groups.set(group.groupId, {
+		...existing,
+		candidates: [...existing.candidates, ...group.candidates],
+	});
+};
+
+// Collect every reconciled fact group from the done extraction records.
+// Income facts identify by fact key because each supported export prints at
+// most one record per category; a challan payment identifies by its printed
+// BSR code, serial number, and date, so several payments share one fact key
+// while agreeing reprints of one payment share one group.
+const collectFactGroups = (
+	extractions: readonly DocumentExtractionRecord[],
+): readonly CanonicalFactGroup[] => {
+	const groups = new Map<string, CanonicalFactGroup>();
+	const addObservation = (
+		factKey: FactKey,
+		groupId: string,
+		observation: {
+			observationId: string;
+			sourceDocumentId: Sha256Digest;
+			normalizedValue: ReturnType<typeof parseExactMoney>;
+		},
+	): void => {
+		upsertGroup(groups, {
+			groupId,
+			factKey,
+			candidates: [
+				{
+					observationId: observation.observationId,
+					sourceDocumentId: observation.sourceDocumentId,
+					value: observation.normalizedValue,
+				},
+			],
+		});
+	};
+	for (const record of extractions) {
+		if (record.status !== "done") {
+			continue;
+		}
+		for (const observation of record.bankInterestObservations) {
+			addObservation(
+				observation.factKey,
+				String(observation.factKey),
+				observation,
+			);
+		}
+		for (const observation of record.nonSalaryIncomeObservations) {
+			addObservation(
+				observation.factKey,
+				String(observation.factKey),
+				observation,
+			);
+		}
+		for (const observation of record.taxPaymentObservations) {
+			addObservation(
+				observation.factKey,
+				`${String(observation.factKey)}|${observation.record.bsrCode}|${observation.record.challanSerialNumber}|${observation.record.paymentDateDayMonthYear}`,
+				observation,
+			);
+		}
+	}
+	return [...groups.values()].sort((left, right) =>
+		left.groupId < right.groupId ? -1 : left.groupId > right.groupId ? 1 : 0,
+	);
+};
+
+// One reconciliation per session event. Equivalent observations collapse to
+// one accepted value with all sources as provenance; disagreements surface
+// as conflicts naming every source and the results they block; recorded
+// resolutions decide conflicts until the evidence changes again.
+const reconcileSessionFacts = ({
+	extractions,
+	resolutions,
+}: Readonly<{
+	extractions: readonly DocumentExtractionRecord[];
+	resolutions: readonly FactResolution[];
+}>): ReconciliationResult => {
+	const groups = collectFactGroups(extractions);
+	return reconcileCanonicalFacts({
+		groups,
+		resolutions,
+		attestableFactKeys: ATTESTABLE_FACT_KEYS,
+		resultRequirements: [
+			{
+				result: ESTIMATE_AFFECTED_RESULT,
+				requiredGroupIds: groups.map((group) => group.groupId),
+			},
+		],
+	});
+};
+
+// The observations each computation may see: representatives of accepted
+// groups only, so conflicted values are withheld and agreeing duplicates
+// never count twice. TDS deposits keep their own single-export rule in the
+// estimate and salary observations stay governed by the Form 16 checks.
+const representativeFilterOf = (
+	reconciliation: ReconciliationResult,
+): ((observation: {
+	observationId: string;
+	factKey: FactKey;
+}) => boolean) => {
+	const representatives = new Set(
+		reconciliation.acceptedFacts.flatMap((fact) =>
+			fact.representativeObservationId === undefined
+				? []
+				: [fact.representativeObservationId],
+		),
+	);
+	const unreconciledFactKeys = new Set([
+		parseFactKey("tds.tds-deposited"),
+	]);
+	return (observation) =>
+		unreconciledFactKeys.has(observation.factKey) ||
+		representatives.has(observation.observationId);
+};
 
 const computeSalaryScenario = ({
 	rulePack,
 	scopeCheck,
 	extractions,
-}: SliceComputationInput): NewRegimeSalaryComputation | undefined => {
+}: Omit<SliceComputationInput, "resolutions">): NewRegimeSalaryComputation | undefined => {
 	if (scopeCheck.kind !== "complete") {
 		return undefined;
 	}
@@ -164,16 +332,34 @@ const computeEstimateScenario = ({
 	rulePack,
 	scopeCheck,
 	extractions,
+	resolutions,
 	salaryComputation,
-}: Readonly<{
-	rulePack: ScopeRulePack;
-	scopeCheck: SessionContext["scopeCheck"];
-	extractions: readonly DocumentExtractionRecord[];
+}: SliceComputationInput & {
 	salaryComputation: NewRegimeSalaryComputation | undefined;
-}>): RefundOrAmountPayableEstimate | undefined => {
+}): RefundOrAmountPayableEstimate | undefined => {
 	if (scopeCheck.kind !== "complete") {
 		return undefined;
 	}
+	const reconciliation = reconcileSessionFacts({ extractions, resolutions });
+	const withheldFactKeys = [
+		...new Set(reconciliation.conflicts.map((conflict) => conflict.factKey)),
+	].sort();
+	// Attested resolutions carry no observation, so their values reach the
+	// estimate through an explicit contribution channel instead.
+	const resolvedFactContributions = reconciliation.acceptedFacts.flatMap(
+		(fact) =>
+			fact.origin.kind === "resolved-attested" &&
+			fact.representativeObservationId === undefined
+				? [
+						{
+							resolutionId: fact.origin.resolutionId,
+							factKey: fact.factKey,
+							value: fact.value,
+						},
+					]
+				: [],
+	);
+	const isRepresentative = representativeFilterOf(reconciliation);
 	const salaryRecords = sliceRecords(extractions, "observations");
 	const bankInterestRecords = sliceRecords(
 		extractions,
@@ -197,15 +383,21 @@ const computeEstimateScenario = ({
 	) {
 		return undefined;
 	}
-	const toDocument = <TObservation extends { factKey: FactKey }>(
+	const toDocument = <
+		TObservation extends { factKey: FactKey; observationId: string },
+	>(
 		record: Extract<DocumentExtractionRecord, { status: "done" }>,
 		observations: readonly TObservation[],
+		reconciled: boolean,
 	): {
 		documentId: Sha256Digest;
 		observations: readonly TObservation[];
 	} => ({
 		documentId: record.documentId,
-		observations: acceptedObservationsOf(record, observations),
+		observations: acceptedObservationsOf(
+			record,
+			reconciled ? observations.filter(isRepresentative) : observations,
+		),
 	});
 	if (salaryComputation !== undefined) {
 		return estimateRefundOrAmountPayableFromSalaryScenario({
@@ -213,40 +405,48 @@ const computeEstimateScenario = ({
 			residentAnswer: scopeCheck.completion.answer,
 			salaryScenario: salaryComputation,
 			salaryDocuments: salaryRecords.map((record) =>
-				toDocument(record, record.observations),
+				toDocument(record, record.observations, false),
 			),
 			bankInterestDocuments: bankInterestRecords.map((record) =>
-				toDocument(record, record.bankInterestObservations),
+				toDocument(record, record.bankInterestObservations, true),
 			),
 			nonSalaryIncomeDocuments: nonSalaryIncomeRecords.map((record) =>
-				toDocument(record, record.nonSalaryIncomeObservations),
+				toDocument(record, record.nonSalaryIncomeObservations, true),
 			),
 			tdsDocuments: tdsRecords.map((record) =>
-				toDocument(record, record.tdsObservations),
+				toDocument(record, record.tdsObservations, false),
 			),
 			taxPaymentDocuments: taxPaymentRecords.map((record) =>
-				toDocument(record, record.taxPaymentObservations),
+				toDocument(record, record.taxPaymentObservations, true),
 			),
+			...(withheldFactKeys.length === 0 ? {} : { withheldFactKeys }),
+			...(resolvedFactContributions.length === 0
+				? {}
+				: { resolvedFactContributions }),
 		});
 	}
 	return computeRefundOrAmountPayableEstimate({
 		rulePack,
 		residentAnswer: scopeCheck.completion.answer,
 		salaryDocuments: salaryRecords.map((record) =>
-			toDocument(record, record.observations),
+			toDocument(record, record.observations, false),
 		),
 		bankInterestDocuments: bankInterestRecords.map((record) =>
-			toDocument(record, record.bankInterestObservations),
+			toDocument(record, record.bankInterestObservations, true),
 		),
 		nonSalaryIncomeDocuments: nonSalaryIncomeRecords.map((record) =>
-			toDocument(record, record.nonSalaryIncomeObservations),
+			toDocument(record, record.nonSalaryIncomeObservations, true),
 		),
 		tdsDocuments: tdsRecords.map((record) =>
-			toDocument(record, record.tdsObservations),
+			toDocument(record, record.tdsObservations, false),
 		),
 		taxPaymentDocuments: taxPaymentRecords.map((record) =>
-			toDocument(record, record.taxPaymentObservations),
+			toDocument(record, record.taxPaymentObservations, true),
 		),
+		...(withheldFactKeys.length === 0 ? {} : { withheldFactKeys }),
+		...(resolvedFactContributions.length === 0
+			? {}
+			: { resolvedFactContributions }),
 	});
 };
 
@@ -256,6 +456,7 @@ const deriveSessionComputations = ({
 	rulePack,
 	scopeCheck,
 	extractions,
+	resolutions,
 }: SliceComputationInput): {
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
@@ -269,6 +470,7 @@ const deriveSessionComputations = ({
 		rulePack,
 		scopeCheck,
 		extractions,
+		resolutions,
 		salaryComputation,
 	});
 	return { salaryComputation, estimateComputation };
@@ -324,7 +526,11 @@ type SessionEvent =
 			candidateKey: number;
 			outcome: DocumentExtractionOutcome;
 	  }>
-	| Readonly<{ type: "document-extraction-cancelled"; candidateKey: number }>;
+	| Readonly<{ type: "document-extraction-cancelled"; candidateKey: number }>
+	| Readonly<{
+			type: "fact-conflict-resolved";
+			resolution: FactResolution;
+	  }>;
 
 const replaceExtractionRecord = (
 	extractions: readonly DocumentExtractionRecord[],
@@ -394,6 +600,7 @@ const createSessionMachine = ({
 			documentsStageEntered: false,
 			documents: [],
 			extractions: [],
+			resolutions: [],
 			salaryComputation: undefined,
 			estimateComputation: undefined,
 		},
@@ -562,6 +769,7 @@ const createSessionMachine = ({
 									rulePack: context.rulePack,
 									scopeCheck: context.scopeCheck,
 									extractions: nextExtractions,
+									resolutions: context.resolutions,
 								}),
 							};
 						}),
@@ -617,6 +825,7 @@ const createSessionMachine = ({
 									rulePack: context.rulePack,
 									scopeCheck: context.scopeCheck,
 									extractions: nextExtractions,
+									resolutions: context.resolutions,
 								}),
 							};
 						}),
@@ -642,6 +851,26 @@ const createSessionMachine = ({
 									rulePack: context.rulePack,
 									scopeCheck: context.scopeCheck,
 									extractions: nextExtractions,
+									resolutions: context.resolutions,
+								}),
+							};
+						}),
+					},
+					"fact-conflict-resolved": {
+						// A resolution is a new session fact, never an edit to the
+						// evidence. The reconciliation re-runs on the next
+						// derivation and decides whether it still applies.
+						actions: sessionSetup.assign(({ context, event }) => {
+							if (event.type !== "fact-conflict-resolved") {
+								return {};
+							}
+							return {
+								resolutions: [...context.resolutions, event.resolution],
+								...deriveSessionComputations({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: context.extractions,
+									resolutions: [...context.resolutions, event.resolution],
 								}),
 							};
 						}),
@@ -683,6 +912,11 @@ const toSessionSnapshot = (
 			completedScopeCheck: context.scopeCheck.completion,
 			documents: context.documents,
 			extractions: context.extractions,
+			factConflicts: reconcileSessionFacts({
+				extractions: context.extractions,
+				resolutions: context.resolutions,
+			}).conflicts,
+			factResolutions: context.resolutions,
 			salaryComputation: context.salaryComputation,
 			estimateComputation: context.estimateComputation,
 		};
@@ -981,6 +1215,44 @@ export const createSessionOrchestrator = ({
 					actor.send({
 						type: "document-inspection-cancelled",
 						candidateKey,
+					});
+					return;
+				}
+				case "resolve-fact-conflict": {
+					const snapshot = getSnapshot();
+					if (snapshot.kind !== "document-intake") {
+						return;
+					}
+					const reconciliation = reconcileSessionFacts({
+						extractions: snapshot.extractions,
+						resolutions: snapshot.factResolutions,
+					});
+					let recordedAt;
+					try {
+						recordedAt = parseIsoTimestamp(
+							command.executionContext.recordedAt,
+						);
+					} catch {
+						throw new Error(
+							`Invalid resolution timestamp: ${command.executionContext.recordedAt}`,
+						);
+					}
+					const attempt = evaluateResolutionAttempt({
+						reconciliation,
+						groupId: command.groupId,
+						choice: command.choice,
+						reason: command.reason,
+						recordedAt,
+						attestableFactKeys: ATTESTABLE_FACT_KEYS,
+					});
+					if (attempt.kind === "rejected") {
+						throw new Error(
+							`Rejected fact resolution (${command.groupId}): ${attempt.rejection}`,
+						);
+					}
+					actor.send({
+						type: "fact-conflict-resolved",
+						resolution: attempt.resolution,
 					});
 					return;
 				}

@@ -141,7 +141,7 @@ test.describe("e-Pay Tax receipt review", () => {
 		).toHaveCount(0);
 	});
 
-	test("blocks the estimate when two selected receipts claim one paid challan", async ({
+	test("coalesces agreeing reprints of one paid challan so the payment counts once", async ({
 		page,
 	}) => {
 		await openDocumentIntake(page);
@@ -169,12 +169,12 @@ test.describe("e-Pay Tax receipt review", () => {
 			candidateRow(page, "openitr-sentinel-epay-tax-receipt.pdf"),
 		).toContainText("1 tax payment", { timeout: 30_000 });
 
+		const conflictsSection = page.locator(".openitr-conflicts-card");
+		await expect(conflictsSection).toHaveCount(0);
+
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await expect(
-			estimateSection.getByText(/FACT_TAX_PAYMENT_DUPLICATE_CHALLAN/),
+			estimateSection.getByText("₹ 1,06,920").first(),
 		).toBeVisible({ timeout: 30_000 });
-		await expect(
-			estimateSection.getByText(/Keep exactly one e-Pay Tax receipt/),
-		).toBeVisible();
 	});
 });
