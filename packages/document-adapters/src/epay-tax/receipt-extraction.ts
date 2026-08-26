@@ -39,14 +39,15 @@ type ParsedFieldLine = Readonly<{
 }>;
 
 // One reviewed field's parse state across every occurrence in the receipt.
-// A field either appears with identical valid values (the first occurrence
-// travels in `first`), never appears, carries an invalid value, or carries
-// conflicting valid values.
-type FieldOutcome =
+// A field either appears with identical valid values (the first line travels
+// in `first` and its parse in `parsed`), never appears, carries an invalid
+// value, or carries conflicting valid values. Parsing happens exactly once
+// per occurrence, here.
+type FieldOutcome<T> =
 	| Readonly<{
 			kind: "ok";
 			first: ParsedFieldLine;
-			occurrences: readonly ParsedFieldLine[];
+			parsed: T;
 	  }>
 	| Readonly<{ kind: "missing" }>
 	| Readonly<{ kind: "malformed"; occurrences: readonly ParsedFieldLine[] }>
@@ -75,23 +76,48 @@ const parseFieldLines = (
 	return parsed;
 };
 
+// Groups parsed lines by their normalized label in one pass, so each
+// reviewed field reads its occurrences straight from the index instead of
+// rescanning the whole receipt.
+const indexFieldLinesByLabel = (
+	fields: readonly ParsedFieldLine[],
+): ReadonlyMap<string, readonly ParsedFieldLine[]> => {
+	const index = new Map<string, ParsedFieldLine[]>();
+	for (const field of fields) {
+		const group = index.get(field.label);
+		if (group === undefined) {
+			index.set(field.label, [field]);
+			continue;
+		}
+		group.push(field);
+	}
+	return index;
+};
+
 // "ok" needs at least one occurrence whose values are all valid and
 // verbatim-identical; repeated identical prints fold into one evidence set.
-const outcomeForOccurrences = (
+const outcomeForOccurrences = <T>(
 	occurrences: readonly ParsedFieldLine[],
-	isValid: (value: string) => boolean,
-): FieldOutcome => {
+	parse: (value: string) => T | undefined,
+): FieldOutcome<T> => {
 	const [first] = occurrences;
 	if (first === undefined) {
 		return { kind: "missing" };
 	}
-	if (!occurrences.every((occurrence) => isValid(occurrence.value))) {
+	const parsedValues = occurrences.map((occurrence) =>
+		parse(occurrence.value),
+	);
+	const [firstParsed] = parsedValues;
+	if (
+		firstParsed === undefined ||
+		parsedValues.some((parsed) => parsed === undefined)
+	) {
 		return { kind: "malformed", occurrences };
 	}
 	if (!occurrences.every((occurrence) => occurrence.value === first.value)) {
 		return { kind: "conflicting", occurrences };
 	}
-	return { kind: "ok", first, occurrences };
+	return { kind: "ok", first, parsed: firstParsed };
 };
 
 const isAssessmentYear = (value: string): boolean => {
@@ -172,63 +198,67 @@ const parseTotalTaxPaidValue = (value: string): ParsedAmount | undefined => {
 };
 
 type ReceiptFields = Readonly<{
-	status: FieldOutcome;
-	assessmentYear: FieldOutcome;
-	taxpayerName: FieldOutcome;
-	taxpayerPan: FieldOutcome;
-	bsrCode: FieldOutcome;
-	paymentDate: FieldOutcome;
-	challanSerialNumber: FieldOutcome;
-	typeOfPayment: FieldOutcome;
-	bankReferenceNumber: FieldOutcome;
-	totalTaxPaid: FieldOutcome;
+	status: FieldOutcome<string>;
+	assessmentYear: FieldOutcome<string>;
+	taxpayerName: FieldOutcome<string>;
+	taxpayerPan: FieldOutcome<string>;
+	bsrCode: FieldOutcome<string>;
+	paymentDate: FieldOutcome<string>;
+	challanSerialNumber: FieldOutcome<string>;
+	typeOfPayment: FieldOutcome<string>;
+	bankReferenceNumber: FieldOutcome<string>;
+	totalTaxPaid: FieldOutcome<ParsedAmount>;
 }>;
 
+const nonEmptyValue = (value: string): string | undefined =>
+	value.trim() === "" ? undefined : value;
+
+const matchingValue = (
+	pattern: RegExp,
+): ((value: string) => string | undefined) =>
+	(value) => (pattern.test(value) ? value : undefined);
+
 const buildReceiptFields = (
-	fields: readonly ParsedFieldLine[],
+	fieldsByLabel: ReadonlyMap<string, readonly ParsedFieldLine[]>,
 ): ReceiptFields => {
 	const occurrencesOf = (label: string): readonly ParsedFieldLine[] =>
-		fields.filter((field) => field.label === label);
+		fieldsByLabel.get(label) ?? [];
 	return {
-		status: outcomeForOccurrences(
-			occurrencesOf("Status of Payment"),
-			(value) => value.trim() !== "",
-		),
+		status: outcomeForOccurrences(occurrencesOf("Status of Payment"), nonEmptyValue),
 		assessmentYear: outcomeForOccurrences(
 			occurrencesOf("Assessment Year"),
-			isAssessmentYear,
+			(value) => (isAssessmentYear(value) ? value : undefined),
 		),
 		taxpayerName: outcomeForOccurrences(
 			occurrencesOf("Name of Taxpayer"),
-			(value) => value.trim() !== "",
+			nonEmptyValue,
 		),
 		taxpayerPan: outcomeForOccurrences(
 			occurrencesOf("Permanent Account Number (PAN)"),
-			(value) => EPAY_PAN_PATTERN.test(value),
+			matchingValue(EPAY_PAN_PATTERN),
 		),
 		bsrCode: outcomeForOccurrences(
 			occurrencesOf("BSR Code"),
-			(value) => EPAY_BSR_CODE_PATTERN.test(value),
+			matchingValue(EPAY_BSR_CODE_PATTERN),
 		),
-		paymentDate: outcomeForOccurrences(
-			occurrencesOf("Date of Receipt (CIN)"),
-			isPaymentDate,
+		paymentDate: outcomeForOccurrences(occurrencesOf("Date of Receipt (CIN)"), (value) =>
+			isPaymentDate(value) ? value : undefined,
 		),
 		challanSerialNumber: outcomeForOccurrences(
 			occurrencesOf("Challan Serial Number"),
-			(value) => EPAY_CHALLAN_SERIAL_PATTERN.test(value),
+			matchingValue(EPAY_CHALLAN_SERIAL_PATTERN),
 		),
 		typeOfPayment: outcomeForOccurrences(
 			occurrencesOf("Type of Payment"),
-			isWellFormedTypeOfPayment,
+			(value) => (isWellFormedTypeOfPayment(value) ? value : undefined),
 		),
 		bankReferenceNumber: outcomeForOccurrences(
 			occurrencesOf("Bank Reference Number"),
-			(value) => value.trim() !== "",
+			nonEmptyValue,
 		),
 		totalTaxPaid: outcomeForOccurrences(
 			occurrencesOf("Total Tax Paid"),
-			(value) => parseTotalTaxPaidValue(value) !== undefined,
+			parseTotalTaxPaidValue,
 		),
 	};
 };
@@ -271,7 +301,9 @@ export const extractEpayTaxPayment = ({
 		lines.map((line) => ({ ...line, page: pageIndex + 1 })),
 	);
 
-	const fields = buildReceiptFields(parseFieldLines(linesWithPages));
+	const fields = buildReceiptFields(
+		indexFieldLinesByLabel(parseFieldLines(linesWithPages)),
+	);
 
 	// The adapter's revision gate guarantees the assessment-year line is
 	// present, so at least one reviewed label always exists here; a page
@@ -307,16 +339,15 @@ export const extractEpayTaxPayment = ({
 
 	// Every field is "ok" past the gate above, so this lookup is total; the
 	// default arm only keeps the compiler convinced.
-	const okValueOf = (key: keyof ReceiptFields): ParsedFieldLine => {
-		const outcome = fields[key];
+	const okFieldOf = <T>(outcome: FieldOutcome<T>) => {
 		switch (outcome.kind) {
 			case "ok":
-				return outcome.first;
+				return outcome;
 			case "missing":
 			case "malformed":
 			case "conflicting":
 				throw new Error(
-					`e-Pay Tax receipt field "${key}" left unresolved after validation`,
+					"e-Pay Tax receipt field left unresolved after validation",
 				);
 			default: {
 				const _exhaustive: never = outcome;
@@ -328,15 +359,14 @@ export const extractEpayTaxPayment = ({
 	// A receipt whose status prints anything but Paid documents a
 	// transaction that never completed; it keeps its own diagnosis instead
 	// of sharing the torn-page wording, and never becomes a payment.
-	const printedStatus = okValueOf("status").value;
-	if (printedStatus !== EPAY_STATUS_PAID) {
+	if (okFieldOf(fields.status).parsed !== EPAY_STATUS_PAID) {
 		return {
 			taxPaymentObservations: [],
 			issues: [epayStatusNotPaidIssue()],
 		};
 	}
 
-	const printedTypeOfPayment = okValueOf("typeOfPayment").value;
+	const printedTypeOfPayment = okFieldOf(fields.typeOfPayment).parsed;
 	const category:
 		| EpayTypeOfPaymentCategory
 		| undefined = epayTypeOfPaymentByPrintedValue(printedTypeOfPayment);
@@ -347,27 +377,23 @@ export const extractEpayTaxPayment = ({
 		};
 	}
 
-	const amountLine = okValueOf("totalTaxPaid");
-	const parsedAmount = parseTotalTaxPaidValue(amountLine.value);
-	if (parsedAmount === undefined) {
-		throw new Error(
-			"e-Pay Tax receipt amount failed to parse after validation",
-		);
-	}
+	// The amount's parse traveled through the field outcome, so no
+	// construction-time re-parse or invariant throw remains.
+	const amount = okFieldOf(fields.totalTaxPaid);
 
 	const record: EpayTaxReceiptSourceRecord = {
 		medium: "pdf",
-		page: amountLine.line.page,
-		taxpayerName: okValueOf("taxpayerName").value,
-		taxpayerPan: okValueOf("taxpayerPan").value,
-		assessmentYear: okValueOf("assessmentYear").value,
-		bsrCode: okValueOf("bsrCode").value,
-		challanSerialNumber: okValueOf("challanSerialNumber").value,
-		paymentDateDayMonthYear: okValueOf("paymentDate").value,
+		page: amount.first.line.page,
+		taxpayerName: okFieldOf(fields.taxpayerName).parsed,
+		taxpayerPan: okFieldOf(fields.taxpayerPan).parsed,
+		assessmentYear: okFieldOf(fields.assessmentYear).parsed,
+		bsrCode: okFieldOf(fields.bsrCode).parsed,
+		challanSerialNumber: okFieldOf(fields.challanSerialNumber).parsed,
+		paymentDateDayMonthYear: okFieldOf(fields.paymentDate).parsed,
 		typeOfPaymentCode: category.code,
 		typeOfPaymentLabel: printedTypeOfPayment,
-		bankReferenceNumber: okValueOf("bankReferenceNumber").value,
-		totalAmountRaw: parsedAmount.raw,
+		bankReferenceNumber: okFieldOf(fields.bankReferenceNumber).parsed,
+		totalAmountRaw: amount.parsed.raw,
 	};
 
 	const observation: TaxPaymentObservation = {
@@ -376,16 +402,16 @@ export const extractEpayTaxPayment = ({
 		sourceDocumentId,
 		adapterId: adapter.adapterId,
 		adapterVersion: adapter.adapterVersion,
-		originalValue: parsedAmount.raw,
-		normalizedValue: parsedAmount.amount.value satisfies ExactMoney,
-		transformationSteps: parsedAmount.steps,
+		originalValue: amount.parsed.raw,
+		normalizedValue: amount.parsed.amount.value satisfies ExactMoney,
+		transformationSteps: amount.parsed.steps,
 		evidence: {
 			kind: "pdf-page-region",
-			page: amountLine.line.page,
-			x: amountLine.line.x,
-			y: amountLine.line.y,
-			width: amountLine.line.width,
-			height: amountLine.line.height,
+			page: amount.first.line.page,
+			x: amount.first.line.x,
+			y: amount.first.line.y,
+			width: amount.first.line.width,
+			height: amount.first.line.height,
 		},
 		ruleCitation: {
 			ruleId: category.ruleId,

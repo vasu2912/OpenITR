@@ -553,24 +553,24 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	}
 
 	// Unlike the single-export slices, several receipts are normal: each
-	// receipt documents its own challan payment. The guard is the challan
-	// identity itself, so two selected files claiming one paid challan block
-	// the estimate instead of counting that payment twice.
+	// receipt documents its own challan payment. The guard is the printed
+	// challan identity itself, so two selected files claiming one paid
+	// challan block the estimate instead of counting that payment twice.
+	// The scan stops at the first repeated identity because every duplicate
+	// produces the same blocking outcome.
 	const acceptedTaxPaymentObservations = taxPaymentDocuments.flatMap(
 		(document) => document.observations,
 	);
-	const duplicateChallanGroups = new Map<
-		string,
-		readonly TaxPaymentObservation[]
-	>();
+	const seenChallanIdentities = new Set<string>();
+	let hasDuplicateChallan = false;
 	for (const observation of acceptedTaxPaymentObservations) {
 		const identity = `${observation.record.bsrCode}|${observation.record.challanSerialNumber}|${observation.record.paymentDateDayMonthYear}`;
-		const group = duplicateChallanGroups.get(identity) ?? [];
-		duplicateChallanGroups.set(identity, [...group, observation]);
+		if (seenChallanIdentities.has(identity)) {
+			hasDuplicateChallan = true;
+			break;
+		}
+		seenChallanIdentities.add(identity);
 	}
-	const hasDuplicateChallan = [...duplicateChallanGroups.values()].some(
-		(group) => group.length > 1,
-	);
 	if (hasDuplicateChallan) {
 		issues.push(
 			estimateIssue(
