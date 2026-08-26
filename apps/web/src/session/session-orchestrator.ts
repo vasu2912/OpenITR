@@ -117,9 +117,15 @@ type SessionContext = Readonly<{
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
 	resolutions: readonly FactResolution[];
+	reconciliation: ReconciliationResult;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 }>;
+
+const emptyReconciliation: ReconciliationResult = Object.freeze({
+	acceptedFacts: Object.freeze([]),
+	conflicts: Object.freeze([]),
+});
 
 // Only observations that no review issue disputes are accepted facts. The
 // computations themselves re-validate everything and fail closed on gaps.
@@ -165,13 +171,13 @@ type SliceComputationInput = Readonly<{
 
 // Fact keys whose conflicts the taxpayer may resolve by attesting a value.
 // Tax-payment facts are excluded on purpose: attesting a payment without
-// receipt evidence would invent taxes paid, and salary facts stay outside
-// reconciliation because that slice analyses one employer document.
+// receipt evidence would invent taxes paid. Non-salary certificate rows are
+// additive receipts with no cross-document identity, so they never form
+// conflicts, and salary facts stay outside reconciliation because that
+// slice analyses one employer document.
 const ATTESTABLE_FACT_KEYS = [
 	parseFactKey("bank-interest.savings-account"),
 	parseFactKey("bank-interest.deposits"),
-	parseFactKey("non-salary-income.dividends"),
-	parseFactKey("non-salary-income.interest-other-than-securities"),
 ] as const;
 
 const ESTIMATE_AFFECTED_RESULT: AffectedResult = Object.freeze({
@@ -195,10 +201,15 @@ const upsertGroup = (
 };
 
 // Collect every reconciled fact group from the done extraction records.
-// Income facts identify by fact key because each supported export prints at
-// most one record per category; a challan payment identifies by its printed
-// BSR code, serial number, and date, so several payments share one fact key
-// while agreeing reprints of one payment share one group.
+// A bank-interest group identifies by fact key plus the printed institution
+// and masked account, because one export can report several accounts per
+// category and those are distinct facts that add up; the same account
+// reported by two export formats is one fact observed twice. A challan
+// payment identifies by its printed BSR code, serial number, and date, so
+// several payments share one fact key while agreeing reprints of one
+// payment share one group. Observations that the record's own review
+// issues dispute never form groups: the review path already excludes them
+// downstream, so a resolution could never unblock anything.
 const collectFactGroups = (
 	extractions: readonly DocumentExtractionRecord[],
 ): readonly CanonicalFactGroup[] => {
@@ -228,21 +239,23 @@ const collectFactGroups = (
 		if (record.status !== "done") {
 			continue;
 		}
+		const disputedFactKeys = new Set(
+			record.issues.flatMap((issue) => [...issue.affectedFactKeys]),
+		);
 		for (const observation of record.bankInterestObservations) {
+			if (disputedFactKeys.has(observation.factKey)) {
+				continue;
+			}
 			addObservation(
 				observation.factKey,
-				String(observation.factKey),
-				observation,
-			);
-		}
-		for (const observation of record.nonSalaryIncomeObservations) {
-			addObservation(
-				observation.factKey,
-				String(observation.factKey),
+				`${String(observation.factKey)}|${observation.record.institutionName}|${observation.record.maskedAccountNumber}`,
 				observation,
 			);
 		}
 		for (const observation of record.taxPaymentObservations) {
+			if (disputedFactKeys.has(observation.factKey)) {
+				continue;
+			}
 			addObservation(
 				observation.factKey,
 				`${String(observation.factKey)}|${observation.record.bsrCode}|${observation.record.challanSerialNumber}|${observation.record.paymentDateDayMonthYear}`,
@@ -280,15 +293,15 @@ const reconcileSessionFacts = ({
 	});
 };
 
-// The observations each computation may see: representatives of accepted
-// groups only, so conflicted values are withheld and agreeing duplicates
-// never count twice. TDS deposits keep their own single-export rule in the
-// estimate and salary observations stay governed by the Form 16 checks.
+// The observations each reconciled computation may see: representatives of
+// accepted groups only, so conflicted values are withheld and agreeing
+// duplicates never count twice. TDS and non-salary slices keep their own
+// additive rules in the estimate and salary observations stay governed by
+// the Form 16 checks.
 const representativeFilterOf = (
 	reconciliation: ReconciliationResult,
 ): ((observation: {
 	observationId: string;
-	factKey: FactKey;
 }) => boolean) => {
 	const representatives = new Set(
 		reconciliation.acceptedFacts.flatMap((fact) =>
@@ -297,12 +310,7 @@ const representativeFilterOf = (
 				: [fact.representativeObservationId],
 		),
 	);
-	const unreconciledFactKeys = new Set([
-		parseFactKey("tds.tds-deposited"),
-	]);
-	return (observation) =>
-		unreconciledFactKeys.has(observation.factKey) ||
-		representatives.has(observation.observationId);
+	return (observation) => representatives.has(observation.observationId);
 };
 
 const computeSalaryScenario = ({
@@ -332,15 +340,15 @@ const computeEstimateScenario = ({
 	rulePack,
 	scopeCheck,
 	extractions,
-	resolutions,
+	reconciliation,
 	salaryComputation,
-}: SliceComputationInput & {
+}: Omit<SliceComputationInput, "resolutions"> & {
+	reconciliation: ReconciliationResult;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 }): RefundOrAmountPayableEstimate | undefined => {
 	if (scopeCheck.kind !== "complete") {
 		return undefined;
 	}
-	const reconciliation = reconcileSessionFacts({ extractions, resolutions });
 	const withheldFactKeys = [
 		...new Set(reconciliation.conflicts.map((conflict) => conflict.factKey)),
 	].sort();
@@ -411,7 +419,7 @@ const computeEstimateScenario = ({
 				toDocument(record, record.bankInterestObservations, true),
 			),
 			nonSalaryIncomeDocuments: nonSalaryIncomeRecords.map((record) =>
-				toDocument(record, record.nonSalaryIncomeObservations, true),
+				toDocument(record, record.nonSalaryIncomeObservations, false),
 			),
 			tdsDocuments: tdsRecords.map((record) =>
 				toDocument(record, record.tdsObservations, false),
@@ -435,7 +443,7 @@ const computeEstimateScenario = ({
 			toDocument(record, record.bankInterestObservations, true),
 		),
 		nonSalaryIncomeDocuments: nonSalaryIncomeRecords.map((record) =>
-			toDocument(record, record.nonSalaryIncomeObservations, true),
+			toDocument(record, record.nonSalaryIncomeObservations, false),
 		),
 		tdsDocuments: tdsRecords.map((record) =>
 			toDocument(record, record.tdsObservations, false),
@@ -450,17 +458,20 @@ const computeEstimateScenario = ({
 	});
 };
 
-// One derivation per session event: the salary scenario runs once and both
-// snapshot fields are built from it, so the two cards can never disagree.
+// One derivation per session event: reconciliation runs once, the salary
+// scenario runs once, and every snapshot field is built from those results,
+// so the cards can never disagree.
 const deriveSessionComputations = ({
 	rulePack,
 	scopeCheck,
 	extractions,
 	resolutions,
 }: SliceComputationInput): {
+	reconciliation: ReconciliationResult;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 } => {
+	const reconciliation = reconcileSessionFacts({ extractions, resolutions });
 	const salaryComputation = computeSalaryScenario({
 		rulePack,
 		scopeCheck,
@@ -470,10 +481,10 @@ const deriveSessionComputations = ({
 		rulePack,
 		scopeCheck,
 		extractions,
-		resolutions,
+		reconciliation,
 		salaryComputation,
 	});
-	return { salaryComputation, estimateComputation };
+	return { reconciliation, salaryComputation, estimateComputation };
 };
 
 const buildInspectableInput = (
@@ -601,6 +612,7 @@ const createSessionMachine = ({
 			documents: [],
 			extractions: [],
 			resolutions: [],
+			reconciliation: emptyReconciliation,
 			salaryComputation: undefined,
 			estimateComputation: undefined,
 		},
@@ -912,10 +924,7 @@ const toSessionSnapshot = (
 			completedScopeCheck: context.scopeCheck.completion,
 			documents: context.documents,
 			extractions: context.extractions,
-			factConflicts: reconcileSessionFacts({
-				extractions: context.extractions,
-				resolutions: context.resolutions,
-			}).conflicts,
+			factConflicts: context.reconciliation.conflicts,
 			factResolutions: context.resolutions,
 			salaryComputation: context.salaryComputation,
 			estimateComputation: context.estimateComputation,

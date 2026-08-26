@@ -98,6 +98,10 @@ const bankInterestObservation = ({
 		ruleId: parseRuleId("AIS-BANK-INTEREST-SAVINGS-ACCOUNT"),
 		description: "AIS bank-interest record",
 	},
+	record: {
+		institutionName: "OpenITR Synthetic Bank",
+		maskedAccountNumber: "XXXXXX0001",
+	},
 });
 
 const tdsDepositedObservation = ({
@@ -892,7 +896,11 @@ describe("accepted Form 16A evidence feeds the income and tax-paid totals", () =
 		});
 	});
 
-	test("accepts two certificates whose gross receipts reconciliation has separated per fact key", () => {
+	test("still blocks when two certificates could double-count gross receipts", () => {
+		const issueCodesOf = (estimate: RefundOrAmountPayableEstimate) =>
+			estimate.kind === "blocked"
+				? estimate.issues.map((issue) => String(issue.code))
+				: [];
 		const secondCertificateId = parseSha256Digest("9b".repeat(32));
 		const secondCertificate = (): AcceptedNonSalaryIncomeDocumentFacts => ({
 			documentId: secondCertificateId,
@@ -911,14 +919,15 @@ describe("accepted Form 16A evidence feeds the income and tax-paid totals", () =
 		});
 
 		const estimate = computeReviewedEstimate({
-			nonSalaryIncomeDocuments: [secondCertificate()],
+			nonSalaryIncomeDocuments: [
+				reviewedForm16aIncomeDocument(),
+				secondCertificate(),
+			],
 		});
 
-		expect(estimate.kind).toBe("computed");
-		if (estimate.kind !== "computed") {
-			return;
-		}
-		expect(estimate.summary.nonSalaryIncomeTotal).toBe("145000");
+		expect(issueCodesOf(estimate)).toEqual([
+			"FACT_NON_SALARY_INCOME_MULTIPLE_DOCUMENTS",
+		]);
 	});
 
 	test("never demands a certificate: absent non-salary evidence alone keeps the estimate computable", () => {

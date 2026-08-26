@@ -50,10 +50,12 @@ const ConflictForm = ({
 	const [reason, setReason] = useState("");
 	const [error, setError] = useState<string>();
 
+	// The boundary accepts canonical non-negative decimal strings only;
+	// rejecting anything else here keeps technical parse errors away from
+	// the taxpayer.
 	const attestedAmountIsValid =
-		attestedValue.trim().length > 0 &&
-		Number.isFinite(Number(attestedValue)) &&
-		Number(attestedValue) >= 0;
+		/^\d+(\.\d+)?$/.test(attestedValue.trim()) &&
+		Number.isFinite(Number(attestedValue.trim()));
 
 	const canSubmit =
 		reason.trim().length > 0 &&

@@ -447,10 +447,16 @@ describe("cross-source conflict resolution", () => {
 		if (jsonRecord.status !== "done" || jsonObservation === undefined) {
 			throw new Error("expected the JSON savings observation");
 		}
+		const conflictGroup = before.factConflicts.find(
+			(conflict) => String(conflict.factKey) === "bank-interest.savings-account",
+		);
+		if (conflictGroup === undefined) {
+			throw new Error("expected the savings-account conflict");
+		}
 
 		session.send({
 			kind: "resolve-fact-conflict",
-			groupId: "bank-interest.savings-account",
+			groupId: conflictGroup.groupId,
 			choice: { kind: "observed", observationId: jsonObservation.observationId },
 			reason: "The JSON export matches the bank statement I checked.",
 			executionContext: { recordedAt: fixedAnswerTime },
@@ -463,7 +469,7 @@ describe("cross-source conflict resolution", () => {
 		if (resolution === undefined) {
 			throw new Error("expected a stored resolution");
 		}
-		expect(resolution.groupId).toBe("bank-interest.savings-account");
+		expect(resolution.groupId).toBe(conflictGroup.groupId);
 		expect(resolution.choice).toEqual({
 			kind: "observed",
 			observationId: jsonObservation.observationId,
@@ -491,10 +497,16 @@ describe("cross-source conflict resolution", () => {
 
 		selectSalaryAndAisSources(session, "9,000.00");
 		await waitUntilAllExtracted(session);
+		const conflictGroup = intakeSnapshot(session).factConflicts.find(
+			(conflict) => String(conflict.factKey) === "bank-interest.savings-account",
+		);
+		if (conflictGroup === undefined) {
+			throw new Error("expected the savings-account conflict");
+		}
 
 		session.send({
 			kind: "resolve-fact-conflict",
-			groupId: "bank-interest.savings-account",
+			groupId: conflictGroup.groupId,
 			choice: { kind: "attested", value: "8000" },
 			reason: "The bank confirmed 8,000 by letter.",
 			executionContext: { recordedAt: fixedAnswerTime },
@@ -518,10 +530,16 @@ describe("cross-source conflict resolution", () => {
 		selectSalaryAndAisSources(session, "9,000.00");
 		await waitUntilAllExtracted(session);
 
+		const conflictGroup = intakeSnapshot(session).factConflicts.find(
+			(conflict) => String(conflict.factKey) === "bank-interest.savings-account",
+		);
+		if (conflictGroup === undefined) {
+			throw new Error("expected the savings-account conflict");
+		}
 		expect(() =>
 			session.send({
 				kind: "resolve-fact-conflict",
-				groupId: "bank-interest.savings-account",
+				groupId: conflictGroup.groupId,
 				choice: { kind: "attested", value: "8000" },
 				reason: "   ",
 				executionContext: { recordedAt: fixedAnswerTime },
@@ -1317,6 +1335,10 @@ const fakeBankInterestObservation = (
 		ruleId: parseRuleId("AIS-BANK-INTEREST-SAVINGS-ACCOUNT"),
 		description: "AIS bank-interest record",
 	},
+	record: {
+		institutionName: "OpenITR Synthetic Bank",
+		maskedAccountNumber: "XXXXXX0001",
+	},
 });
 
 describe("new-regime salary computation exposure", () => {
@@ -1604,6 +1626,75 @@ describe("refund-or-payable estimate exposure", () => {
 					String(issue.code) === "FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
 			),
 		).toBe(true);
+
+		// Observations the record's own review issue disputes never form
+		// reconciliation groups: resolving them could not unblock anything.
+		const snapshot = session.getSnapshot();
+		expect(
+			snapshot.kind === "document-intake" ? snapshot.factConflicts : [],
+		).toEqual([]);
+
+		session.stop();
+	});
+
+	test("two savings accounts in one export are distinct facts that add up", async () => {
+		const session = createEligibleSession();
+
+		session.send(
+			selectCommand([
+				{
+					displayName: "openitr-sentinel-form16-salary.pdf",
+					bytes: createForm16SalaryPdfFixtureBytes(),
+				},
+				{
+					displayName: "openitr-sentinel-ais-export.json",
+					bytes: utf8Bytes(
+						createAisJsonBankInterestFixture({
+							bankInterestRecords: [
+								{
+									recordCategory: "SAVINGS_ACCOUNT",
+									institutionName: "OpenITR Synthetic Bank",
+									maskedAccountNumber: "XXXXXX0001",
+									interestAmount: "1,000.00",
+								},
+								{
+									recordCategory: "SAVINGS_ACCOUNT",
+									institutionName: "OpenITR Synthetic Co-operative Bank",
+									maskedAccountNumber: "XXXXXX0009",
+									interestAmount: "2,000.00",
+								},
+							],
+						}),
+					),
+				},
+				{
+					displayName: "openitr-sentinel-26as-export.txt",
+					bytes: utf8Bytes(createForm26AsTextFixture()),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(() => {
+			const records = extractionRecords(session);
+			return (
+				records.length === 3 &&
+				records.every((record) => record.status === "done")
+			);
+		});
+
+		const snapshot = session.getSnapshot();
+		expect(
+			snapshot.kind === "document-intake" ? snapshot.factConflicts : [],
+		).toEqual([]);
+
+		const estimate = estimateComputationOf(session);
+		expect(estimate?.kind).toBe("computed");
+		if (estimate?.kind !== "computed") {
+			throw new Error("expected a computed estimate");
+		}
+		// 1,000 + 2,000 of savings interest across two accounts, plus the
+		// 45,678.90 deposits record absent from this export.
+		expect(estimate.summary.bankInterestTotal).toBe("3000");
 
 		session.stop();
 	});
