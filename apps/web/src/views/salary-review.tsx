@@ -6,6 +6,7 @@ import type {
 	TaxPaymentObservation,
 	TdsObservation,
 } from "@openitr/model";
+import { epayChallanReferenceOf } from "@openitr/model";
 import {
 	Alert,
 	Button,
@@ -95,7 +96,7 @@ const taxPaymentToReview = (
 	recordDetails: [
 		{
 			label: "Challan identity",
-			value: `BSR ${observation.record.bsrCode} · Serial ${observation.record.challanSerialNumber} · dated ${observation.record.paymentDateDayMonthYear}`,
+			value: epayChallanReferenceOf(observation.record),
 		},
 		{ label: "Type of payment", value: observation.record.typeOfPaymentLabel },
 		{ label: "Taxpayer", value: `${observation.record.taxpayerName} (${observation.record.taxpayerPan})` },

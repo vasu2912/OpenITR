@@ -3,7 +3,7 @@ import {
 	DOCUMENT_REVIEW_ISSUE_CODES,
 	EPAY_RECEIPT_RECORD_AMBIGUOUS_RECOVERY_ACTION,
 	EPAY_RECEIPT_RECORD_MALFORMED_RECOVERY_ACTION,
-	EPAY_RECEIPT_SECTION_MISSING_RECOVERY_ACTION,
+	EPAY_RECEIPT_STATUS_NOT_PAID_RECOVERY_ACTION,
 	EPAY_RECEIPT_TYPE_OF_PAYMENT_UNKNOWN_RECOVERY_ACTION,
 	parseFactKey,
 	parseRuleId,
@@ -21,7 +21,11 @@ export const EPAY_REQUIRED_MARKERS: readonly string[] = [
 	EPAY_RECEIPT_AUTHORITY_MARKER,
 ];
 
+// The assessment year is part of the template identity, exactly as it is
+// for Form 26AS: a plausible next revision must not exact-match, so a
+// receipt printed for another year fails inspection instead of extraction.
 export const EPAY_SUPPORTED_ASSESSMENT_YEAR = "2026-27";
+export const EPAY_REVISION_MARKER = `Assessment Year : ${EPAY_SUPPORTED_ASSESSMENT_YEAR}`;
 
 // The one separator the reviewed receipt prints between a field label and
 // its value. Labels normalize whitespace before comparison, so a wrapped
@@ -125,13 +129,6 @@ export const epayTypeOfPaymentByPrintedValue = (
 export const affectedEpayFactKeys = (): readonly FactKey[] =>
 	EPAY_TYPE_OF_PAYMENT_VALUES.map((category) => category.factKey);
 
-export const epaySectionMissingIssue = (): DocumentReviewIssue => ({
-	code: DOCUMENT_REVIEW_ISSUE_CODES.epaySectionMissing,
-	severity: "review",
-	affectedFactKeys: affectedEpayFactKeys(),
-	recoveryAction: EPAY_RECEIPT_SECTION_MISSING_RECOVERY_ACTION,
-});
-
 export const epayRecordMalformedIssue = (): DocumentReviewIssue => ({
 	code: DOCUMENT_REVIEW_ISSUE_CODES.epayRecordMalformed,
 	severity: "review",
@@ -144,6 +141,16 @@ export const epayRecordAmbiguousIssue = (): DocumentReviewIssue => ({
 	severity: "review",
 	affectedFactKeys: affectedEpayFactKeys(),
 	recoveryAction: EPAY_RECEIPT_RECORD_AMBIGUOUS_RECOVERY_ACTION,
+});
+
+// A receipt whose Status of Payment is anything other than Paid documents a
+// transaction that never completed, so it gets its own diagnosis instead of
+// sharing the torn-page wording.
+export const epayStatusNotPaidIssue = (): DocumentReviewIssue => ({
+	code: DOCUMENT_REVIEW_ISSUE_CODES.epayStatusNotPaid,
+	severity: "review",
+	affectedFactKeys: affectedEpayFactKeys(),
+	recoveryAction: EPAY_RECEIPT_STATUS_NOT_PAID_RECOVERY_ACTION,
 });
 
 // An unknown Type of Payment contributes nothing in either direction: its

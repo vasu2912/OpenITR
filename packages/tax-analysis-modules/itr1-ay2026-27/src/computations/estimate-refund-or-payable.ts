@@ -19,6 +19,7 @@ import type {
 	TaxPaymentObservation,
 	TdsObservation,
 } from "@openitr/model";
+import { epayChallanReferenceOf } from "@openitr/model";
 
 import {
 	buildNewRegimeLiabilityNodes,
@@ -567,16 +568,10 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 		const group = duplicateChallanGroups.get(identity) ?? [];
 		duplicateChallanGroups.set(identity, [...group, observation]);
 	}
-	const duplicatedObservations = new Set<string>();
-	for (const group of duplicateChallanGroups.values()) {
-		if (group.length <= 1) {
-			continue;
-		}
-		for (const observation of group) {
-			duplicatedObservations.add(observation.observationId);
-		}
-	}
-	if (duplicatedObservations.size > 0) {
+	const hasDuplicateChallan = [...duplicateChallanGroups.values()].some(
+		(group) => group.length > 1,
+	);
+	if (hasDuplicateChallan) {
 		issues.push(
 			estimateIssue(
 				ESTIMATE_ISSUE_CODES.taxPaymentDuplicateChallan,
@@ -585,10 +580,6 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 			),
 		);
 	}
-	const countedTaxPaymentObservations =
-		acceptedTaxPaymentObservations.filter(
-			(observation) => !duplicatedObservations.has(observation.observationId),
-		);
 
 	if (issues.length > 0 || salaryScenario.kind === "blocked") {
 		return Object.freeze({ kind: "blocked", issues: Object.freeze(issues) });
@@ -633,7 +624,7 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	// Taxes paid combine the two creditable streams: deposits reported by the
 	// reviewed statement slice, plus challan payments from accepted e-Pay Tax
 	// receipts. Both streams are already exact money.
-	const sortedTaxPayments = [...countedTaxPaymentObservations].sort(
+	const sortedTaxPayments = [...acceptedTaxPaymentObservations].sort(
 		byObservationOrder,
 	);
 	const tdsPaidTotal = sumObservations(sortedTds);
@@ -751,7 +742,7 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 				sourceDocumentId: observation.sourceDocumentId,
 				factKey: observation.factKey,
 				amount: observation.normalizedValue,
-				challanReference: `BSR ${observation.record.bsrCode} · Serial ${observation.record.challanSerialNumber} · dated ${observation.record.paymentDateDayMonthYear}`,
+				challanReference: epayChallanReferenceOf(observation.record),
 			})),
 		),
 	});

@@ -43,14 +43,14 @@ export const DOCUMENT_REVIEW_ISSUE_CODES = Object.freeze({
 	form16aRecordMalformed: parseIssueCode("DOCUMENT_FORM16A_RECORD_MALFORMED"),
 	form16aRecordAmbiguous: parseIssueCode("DOCUMENT_FORM16A_RECORD_AMBIGUOUS"),
 	form16aCategoryUnknown: parseIssueCode("DOCUMENT_FORM16A_CATEGORY_UNKNOWN"),
-	epaySectionMissing: parseIssueCode(
-		"DOCUMENT_EPAY_RECEIPT_SECTION_MISSING",
-	),
 	epayRecordMalformed: parseIssueCode(
 		"DOCUMENT_EPAY_RECEIPT_RECORD_MALFORMED",
 	),
 	epayRecordAmbiguous: parseIssueCode(
 		"DOCUMENT_EPAY_RECEIPT_RECORD_AMBIGUOUS",
+	),
+	epayStatusNotPaid: parseIssueCode(
+		"DOCUMENT_EPAY_RECEIPT_STATUS_NOT_PAID",
 	),
 	epayTypeOfPaymentUnknown: parseIssueCode(
 		"DOCUMENT_EPAY_RECEIPT_TYPE_OF_PAYMENT_UNKNOWN",
@@ -112,14 +112,14 @@ export const FORM16A_RECORD_AMBIGUOUS_RECOVERY_ACTION =
 export const FORM16A_CATEGORY_UNKNOWN_RECOVERY_ACTION =
 	"Select a Form 16A certificate whose summary records use the sections and natures of payment this revision defines.";
 
-export const EPAY_RECEIPT_SECTION_MISSING_RECOVERY_ACTION =
-	"Select an official e-Pay Tax receipt PDF of the supported revision that prints its challan details, or continue without self-paid tax-payment facts.";
-
 export const EPAY_RECEIPT_RECORD_MALFORMED_RECOVERY_ACTION =
 	"Select an unmodified official e-Pay Tax receipt download so every challan field carries its printed value.";
 
 export const EPAY_RECEIPT_RECORD_AMBIGUOUS_RECOVERY_ACTION =
 	"Select the official e-Pay Tax receipt for the payment so each challan field appears once with one value.";
+
+export const EPAY_RECEIPT_STATUS_NOT_PAID_RECOVERY_ACTION =
+	"Only a receipt whose Status of Payment prints Paid can become a tax-payment fact. Select the receipt for a completed payment, or continue without this payment.";
 
 export const EPAY_RECEIPT_TYPE_OF_PAYMENT_UNKNOWN_RECOVERY_ACTION =
 	"Select an e-Pay Tax receipt whose Type of Payment this revision defines, such as (100) Advance Tax or (300) Self Assessment Tax.";

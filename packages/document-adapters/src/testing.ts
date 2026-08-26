@@ -392,7 +392,6 @@ export type EpayTaxReceiptFixtureOptions = Readonly<{
 	totalTaxPaid?: string;
 	malformedTotalTaxPaid?: boolean;
 	omitChallanDetails?: boolean;
-	omitReceiptFields?: boolean;
 	bankReference?: string;
 	duplicateChallanIdentity?: "identical" | "conflicting";
 }>;
@@ -422,11 +421,6 @@ export const createEpayTaxPdfFixture = (
 					epayFieldLine("Date of Receipt (CIN)", paymentDate),
 					epayFieldLine("Challan Serial Number", challanSerial),
 				];
-	if (options.omitReceiptFields === true) {
-		return buildSyntheticPdf({
-			pages: [{ textLines: [...EPAY_MARKER_LINES] }],
-		});
-	}
 	const totalAmount = options.malformedTotalTaxPaid === true
 		? "45.670.00"
 		: (options.totalTaxPaid ?? EPAY_SENTINEL_TOTAL_TAX_PAID);

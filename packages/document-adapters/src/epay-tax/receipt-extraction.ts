@@ -22,7 +22,7 @@ import {
 	EPAY_SUPPORTED_ASSESSMENT_YEAR,
 	epayRecordAmbiguousIssue,
 	epayRecordMalformedIssue,
-	epaySectionMissingIssue,
+	epayStatusNotPaidIssue,
 	epayTypeOfPaymentByPrintedValue,
 	epayTypeOfPaymentUnknownIssue,
 	isCalendarDay,
@@ -39,10 +39,15 @@ type ParsedFieldLine = Readonly<{
 }>;
 
 // One reviewed field's parse state across every occurrence in the receipt.
-// A field either appears with identical valid values (folded), never
-// appears, carries an invalid value, or carries conflicting valid values.
+// A field either appears with identical valid values (the first occurrence
+// travels in `first`), never appears, carries an invalid value, or carries
+// conflicting valid values.
 type FieldOutcome =
-	| Readonly<{ kind: "ok"; occurrences: readonly ParsedFieldLine[] }>
+	| Readonly<{
+			kind: "ok";
+			first: ParsedFieldLine;
+			occurrences: readonly ParsedFieldLine[];
+	  }>
 	| Readonly<{ kind: "missing" }>
 	| Readonly<{ kind: "malformed"; occurrences: readonly ParsedFieldLine[] }>
 	| Readonly<{ kind: "conflicting"; occurrences: readonly ParsedFieldLine[] }>;
@@ -76,31 +81,31 @@ const outcomeForOccurrences = (
 	occurrences: readonly ParsedFieldLine[],
 	isValid: (value: string) => boolean,
 ): FieldOutcome => {
-	if (occurrences.length === 0) {
+	const [first] = occurrences;
+	if (first === undefined) {
 		return { kind: "missing" };
 	}
 	if (!occurrences.every((occurrence) => isValid(occurrence.value))) {
 		return { kind: "malformed", occurrences };
 	}
-	const [first] = occurrences;
-	if (
-		first !== undefined &&
-		!occurrences.every((occurrence) => occurrence.value === first.value)
-	) {
+	if (!occurrences.every((occurrence) => occurrence.value === first.value)) {
 		return { kind: "conflicting", occurrences };
 	}
-	return { kind: "ok", occurrences };
+	return { kind: "ok", first, occurrences };
 };
 
-const isAssessmentYear = (value: string): boolean =>
-	/^([0-9]{4})-([0-9]{2})$/.test(value) &&
-	(() => {
-		const match = /^([0-9]{4})-([0-9]{2})$/.exec(value);
-		const startYear = Number(match?.[1]);
-		const endYear = Number(match?.[2]);
-		return (startYear + 1) % 100 === endYear;
-	})() &&
-	value === EPAY_SUPPORTED_ASSESSMENT_YEAR;
+const isAssessmentYear = (value: string): boolean => {
+	const match = /^([0-9]{4})-([0-9]{2})$/.exec(value);
+	if (match === null) {
+		return false;
+	}
+	const startYear = Number(match[1]);
+	const endYear = Number(match[2]);
+	return (
+		(startYear + 1) % 100 === endYear &&
+		value === EPAY_SUPPORTED_ASSESSMENT_YEAR
+	);
+};
 
 const isPaymentDate = (value: string): boolean => {
 	const match = EPAY_PAYMENT_DATE_PATTERN.exec(value);
@@ -185,8 +190,9 @@ const buildReceiptFields = (
 	const occurrencesOf = (label: string): readonly ParsedFieldLine[] =>
 		fields.filter((field) => field.label === label);
 	return {
-		status: outcomeForOccurrences(occurrencesOf("Status of Payment"), (value) =>
-			value === EPAY_STATUS_PAID,
+		status: outcomeForOccurrences(
+			occurrencesOf("Status of Payment"),
+			(value) => value.trim() !== "",
 		),
 		assessmentYear: outcomeForOccurrences(
 			occurrencesOf("Assessment Year"),
@@ -227,19 +233,17 @@ const buildReceiptFields = (
 	};
 };
 
-const RECEIPT_FIELDS: readonly {
-	key: keyof ReceiptFields;
-}[] = [
-	{ key: "status" },
-	{ key: "assessmentYear" },
-	{ key: "taxpayerName" },
-	{ key: "taxpayerPan" },
-	{ key: "bsrCode" },
-	{ key: "paymentDate" },
-	{ key: "challanSerialNumber" },
-	{ key: "typeOfPayment" },
-	{ key: "bankReferenceNumber" },
-	{ key: "totalTaxPaid" },
+const RECEIPT_FIELDS: readonly (keyof ReceiptFields)[] = [
+	"status",
+	"assessmentYear",
+	"taxpayerName",
+	"taxpayerPan",
+	"bsrCode",
+	"paymentDate",
+	"challanSerialNumber",
+	"typeOfPayment",
+	"bankReferenceNumber",
+	"totalTaxPaid",
 ];
 
 const issueOrderKey = (issue: DocumentReviewIssue): string =>
@@ -269,29 +273,20 @@ export const extractEpayTaxPayment = ({
 
 	const fields = buildReceiptFields(parseFieldLines(linesWithPages));
 
-	// A receipt page that prints none of the reviewed challan labels has no
-	// payment details section to extract; naming that separately keeps the
-	// recovery action pointing at the right fix.
-	const anyOccurrence = RECEIPT_FIELDS.some(
-		({ key }) => fields[key].kind !== "missing",
-	);
-	if (!anyOccurrence) {
-		return {
-			taxPaymentObservations: [],
-			issues: [epaySectionMissingIssue()],
-		};
-	}
+	// The adapter's revision gate guarantees the assessment-year line is
+	// present, so at least one reviewed label always exists here; a page
+	// without any is a changed template and never reaches extraction.
 
 	// One receipt carries one payment, so every broken field coalesces into
 	// a single receipt-level issue instead of one alert per field. Any
 	// malformed or ambiguous receipt creates the review issue and no
 	// payment: a disputed challan must never move taxes paid.
-	const hasMalformedField = RECEIPT_FIELDS.some(({ key }) => {
+	const hasMalformedField = RECEIPT_FIELDS.some((key) => {
 		const outcome = fields[key];
 		return outcome.kind === "missing" || outcome.kind === "malformed";
 	});
 	const hasConflictingField = RECEIPT_FIELDS.some(
-		({ key }) => fields[key].kind === "conflicting",
+		(key) => fields[key].kind === "conflicting",
 	);
 	if (hasMalformedField || hasConflictingField) {
 		const issues: DocumentReviewIssue[] = [];
@@ -310,10 +305,38 @@ export const extractEpayTaxPayment = ({
 		};
 	}
 
-	const printedTypeOfPayment =
-		fields.typeOfPayment.kind === "ok"
-			? (fields.typeOfPayment.occurrences[0]?.value ?? "")
-			: "";
+	// Every field is "ok" past the gate above, so this lookup is total; the
+	// default arm only keeps the compiler convinced.
+	const okValueOf = (key: keyof ReceiptFields): ParsedFieldLine => {
+		const outcome = fields[key];
+		switch (outcome.kind) {
+			case "ok":
+				return outcome.first;
+			case "missing":
+			case "malformed":
+			case "conflicting":
+				throw new Error(
+					`e-Pay Tax receipt field "${key}" left unresolved after validation`,
+				);
+			default: {
+				const _exhaustive: never = outcome;
+				return _exhaustive;
+			}
+		}
+	};
+
+	// A receipt whose status prints anything but Paid documents a
+	// transaction that never completed; it keeps its own diagnosis instead
+	// of sharing the torn-page wording, and never becomes a payment.
+	const printedStatus = okValueOf("status").value;
+	if (printedStatus !== EPAY_STATUS_PAID) {
+		return {
+			taxPaymentObservations: [],
+			issues: [epayStatusNotPaidIssue()],
+		};
+	}
+
+	const printedTypeOfPayment = okValueOf("typeOfPayment").value;
 	const category:
 		| EpayTypeOfPaymentCategory
 		| undefined = epayTypeOfPaymentByPrintedValue(printedTypeOfPayment);
@@ -324,24 +347,7 @@ export const extractEpayTaxPayment = ({
 		};
 	}
 
-	const firstValueOf = (key: keyof ReceiptFields): ParsedFieldLine | undefined =>
-		fields[key].kind === "ok"
-			? fields[key].occurrences[0]
-			: undefined;
-	const bsrLine = firstValueOf("bsrCode");
-	const serialLine = firstValueOf("challanSerialNumber");
-	const dateLine = firstValueOf("paymentDate");
-	const amountLine = firstValueOf("totalTaxPaid");
-	if (
-		bsrLine === undefined ||
-		serialLine === undefined ||
-		dateLine === undefined ||
-		amountLine === undefined
-	) {
-		throw new Error(
-			"e-Pay Tax receipt fields vanished between validation and observation construction",
-		);
-	}
+	const amountLine = okValueOf("totalTaxPaid");
 	const parsedAmount = parseTotalTaxPaidValue(amountLine.value);
 	if (parsedAmount === undefined) {
 		throw new Error(
@@ -352,15 +358,15 @@ export const extractEpayTaxPayment = ({
 	const record: EpayTaxReceiptSourceRecord = {
 		medium: "pdf",
 		page: amountLine.line.page,
-		taxpayerName: firstValueOf("taxpayerName")?.value ?? "",
-		taxpayerPan: firstValueOf("taxpayerPan")?.value ?? "",
-		assessmentYear: firstValueOf("assessmentYear")?.value ?? "",
-		bsrCode: bsrLine.value,
-		challanSerialNumber: serialLine.value,
-		paymentDateDayMonthYear: dateLine.value,
+		taxpayerName: okValueOf("taxpayerName").value,
+		taxpayerPan: okValueOf("taxpayerPan").value,
+		assessmentYear: okValueOf("assessmentYear").value,
+		bsrCode: okValueOf("bsrCode").value,
+		challanSerialNumber: okValueOf("challanSerialNumber").value,
+		paymentDateDayMonthYear: okValueOf("paymentDate").value,
 		typeOfPaymentCode: category.code,
 		typeOfPaymentLabel: printedTypeOfPayment,
-		bankReferenceNumber: firstValueOf("bankReferenceNumber")?.value ?? "",
+		bankReferenceNumber: okValueOf("bankReferenceNumber").value,
 		totalAmountRaw: parsedAmount.raw,
 	};
 

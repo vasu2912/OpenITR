@@ -237,3 +237,10 @@ export type TaxPaymentObservation = Readonly<{
 	ruleCitation: ExtractionRuleCitation;
 	record: EpayTaxReceiptSourceRecord;
 }>;
+
+// One canonical phrase naming a paid challan, so the estimate result and the
+// review UI cannot drift apart when describing the same receipt.
+export const epayChallanReferenceOf = (
+	record: EpayTaxReceiptSourceRecord,
+): string =>
+	`BSR ${record.bsrCode} · Serial ${record.challanSerialNumber} · dated ${record.paymentDateDayMonthYear}`;

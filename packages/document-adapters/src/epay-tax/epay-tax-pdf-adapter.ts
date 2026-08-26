@@ -10,7 +10,7 @@ import type {
 	SourceDocumentAdapter,
 } from "../registry";
 import { extractEpayTaxPayment } from "./receipt-extraction";
-import { EPAY_REQUIRED_MARKERS } from "./receipt-layout";
+import { EPAY_REQUIRED_MARKERS, EPAY_REVISION_MARKER } from "./receipt-layout";
 
 const EPAY_PDF_MANIFEST: DocumentAdapterManifest = Object.freeze({
 	adapterId: "epay-tax-receipt-pdf",
@@ -28,13 +28,17 @@ const EXTRACTION_REJECTIONS = {
 	"no-text-layer": "image-only",
 } as const;
 
-const epayMarkersPresent = (outcome: Extract<
+// The supported-revision check runs at inspection exactly as Form 26AS runs
+// its own: the assessment year is part of the template identity, so a
+// receipt printed for another year is a changed template and fails
+// identification instead of surfacing as an extraction-time review issue.
+const isSupportedEpayRevision = (outcome: Extract<
 	PdfLinesOutcome,
 	{ outcome: "text" }
 >): boolean =>
 	normalizedTextContainsAll(
 		outcome.pages.map((lines) => lines.map((line) => line.text).join("\n")).join("\n"),
-		EPAY_REQUIRED_MARKERS,
+		[...EPAY_REQUIRED_MARKERS, EPAY_REVISION_MARKER],
 	);
 
 export const createEpayTaxPdfAdapter = (): SourceDocumentAdapter => ({
@@ -51,7 +55,7 @@ export const createEpayTaxPdfAdapter = (): SourceDocumentAdapter => ({
 			case "no-text-layer":
 				return { verdict: "rejected", rejection: "image-only" };
 			case "text":
-				return epayMarkersPresent(linesOutcome)
+				return isSupportedEpayRevision(linesOutcome)
 					? { verdict: "exact-match" }
 					: { verdict: "no-match" };
 			default: {
@@ -68,7 +72,7 @@ export const createEpayTaxPdfAdapter = (): SourceDocumentAdapter => ({
 				input.identity,
 			);
 		}
-		if (!epayMarkersPresent(linesOutcome)) {
+		if (!isSupportedEpayRevision(linesOutcome)) {
 			return createExtractionRejectionOutcome("unknown-format", input.identity);
 		}
 

@@ -78,6 +78,20 @@ describe("e-Pay Tax receipt PDF adapter inspection", () => {
 
 		expect(verdict.verdict).toBe("no-match");
 	});
+
+	test("does not exact-match a plausible next revision printed for another assessment year", async () => {
+		const bytes = copyBytes(
+			createEpayTaxPdfFixture({ assessmentYear: "2027-28" }),
+		);
+
+		const verdict = await createEpayTaxPdfAdapter().inspect({
+			identity: identityOf("b"),
+			displayName: "next-year-receipt.pdf",
+			bytes,
+		});
+
+		expect(verdict.verdict).toBe("no-match");
+	});
 });
 
 describe("e-Pay Tax receipt payment extraction", () => {
@@ -202,28 +216,22 @@ describe("e-Pay Tax receipt payment extraction", () => {
 });
 
 describe("e-Pay Tax fail-closed extraction", () => {
-	test("reports a receipt without any challan fields as section missing", async () => {
-		const outcome = await extractedOrThrow(
-			createEpayTaxPdfFixture({ omitReceiptFields: true }),
+	test("rejects a receipt page that prints no challan fields at all", async () => {
+		const outcome = await extractFixture(
+			buildSyntheticPdf({
+				pages: [
+					{ textLines: ["e-Pay Tax Receipt", "Income Tax Department"] },
+				],
+			}),
 		);
 
-		expect(outcome.taxPaymentObservations).toEqual([]);
-		expect(outcome.issues.map((issue) => String(issue.code))).toEqual([
-			"DOCUMENT_EPAY_RECEIPT_SECTION_MISSING",
-		]);
-		expect(outcome.issues[0]?.severity).toBe("review");
-		expect(outcome.issues[0]?.recoveryAction.length).toBeGreaterThan(0);
+		expect(outcome.kind).toBe("rejected");
+		if (outcome.kind === "rejected") {
+			expect(outcome.rejection).toBe("unknown-format");
+		}
 	});
 
 	test.each([
-		{
-			name: "a non-paid status",
-			options: { status: "Failed" },
-		},
-		{
-			name: "another assessment year",
-			options: { assessmentYear: "2027-28" },
-		},
 		{
 			name: "an unparseable total amount",
 			options: { malformedTotalTaxPaid: true },
@@ -242,6 +250,29 @@ describe("e-Pay Tax fail-closed extraction", () => {
 			"DOCUMENT_EPAY_RECEIPT_RECORD_MALFORMED",
 		]);
 		expect(outcome.issues[0]?.affectedFactKeys.length).toBeGreaterThan(0);
+	});
+
+	test("reports a receipt whose status is not Paid as unsupported and creates no payment", async () => {
+		const outcome = await extractedOrThrow(
+			createEpayTaxPdfFixture({ status: "Failed" }),
+		);
+
+		expect(outcome.taxPaymentObservations).toEqual([]);
+		expect(outcome.issues.map((issue) => String(issue.code))).toEqual([
+			"DOCUMENT_EPAY_RECEIPT_STATUS_NOT_PAID",
+		]);
+		expect(outcome.issues[0]?.recoveryAction).toContain("Paid");
+	});
+
+	test("rejects a receipt printed for another assessment year as a changed template", async () => {
+		const outcome = await extractFixture(
+			createEpayTaxPdfFixture({ assessmentYear: "2027-28" }),
+		);
+
+		expect(outcome.kind).toBe("rejected");
+		if (outcome.kind === "rejected") {
+			expect(outcome.rejection).toBe("unknown-format");
+		}
 	});
 
 	test("drops a receipt whose challan identity repeats with conflicting values as ambiguous", async () => {

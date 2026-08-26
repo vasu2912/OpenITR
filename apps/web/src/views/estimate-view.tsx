@@ -135,16 +135,16 @@ export const EstimateView = ({
 					</Title>
 				</CardTitle>
 				<CardBody>
-				<Alert isInline title="Educational analysis only" variant="info">
-					This estimate reconciles your accepted salary, bank-interest,
-					non-salary-income, tax-deducted-at-source, and e-Pay Tax receipt
-					evidence with the pinned rule pack. It is not tax advice. Review
-					every figure yourself.
-				</Alert>
-				<p>
-					A final estimate needs accepted facts from every slice below.
-					The missing or disputed items need review first.
-				</p>
+					<Alert isInline title="Educational analysis only" variant="info">
+						This estimate reconciles your accepted salary, bank-interest,
+						non-salary-income, tax-deducted-at-source, and e-Pay Tax
+						receipt evidence with the pinned rule pack. It is not tax
+						advice. Review every figure yourself.
+					</Alert>
+					<p>
+						A final estimate needs accepted facts from every slice below.
+						The missing or disputed items need review first.
+					</p>
 					{estimate.issues.map((issue, index) => (
 						<Alert
 							key={`${String(issue.code)}-${index}`}
