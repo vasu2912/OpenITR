@@ -505,3 +505,234 @@ describe("rule-pack compiler tax constants", () => {
 		).rejects.toThrow('undeclared rule "TEST-UNDECLARED-RULE"');
 	});
 });
+
+describe("rule-pack compiler missing-fact questions", () => {
+	const syntheticFactQuestionRecord = {
+		id: "test-savings-interest-total",
+		prompt: "How much savings-account interest did you receive?",
+		helpText: "Check your bank statements or annual summary.",
+		requiresRuleId: "TEST-EXAMPLE-RULE",
+		suppliesFactKey: "test.savings-interest",
+		whyRequired:
+			"Test rule requires this fact before the test estimate can compute.",
+		affectedResult: {
+			resultId: "test-estimate",
+			label: "Test estimated result",
+		},
+		answerSchema: {
+			kind: "exact-money",
+			minimumWholeRupees: 0,
+			maximumWholeRupees: 10000000,
+		},
+	} satisfies NonNullable<
+		RulePackManifest["missingFactQuestions"]
+	>[number];
+
+	const manifestWithQuestions = (
+		mutate?: (
+			questions: NonNullable<RulePackManifest["missingFactQuestions"]>,
+		) => NonNullable<RulePackManifest["missingFactQuestions"]>,
+	): RulePackManifest =>
+		syntheticManifest((manifest) => {
+			const catalog =
+				manifest.missingFactQuestions ?? [syntheticFactQuestionRecord];
+			return {
+				...manifest,
+				missingFactQuestions:
+					mutate === undefined ? catalog : mutate(catalog),
+			};
+		});
+
+	test("leaves a manifest without questions untouched in shape and identity", async () => {
+		const compiled = await compileRulePack({ manifest: syntheticManifest() });
+
+		expect(compiled.missingFactQuestions).toBeUndefined();
+		expect(Object.isFrozen(compiled)).toBe(true);
+	});
+
+	test("compiles declared questions with parsed identifiers and citations", async () => {
+		const compiled = await compileRulePack({
+			manifest: manifestWithQuestions(),
+		});
+
+		expect(compiled.missingFactQuestions).toHaveLength(1);
+		const question = compiled.missingFactQuestions?.[0];
+		expect(question).toEqual({
+			id: "test-savings-interest-total",
+			prompt: "How much savings-account interest did you receive?",
+			helpText: "Check your bank statements or annual summary.",
+			requiresRuleId: parseRuleId("TEST-EXAMPLE-RULE"),
+			suppliesFact: "test.savings-interest",
+			whyRequired: syntheticFactQuestionRecord.whyRequired,
+			affectedResult: {
+				resultId: "test-estimate",
+				label: "Test estimated result",
+			},
+			answerSchema: {
+				kind: "exact-money",
+				minimumWholeRupees: 0,
+				maximumWholeRupees: 10000000,
+			},
+			sourceReference: {
+				sourceId: "synthetic-source-a",
+				location: "Synthetic source A (test fixture), section 1",
+			},
+		});
+		expect(Object.isFrozen(question)).toBe(true);
+	});
+
+	test("compiles an exact-money question with no authored maximum", async () => {
+		const compiled = await compileRulePack({
+			manifest: manifestWithQuestions((questions) =>
+				questions.map((question) => ({
+					...question,
+					answerSchema: {
+						...question.answerSchema,
+						maximumWholeRupees: null,
+					},
+				})),
+			),
+		});
+
+		expect(compiled.missingFactQuestions?.[0]?.answerSchema).toEqual({
+			kind: "exact-money",
+			minimumWholeRupees: 0,
+			maximumWholeRupees: null,
+		});
+	});
+
+	test("keeps questions out of the hash of an otherwise identical pack only while absent", async () => {
+		const withoutQuestions = await compileRulePack({
+			manifest: syntheticManifest(),
+		});
+		const withQuestions = await compileRulePack({
+			manifest: manifestWithQuestions(),
+		});
+
+		expect(withQuestions.identity.compiledPackSha256).not.toBe(
+			withoutQuestions.identity.compiledPackSha256,
+		);
+	});
+
+	test("rejects a duplicate question identifier", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithQuestions((questions) => [
+					...(questions ?? []),
+					syntheticFactQuestionRecord,
+				]),
+			}),
+		).rejects.toThrow(
+			'Duplicate missing-fact question identifier: "test-savings-interest-total"',
+		);
+	});
+
+	test("rejects two questions supplying one fact key", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithQuestions((questions) => [
+					...(questions ?? []),
+					{
+						...syntheticFactQuestionRecord,
+						id: "test-savings-interest-total-again",
+					},
+				]),
+			}),
+		).rejects.toThrow(
+			' supplies the fact key "test.savings-interest" more than once',
+		);
+	});
+
+	test("rejects a question that reuses the scope-check identity or fact", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithQuestions(() => [
+					{
+						...syntheticFactQuestionRecord,
+						id: "test-example-question",
+					},
+				]),
+			}),
+		).rejects.toThrow("duplicates the scope-check question");
+
+		await expect(
+			compileRulePack({
+				manifest: manifestWithQuestions(() => [
+					{
+						...syntheticFactQuestionRecord,
+						suppliesFactKey: "test.example-fact",
+					},
+				]),
+			}),
+		).rejects.toThrow("supplies the scope-check fact key");
+	});
+
+	test("rejects a question that requires an undeclared rule", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithQuestions(() => [
+					{
+						...syntheticFactQuestionRecord,
+						requiresRuleId: "TEST-UNDECLARED-RULE",
+					},
+				]),
+			}),
+		).rejects.toThrow(
+			'requires undeclared rule "TEST-UNDECLARED-RULE"',
+		);
+	});
+
+	test("rejects a malformed supplied fact key", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithQuestions(() => [
+					{ ...syntheticFactQuestionRecord, suppliesFactKey: "no separator" },
+				]),
+			}),
+		).rejects.toThrow("Invalid fact key");
+	});
+
+	test("rejects an empty prompt, help text, or rationale", async () => {
+		for (const blankField of ["prompt", "helpText", "whyRequired"] as const) {
+			await expect(
+				compileRulePack({
+					manifest: manifestWithQuestions(() => [
+						{ ...syntheticFactQuestionRecord, [blankField]: "   " },
+					]),
+				}),
+			).rejects.toThrow(`Missing ${blankField}`);
+		}
+	});
+
+	test("rejects bounds that are not whole rupees or that invert the range", async () => {
+		await expect(
+			compileRulePack({
+				manifest: manifestWithQuestions(() => [
+					{
+						...syntheticFactQuestionRecord,
+						answerSchema: {
+							kind: "exact-money",
+							minimumWholeRupees: 0,
+							maximumWholeRupees: -1,
+						},
+					},
+				]),
+			}),
+		).rejects.toThrow(/maximum/);
+
+		await expect(
+			compileRulePack({
+				manifest: manifestWithQuestions(() => [
+					{
+						...syntheticFactQuestionRecord,
+						answerSchema: {
+							kind: "exact-money",
+							minimumWholeRupees: 500,
+							maximumWholeRupees: 499,
+						},
+					},
+				]),
+			}),
+		).rejects.toThrow(/must not be less than its minimum/);
+	});
+});

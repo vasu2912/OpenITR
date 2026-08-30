@@ -13,6 +13,7 @@
 		"@openitr/fact-reconciliation": "workspace:*",
 		"@openitr/itr1-ay2026-27": "workspace:*",
 		"@openitr/model": "workspace:*",
+		"@openitr/question-engine": "workspace:*",
 		"@patternfly/react-core": "6.6.1",
 		"react": "19.2.8",
 		"react-dom": "19.2.8",

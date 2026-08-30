@@ -44,6 +44,9 @@ importers:
       '@openitr/model':
         specifier: workspace:*
         version: link:../../packages/model
+      '@openitr/question-engine':
+        specifier: workspace:*
+        version: link:../../packages/question-engine
       '@patternfly/react-core':
         specifier: 6.6.1
         version: 6.6.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -87,6 +90,12 @@ importers:
       decimal.js:
         specifier: ^10.6.0
         version: 10.6.0
+
+  packages/question-engine:
+    dependencies:
+      '@openitr/model':
+        specifier: workspace:*
+        version: link:../model
 
   packages/tax-analysis-modules/itr1-ay2026-27:
     dependencies:

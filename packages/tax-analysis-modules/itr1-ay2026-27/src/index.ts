@@ -10,6 +10,11 @@ export {
 } from "./revisions/2026-08-24b/rule-pack";
 export { itr1Ay202627RulePackManifest20260824b } from "./revisions/2026-08-24b/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260826,
+	itr1Ay202627RulePack20260826,
+} from "./revisions/2026-08-26/rule-pack";
+export { itr1Ay202627RulePackManifest20260826 } from "./revisions/2026-08-26/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -38,6 +43,7 @@ export type {
 	AcceptedTdsDocumentFacts,
 	AcceptedTaxPaymentDocumentFacts,
 	AcceptedTaxPaymentReceipt,
+	AttestedFactContribution,
 	EstimateEvidenceReference,
 	EstimateEvidenceRole,
 	EstimateOutcome,

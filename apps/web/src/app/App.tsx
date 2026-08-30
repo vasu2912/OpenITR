@@ -38,6 +38,7 @@ import { FactConflictsView } from "../views/fact-conflicts";
 import { SalaryReviewView } from "../views/salary-review";
 import { SalaryComputationView } from "../views/salary-computation";
 import { EstimateView } from "../views/estimate-view";
+import { MissingFactQuestionsView } from "../views/missing-fact-questions";
 
 type SessionLoadState =
 	| Readonly<{ kind: "loading" }>
@@ -381,6 +382,13 @@ const ScopeInteraction = ({
 				extractions={extractions}
 				session={session}
 			/>
+			{snapshot.kind === "document-intake" ? (
+				<MissingFactQuestionsView
+					answers={snapshot.factAnswers}
+					questionnaire={snapshot.questionnaire}
+					session={session}
+				/>
+			) : null}
 			<FactConflictsView
 				conflicts={factConflicts}
 				documents={documents}

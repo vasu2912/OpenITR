@@ -154,12 +154,13 @@ export type RefundOrPayableEstimateSummary = Readonly<{
 	taxesPaid: ExactMoney;
 }>;
 
-// A fact value contributed by a stored resolution rather than by an
-// observation: the taxpayer attested it, so no source document carries it.
-// The estimate records it beside the observed evidence instead of
-// fabricating an observation for it.
-export type ResolvedFactContribution = Readonly<{
-	resolutionId: string;
+// A fact value contributed by a permitted taxpayer attestation rather than
+// an observation. The estimate records its actual origin instead of
+// fabricating source evidence for it.
+export type AttestedFactContribution = Readonly<{
+	origin:
+		| Readonly<{ kind: "fact-resolution"; resolutionId: string }>
+		| Readonly<{ kind: "question-answer"; answerId: string }>;
 	factKey: FactKey;
 	value: ExactMoney;
 }>;
@@ -177,8 +178,11 @@ export type RefundOrAmountPayableEstimateInput = Readonly<{
 	// estimate only refuses to compute on a disputed base and says which
 	// facts it is waiting for.
 	withheldFactKeys?: readonly FactKey[];
-	// Values decided by attested resolutions, joined into the totals.
-	resolvedFactContributions?: readonly ResolvedFactContribution[];
+	// Values supplied by permitted attestations, joined into the totals.
+	attestedFactContributions?: readonly AttestedFactContribution[];
+	// Applicable question facts that remain unknown. They block the result
+	// rather than entering arithmetic as hidden zeroes.
+	unansweredFactKeys?: readonly FactKey[];
 }>;
 
 export type EstimateFromSalaryScenarioInput = Readonly<{
@@ -191,7 +195,8 @@ export type EstimateFromSalaryScenarioInput = Readonly<{
 	tdsDocuments: readonly AcceptedTdsDocumentFacts[];
 	taxPaymentDocuments: readonly AcceptedTaxPaymentDocumentFacts[];
 	withheldFactKeys?: readonly FactKey[];
-	resolvedFactContributions?: readonly ResolvedFactContribution[];
+	attestedFactContributions?: readonly AttestedFactContribution[];
+	unansweredFactKeys?: readonly FactKey[];
 }>;
 
 export type RefundOrAmountPayableEstimate =
@@ -204,7 +209,7 @@ export type RefundOrAmountPayableEstimate =
 			summary: RefundOrPayableEstimateSummary;
 			sources: readonly EstimateEvidenceReference[];
 			acceptedTaxPayments: readonly AcceptedTaxPaymentReceipt[];
-			resolvedFactContributions: readonly ResolvedFactContribution[];
+			attestedFactContributions: readonly AttestedFactContribution[];
 	  }>
 	| Readonly<{
 			kind: "blocked";
@@ -395,7 +400,8 @@ export const computeRefundOrAmountPayableEstimate = ({
 	tdsDocuments,
 	taxPaymentDocuments,
 	withheldFactKeys,
-	resolvedFactContributions,
+	attestedFactContributions,
+	unansweredFactKeys,
 }: RefundOrAmountPayableEstimateInput): RefundOrAmountPayableEstimate =>
 	estimateRefundOrAmountPayableFromSalaryScenario({
 		rulePack,
@@ -411,9 +417,10 @@ export const computeRefundOrAmountPayableEstimate = ({
 		tdsDocuments,
 		taxPaymentDocuments,
 		...(withheldFactKeys === undefined ? {} : { withheldFactKeys }),
-		...(resolvedFactContributions === undefined
+		...(attestedFactContributions === undefined
 			? {}
-			: { resolvedFactContributions }),
+			: { attestedFactContributions }),
+		...(unansweredFactKeys === undefined ? {} : { unansweredFactKeys }),
 	});
 
 // The reconciliation over an already-derived salary scenario. Callers that
@@ -436,13 +443,14 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	tdsDocuments,
 	taxPaymentDocuments,
 	withheldFactKeys,
-	resolvedFactContributions,
+	attestedFactContributions,
+	unansweredFactKeys,
 }: EstimateFromSalaryScenarioInput): RefundOrAmountPayableEstimate => {
 	const issues: RefundOrPayableEstimateIssue[] = [];
 
 	// Attested values join the totals beside observed evidence, sorted for a
 	// deterministic trace.
-	const resolvedContributions = (resolvedFactContributions ?? [])
+	const attestedContributions = (attestedFactContributions ?? [])
 		.map((contribution, index) => ({ contribution, index }))
 		.sort(
 			(left, right) =>
@@ -482,12 +490,27 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	const bankInterestObservations = bankInterestDocuments.flatMap(
 		(document) => document.observations,
 	);
-	const resolvedBankInterest = resolvedContributions.filter((contribution) =>
+	const attestedBankInterest = attestedContributions.filter((contribution) =>
 		BANK_INTEREST_FACT_KEYS.includes(contribution.factKey),
 	);
-	if (
+	const unansweredBankInterest = [
+		...new Set(
+			(unansweredFactKeys ?? []).filter((factKey) =>
+				BANK_INTEREST_FACT_KEYS.includes(factKey),
+			),
+		),
+	].sort();
+	if (unansweredBankInterest.length > 0) {
+		issues.push(
+			estimateIssue(
+				ESTIMATE_ISSUE_CODES.bankInterestEvidenceRequired,
+				"Supply each remaining interest fact from accepted evidence or answer its permitted question. Unknown amounts are not treated as zero.",
+				unansweredBankInterest,
+			),
+		);
+	} else if (
 		bankInterestObservations.length === 0 &&
-		resolvedBankInterest.length === 0
+		attestedBankInterest.length === 0
 	) {
 		issues.push(
 			estimateIssue(
@@ -607,7 +630,7 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	const sortedBankInterest = [...bankInterestObservations].sort(
 		byObservationOrder,
 	);
-	const bankInterestTotal = resolvedBankInterest.reduce(
+	const bankInterestTotal = attestedBankInterest.reduce(
 		(total, contribution) => addExactMoney(total, contribution.value),
 		sumObservations(sortedBankInterest),
 	);
@@ -650,7 +673,7 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 					...sortedBankInterest.map((observation) =>
 						factInput(observation.factKey, observation.normalizedValue),
 					),
-					...resolvedBankInterest.map((contribution) =>
+					...attestedBankInterest.map((contribution) =>
 						factInput(contribution.factKey, contribution.value),
 					),
 				],
@@ -753,6 +776,6 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 				challanReference: epayChallanReferenceOf(observation.record),
 			})),
 		),
-		resolvedFactContributions: Object.freeze(resolvedContributions),
+		attestedFactContributions: Object.freeze(attestedContributions),
 	});
 };

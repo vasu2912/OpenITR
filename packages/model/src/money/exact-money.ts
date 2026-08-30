@@ -1,7 +1,8 @@
 import Decimal from "decimal.js";
 
 // An isolated engine so no other package's global Decimal configuration can
-// change tax arithmetic. Precision 40 exceeds any reachable digit count;
+// change tax arithmetic. Precision 40 covers the accepted 39-digit inputs
+// plus one carry digit from a single addition; results beyond it fail closed.
 // ROUND_HALF_UP implements the statutory "five or more rounds up" behavior.
 const ExactDecimal = Decimal.clone({
 	precision: 40,
@@ -17,11 +18,21 @@ export type ExactMoney = string & {
 };
 
 const EXACT_MONEY_PATTERN = /^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/;
+const MAX_EXACT_MONEY_INPUT_DIGITS = 39;
+const MAX_EXACT_MONEY_RESULT_DIGITS = 40;
 
 type ExactDecimalInstance = InstanceType<typeof ExactDecimal>;
 
-const canonical = (value: ExactDecimalInstance): ExactMoney =>
-	value.toString() as ExactMoney;
+const canonical = (value: ExactDecimalInstance): ExactMoney => {
+	const text = value.toString();
+	if (
+		text.includes("e") ||
+		text.replace(".", "").length > MAX_EXACT_MONEY_RESULT_DIGITS
+	) {
+		throw new Error("Exact money result exceeds the supported precision");
+	}
+	return text as ExactMoney;
+};
 
 const asExactDecimal = (value: ExactMoney): ExactDecimalInstance =>
 	new ExactDecimal(value);
@@ -38,6 +49,11 @@ const requireNonNegativeAmount = (
 export const parseExactMoney = (value: string): ExactMoney => {
 	if (!EXACT_MONEY_PATTERN.test(value)) {
 		throw new Error(`Invalid exact money value: ${JSON.stringify(value)}`);
+	}
+	if (value.replace(".", "").length > MAX_EXACT_MONEY_INPUT_DIGITS) {
+		throw new Error(
+			`Exact money exceeds ${MAX_EXACT_MONEY_INPUT_DIGITS} digits: ${JSON.stringify(value)}`,
+		);
 	}
 	return canonical(new ExactDecimal(value));
 };

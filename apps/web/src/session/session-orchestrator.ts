@@ -23,7 +23,10 @@ import type {
 	Sha256Digest,
 } from "@openitr/model";
 import { computeNewRegimeSalaryScenario } from "@openitr/itr1-ay2026-27";
-import type { NewRegimeSalaryComputation } from "@openitr/itr1-ay2026-27";
+import type {
+	AttestedFactContribution,
+	NewRegimeSalaryComputation,
+} from "@openitr/itr1-ay2026-27";
 import {
 	computeRefundOrAmountPayableEstimate,
 	estimateRefundOrAmountPayableFromSalaryScenario,
@@ -35,6 +38,14 @@ import {
 	evaluateResolutionAttempt,
 	reconcileCanonicalFacts,
 } from "@openitr/fact-reconciliation";
+import {
+	deriveMissingFactQuestions,
+	evaluateFactAnswerAttempt,
+} from "@openitr/question-engine";
+import type {
+	AttestedAnswerFact,
+	MissingFactQuestionnaire,
+} from "@openitr/question-engine";
 import type {
 	AffectedResult,
 	CanonicalFactGroup,
@@ -65,6 +76,16 @@ export type SessionCommand =
 			reason: string;
 			executionContext: Readonly<{ recordedAt: string }>;
 	  }>
+	| Readonly<{
+			kind: "answer-missing-fact-question";
+			questionId: string;
+			value: string;
+			executionContext: Readonly<{ answerTime: string }>;
+	  }>
+	| Readonly<{
+			kind: "remove-missing-fact-answer";
+			answerId: string;
+	  }>
 	| Readonly<{ kind: "reset" }>;
 
 // One facility runs both worker-backed stages for a candidate document:
@@ -90,6 +111,8 @@ export type DocumentIntakeSnapshot = Readonly<{
 	extractions: readonly DocumentExtractionRecord[];
 	factConflicts: readonly UnresolvedFactConflict[];
 	factResolutions: readonly FactResolution[];
+	questionnaire: MissingFactQuestionnaire;
+	factAnswers: readonly AttestedAnswerFact[];
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 }>;
@@ -117,7 +140,9 @@ type SessionContext = Readonly<{
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
 	resolutions: readonly FactResolution[];
+	answers: readonly AttestedAnswerFact[];
 	reconciliation: ReconciliationResult;
+	questionnaire: MissingFactQuestionnaire;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 }>;
@@ -126,6 +151,15 @@ const emptyReconciliation: ReconciliationResult = Object.freeze({
 	acceptedFacts: Object.freeze([]),
 	conflicts: Object.freeze([]),
 });
+
+const emptyQuestionnaireOf = (
+	rulePack: ScopeRulePack,
+): MissingFactQuestionnaire =>
+	Object.freeze({
+		rulePackId: rulePack.identity.id,
+		rulePackRevision: rulePack.identity.revision,
+		questions: Object.freeze([]),
+	});
 
 // Only observations that no review issue disputes are accepted facts. The
 // computations themselves re-validate everything and fail closed on gaps.
@@ -162,11 +196,32 @@ const sliceRecords = <
 			record.status === "done" && record[observationField].length > 0,
 	);
 
+const ESTIMATE_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "refund-or-payable-estimate",
+	label: "Estimated refund or amount payable",
+});
+
+const activeEstimateResultIds = (
+	extractions: readonly DocumentExtractionRecord[],
+): readonly string[] =>
+	extractions.some(
+		(record) =>
+			record.status === "done" &&
+			(record.observations.length > 0 ||
+				record.bankInterestObservations.length > 0 ||
+				record.nonSalaryIncomeObservations.length > 0 ||
+				record.tdsObservations.length > 0 ||
+				record.taxPaymentObservations.length > 0),
+	)
+		? [ESTIMATE_AFFECTED_RESULT.resultId]
+		: [];
+
 type SliceComputationInput = Readonly<{
 	rulePack: ScopeRulePack;
 	scopeCheck: SessionContext["scopeCheck"];
 	extractions: readonly DocumentExtractionRecord[];
 	resolutions: readonly FactResolution[];
+	answers: readonly AttestedAnswerFact[];
 }>;
 
 // Fact keys whose conflicts the taxpayer may resolve by attesting a value.
@@ -179,11 +234,6 @@ const ATTESTABLE_FACT_KEYS = [
 	parseFactKey("bank-interest.savings-account"),
 	parseFactKey("bank-interest.deposits"),
 ] as const;
-
-const ESTIMATE_AFFECTED_RESULT: AffectedResult = Object.freeze({
-	resultId: "refund-or-payable-estimate",
-	label: "Estimated refund or amount payable",
-});
 
 const upsertGroup = (
 	groups: Map<string, CanonicalFactGroup>,
@@ -317,7 +367,7 @@ const computeSalaryScenario = ({
 	rulePack,
 	scopeCheck,
 	extractions,
-}: Omit<SliceComputationInput, "resolutions">): NewRegimeSalaryComputation | undefined => {
+}: Omit<SliceComputationInput, "resolutions" | "answers">): NewRegimeSalaryComputation | undefined => {
 	if (scopeCheck.kind !== "complete") {
 		return undefined;
 	}
@@ -340,10 +390,13 @@ const computeEstimateScenario = ({
 	rulePack,
 	scopeCheck,
 	extractions,
+	answers,
 	reconciliation,
+	questionnaire,
 	salaryComputation,
 }: Omit<SliceComputationInput, "resolutions"> & {
 	reconciliation: ReconciliationResult;
+	questionnaire: MissingFactQuestionnaire;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 }): RefundOrAmountPayableEstimate | undefined => {
 	if (scopeCheck.kind !== "complete") {
@@ -352,20 +405,50 @@ const computeEstimateScenario = ({
 	const withheldFactKeys = [
 		...new Set(reconciliation.conflicts.map((conflict) => conflict.factKey)),
 	].sort();
-	// Attested resolutions carry no observation, so their values reach the
-	// estimate through an explicit contribution channel instead.
-	const resolvedFactContributions = reconciliation.acceptedFacts.flatMap(
+	// Attestations carry no observation, so their values reach the estimate
+	// through an explicit contribution channel. Accepted evidence supersedes
+	// an earlier question answer for the same fact and prevents double-counting.
+	const supersededAnswerFactKeys = new Set(
+		[
+			...reconciliation.acceptedFacts.map((fact) => fact.factKey),
+			...reconciliation.conflicts.map((conflict) => conflict.factKey),
+		],
+	);
+	const resolutionContributions = reconciliation.acceptedFacts.flatMap(
 		(fact) =>
 			fact.origin.kind === "resolved-attested" &&
 			fact.representativeObservationId === undefined
 				? [
 						{
-							resolutionId: fact.origin.resolutionId,
+							origin: {
+								kind: "fact-resolution",
+								resolutionId: fact.origin.resolutionId,
+							},
 							factKey: fact.factKey,
 							value: fact.value,
-						},
+						} satisfies AttestedFactContribution,
 					]
 				: [],
+	);
+	const answerContributions = answers
+		.filter((answer) => !supersededAnswerFactKeys.has(answer.factKey))
+		.map(
+			(answer) =>
+				({
+					origin: {
+						kind: "question-answer",
+						answerId: answer.answerId,
+					},
+					factKey: answer.factKey,
+					value: answer.value,
+				}) satisfies AttestedFactContribution,
+		);
+	const attestedFactContributions = [
+		...resolutionContributions,
+		...answerContributions,
+	];
+	const unansweredFactKeys = questionnaire.questions.map(
+		(question) => question.suppliesFact,
 	);
 	const isRepresentative = representativeFilterOf(reconciliation);
 	const salaryRecords = sliceRecords(extractions, "observations");
@@ -428,9 +511,10 @@ const computeEstimateScenario = ({
 				toDocument(record, record.taxPaymentObservations, true),
 			),
 			...(withheldFactKeys.length === 0 ? {} : { withheldFactKeys }),
-			...(resolvedFactContributions.length === 0
+			...(attestedFactContributions.length === 0
 				? {}
-				: { resolvedFactContributions }),
+				: { attestedFactContributions }),
+			...(unansweredFactKeys.length === 0 ? {} : { unansweredFactKeys }),
 		});
 	}
 	return computeRefundOrAmountPayableEstimate({
@@ -452,9 +536,10 @@ const computeEstimateScenario = ({
 			toDocument(record, record.taxPaymentObservations, true),
 		),
 		...(withheldFactKeys.length === 0 ? {} : { withheldFactKeys }),
-		...(resolvedFactContributions.length === 0
+		...(attestedFactContributions.length === 0
 			? {}
-			: { resolvedFactContributions }),
+			: { attestedFactContributions }),
+		...(unansweredFactKeys.length === 0 ? {} : { unansweredFactKeys }),
 	});
 };
 
@@ -466,12 +551,25 @@ const deriveSessionComputations = ({
 	scopeCheck,
 	extractions,
 	resolutions,
+	answers,
 }: SliceComputationInput): {
 	reconciliation: ReconciliationResult;
+	questionnaire: MissingFactQuestionnaire;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 } => {
 	const reconciliation = reconcileSessionFacts({ extractions, resolutions });
+	const questionnaire =
+		scopeCheck.kind === "complete"
+			? deriveMissingFactQuestions({
+					rulePack,
+					scopeCheck: scopeCheck.completion,
+					acceptedFacts: reconciliation.acceptedFacts,
+					conflictedFacts: reconciliation.conflicts,
+					applicableResultIds: activeEstimateResultIds(extractions),
+					answers,
+				})
+			: emptyQuestionnaireOf(rulePack);
 	const salaryComputation = computeSalaryScenario({
 		rulePack,
 		scopeCheck,
@@ -481,10 +579,17 @@ const deriveSessionComputations = ({
 		rulePack,
 		scopeCheck,
 		extractions,
+		answers,
 		reconciliation,
+		questionnaire,
 		salaryComputation,
 	});
-	return { reconciliation, salaryComputation, estimateComputation };
+	return {
+		reconciliation,
+		questionnaire,
+		salaryComputation,
+		estimateComputation,
+	};
 };
 
 const buildInspectableInput = (
@@ -541,6 +646,14 @@ type SessionEvent =
 	| Readonly<{
 			type: "fact-conflict-resolved";
 			resolution: FactResolution;
+	  }>
+	| Readonly<{
+			type: "missing-fact-question-answered";
+			answer: AttestedAnswerFact;
+	  }>
+	| Readonly<{
+			type: "missing-fact-answer-removed";
+			answerId: string;
 	  }>;
 
 const replaceExtractionRecord = (
@@ -612,7 +725,9 @@ const createSessionMachine = ({
 			documents: [],
 			extractions: [],
 			resolutions: [],
+			answers: [],
 			reconciliation: emptyReconciliation,
+			questionnaire: emptyQuestionnaireOf(rulePack),
 			salaryComputation: undefined,
 			estimateComputation: undefined,
 		},
@@ -782,6 +897,7 @@ const createSessionMachine = ({
 									scopeCheck: context.scopeCheck,
 									extractions: nextExtractions,
 									resolutions: context.resolutions,
+									answers: context.answers,
 								}),
 							};
 						}),
@@ -838,6 +954,7 @@ const createSessionMachine = ({
 									scopeCheck: context.scopeCheck,
 									extractions: nextExtractions,
 									resolutions: context.resolutions,
+									answers: context.answers,
 								}),
 							};
 						}),
@@ -864,6 +981,7 @@ const createSessionMachine = ({
 									scopeCheck: context.scopeCheck,
 									extractions: nextExtractions,
 									resolutions: context.resolutions,
+									answers: context.answers,
 								}),
 							};
 						}),
@@ -883,6 +1001,49 @@ const createSessionMachine = ({
 									scopeCheck: context.scopeCheck,
 									extractions: context.extractions,
 									resolutions: [...context.resolutions, event.resolution],
+									answers: context.answers,
+								}),
+							};
+						}),
+					},
+					"missing-fact-question-answered": {
+						actions: sessionSetup.assign(({ context, event }) => {
+							if (event.type !== "missing-fact-question-answered") {
+								return {};
+							}
+							const answers = context.rulePack.questions.flatMap((question) =>
+								[...context.answers, event.answer].filter(
+									(answer) => answer.questionId === question.id,
+								),
+							);
+							return {
+								answers,
+								...deriveSessionComputations({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: context.extractions,
+									resolutions: context.resolutions,
+									answers,
+								}),
+							};
+						}),
+					},
+					"missing-fact-answer-removed": {
+						actions: sessionSetup.assign(({ context, event }) => {
+							if (event.type !== "missing-fact-answer-removed") {
+								return {};
+							}
+							const answers = context.answers.filter(
+								(answer) => answer.answerId !== event.answerId,
+							);
+							return {
+								answers,
+								...deriveSessionComputations({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: context.extractions,
+									resolutions: context.resolutions,
+									answers,
 								}),
 							};
 						}),
@@ -926,6 +1087,8 @@ const toSessionSnapshot = (
 			extractions: context.extractions,
 			factConflicts: context.reconciliation.conflicts,
 			factResolutions: context.resolutions,
+			questionnaire: context.questionnaire,
+			factAnswers: context.answers,
 			salaryComputation: context.salaryComputation,
 			estimateComputation: context.estimateComputation,
 		};
@@ -1224,6 +1387,63 @@ export const createSessionOrchestrator = ({
 					actor.send({
 						type: "document-inspection-cancelled",
 						candidateKey,
+					});
+					return;
+				}
+				case "answer-missing-fact-question": {
+					const snapshot = getSnapshot();
+					if (snapshot.kind !== "document-intake") {
+						return;
+					}
+					const reconciliation = reconcileSessionFacts({
+						extractions: snapshot.extractions,
+						resolutions: snapshot.factResolutions,
+					});
+					let answeredAt;
+					try {
+						answeredAt = parseIsoTimestamp(
+							command.executionContext.answerTime,
+						);
+					} catch {
+						throw new Error(
+							`Invalid answer timestamp: ${command.executionContext.answerTime}`,
+						);
+					}
+					const attempt = evaluateFactAnswerAttempt({
+						rulePack,
+						scopeCheck: snapshot.completedScopeCheck,
+						acceptedFacts: reconciliation.acceptedFacts,
+						conflictedFacts: reconciliation.conflicts,
+						applicableResultIds: activeEstimateResultIds(snapshot.extractions),
+						answers: snapshot.factAnswers,
+						questionId: command.questionId,
+						rawValue: command.value,
+						answeredAt,
+					});
+					if (attempt.kind === "rejected") {
+						throw new Error(
+							`Rejected fact answer (${command.questionId}): ${attempt.rejection}`,
+						);
+					}
+					actor.send({
+						type: "missing-fact-question-answered",
+						answer: attempt.answer,
+					});
+					return;
+				}
+				case "remove-missing-fact-answer": {
+					const snapshot = getSnapshot();
+					if (
+						snapshot.kind !== "document-intake" ||
+						!snapshot.factAnswers.some(
+							(answer) => answer.answerId === command.answerId,
+						)
+					) {
+						return;
+					}
+					actor.send({
+						type: "missing-fact-answer-removed",
+						answerId: command.answerId,
 					});
 					return;
 				}
