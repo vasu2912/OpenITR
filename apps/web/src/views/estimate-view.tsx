@@ -213,14 +213,21 @@ export const EstimateView = ({
 							<code>{String(source.sourceDocumentId).slice(0, 16)}…</code>
 						</li>
 					))}
-					{estimate.resolvedFactContributions.map((contribution) => (
-						<li key={contribution.resolutionId}>
+					{estimate.attestedFactContributions.map((contribution) => {
+						const originId =
+							contribution.origin.kind === "fact-resolution"
+								? contribution.origin.resolutionId
+								: contribution.origin.answerId;
+						return <li key={originId}>
 							<strong>Attested by you</strong>{" "}
 							<code>{String(contribution.factKey)}</code> ·{" "}
-							{rupeeFormat(contribution.value)} · resolution{" "}
-							<code>{contribution.resolutionId.slice(0, 24)}…</code>
-						</li>
-					))}
+							{rupeeFormat(contribution.value)} ·{" "}
+							{contribution.origin.kind === "fact-resolution"
+								? "resolution"
+								: "question answer"}{" "}
+							<code>{originId.slice(0, 24)}…</code>
+						</li>;
+					})}
 				</ul>
 				<ComputationTraceList nodes={estimate.nodes} />
 			</CardBody>

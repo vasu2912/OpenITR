@@ -49,6 +49,13 @@ describe("exact money parsing", () => {
 			expect(() => parseExactMoney(invalid)).toThrow();
 		}
 	});
+
+	test("rejects values beyond the engine precision envelope", () => {
+		expect(() => parseExactMoney("9".repeat(40))).toThrow(
+		"Exact money exceeds 39 digits",
+	);
+		expect(parseExactMoney("9".repeat(39))).toBe("9".repeat(39));
+	});
 });
 
 describe("exact money construction from observations", () => {
@@ -69,6 +76,22 @@ describe("exact money arithmetic", () => {
 	test("adds exactly across decimal amounts", () => {
 		expect(addExactMoney(m("60000"), m("1.5"))).toBe("60001.5");
 		expect(addExactMoney(m("0.1"), m("0.2"))).toBe("0.3");
+	});
+
+	test("allows one carry digit but rejects an arithmetic overflow", () => {
+		expect(addExactMoney(m("9".repeat(39)), m("9".repeat(39)))).toBe(
+			`1${"9".repeat(38)}8`,
+		);
+		const maximumInput = m("9".repeat(39));
+		const withinEnvelope = Array.from({ length: 10 }).reduce<
+			ReturnType<typeof m>
+		>(
+			(total) => addExactMoney(total, maximumInput),
+			m("0"),
+		);
+		expect(() =>
+			addExactMoney(withinEnvelope, maximumInput),
+		).toThrow("Exact money result exceeds the supported precision");
 	});
 
 	test("subtracts exactly and never produces a negative amount", () => {

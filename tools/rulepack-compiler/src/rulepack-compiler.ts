@@ -15,10 +15,13 @@ import type {
 	CompiledRulePack,
 	EligibilityAnswerValue,
 	EligibilityQuestion,
+	FactAnswerSchema,
+	FactQuestion,
 	OfficialSource,
 	RuleCitation,
 	RuleId,
 	RulePackManifest,
+	RulePackManifestFactQuestionRecord,
 	RulePackManifestRuleRecord,
 	RulePackManifestSourceRecord,
 	RulePackSlabBand,
@@ -273,6 +276,113 @@ const answerOptions: EligibilityQuestion["answers"] = deepFreeze([
 	{ value: "no", label: "No" },
 ] as const);
 
+const compileMissingFactQuestions = ({
+	records,
+	rulesById,
+}: Readonly<{
+	records: readonly RulePackManifestFactQuestionRecord[];
+	rulesById: ReadonlyMap<string, CompiledRule>;
+}>): readonly FactQuestion[] => {
+	const seenQuestionIds = new Set<string>();
+	const seenSuppliedFactKeys = new Set<string>();
+	const questions: FactQuestion[] = [];
+	for (const record of records) {
+		const id = parseQuestionId(record.id);
+		if (seenQuestionIds.has(id)) {
+			throw new Error(
+				`Duplicate missing-fact question identifier: "${id}"`,
+			);
+		}
+		seenQuestionIds.add(id);
+
+		const requiresRuleId = parseRuleId(record.requiresRuleId);
+		const requiredRule = rulesById.get(requiresRuleId);
+		if (requiredRule === undefined) {
+			throw new Error(
+				`Unknown rule reference: missing-fact question "${id}" requires undeclared rule "${record.requiresRuleId}"`,
+			);
+		}
+
+		const suppliesFact = parseFactKey(record.suppliesFactKey);
+		if (seenSuppliedFactKeys.has(suppliesFact)) {
+			throw new Error(
+				`Missing-fact question "${id}" supplies the fact key "${suppliesFact}" more than once in one catalog`,
+			);
+		}
+		seenSuppliedFactKeys.add(suppliesFact);
+
+		const schemaKind = record.answerSchema.kind;
+		let answerSchema: FactAnswerSchema;
+		switch (schemaKind) {
+			case "exact-money": {
+				const minimum = requireNonNegativeWholeRupees(
+					record.answerSchema.minimumWholeRupees,
+					`The minimum for missing-fact question "${id}"`,
+				);
+				const authoredMaximum = record.answerSchema.maximumWholeRupees;
+				const maximum =
+					authoredMaximum === null
+						? null
+						: requireNonNegativeWholeRupees(
+								authoredMaximum,
+								`The maximum for missing-fact question "${id}"`,
+							);
+				if (maximum !== null && maximum < minimum) {
+					throw new Error(
+						`The maximum for missing-fact question "${id}" must not be less than its minimum: ${maximum} < ${minimum}`,
+					);
+				}
+				answerSchema = deepFreeze({
+					kind: "exact-money",
+					minimumWholeRupees: minimum,
+					maximumWholeRupees: maximum,
+				});
+				break;
+			}
+			default: {
+				const _exhaustive: never = schemaKind;
+				return _exhaustive;
+			}
+		}
+
+		questions.push(
+			deepFreeze({
+				id,
+				prompt: requireNonEmpty(
+					record.prompt,
+					`prompt for missing-fact question "${id}"`,
+				),
+				helpText: requireNonEmpty(
+					record.helpText,
+					`helpText for missing-fact question "${id}"`,
+				),
+				requiresRuleId,
+				suppliesFact,
+				whyRequired: requireNonEmpty(
+					record.whyRequired,
+					`whyRequired rationale for missing-fact question "${id}"`,
+				),
+				affectedResult: deepFreeze({
+					resultId: requireNonEmpty(
+						record.affectedResult.resultId,
+						`affected result id for missing-fact question "${id}"`,
+					),
+					label: requireNonEmpty(
+						record.affectedResult.label,
+						`affected result label for missing-fact question "${id}"`,
+					),
+				}),
+				answerSchema,
+				sourceReference: deepFreeze({
+					sourceId: requiredRule.sourceId,
+					location: requiredRule.sourceLocation,
+				}),
+			}),
+		);
+	}
+	return questions;
+};
+
 export type CompileRulePackInput = Readonly<{
 	manifest: RulePackManifest;
 }>;
@@ -429,6 +539,28 @@ export const compileRulePack = async ({
 		),
 	);
 
+	const compiledQuestions =
+		manifest.missingFactQuestions === undefined
+			? undefined
+			: deepFreeze(
+					compileMissingFactQuestions({
+						records: manifest.missingFactQuestions,
+						rulesById,
+				}),
+			);
+	for (const question of compiledQuestions ?? []) {
+		if (question.id === questionId) {
+			throw new Error(
+				`Missing-fact question identifier "${question.id}" duplicates the scope-check question`,
+			);
+		}
+		if (question.suppliesFact === suppliesFactKey) {
+			throw new Error(
+				`Missing-fact question "${question.id}" supplies the scope-check fact key "${question.suppliesFact}"`,
+			);
+		}
+	}
+
 	const resolveConstantRule = (
 		ruleId: string,
 		description: string,
@@ -524,6 +656,9 @@ export const compileRulePack = async ({
 		supportedRuleIds,
 		ruleCitations,
 		scopeCheck: { question, results },
+		...(compiledQuestions === undefined
+			? {}
+			: { missingFactQuestions: compiledQuestions }),
 		taxConstants: compiledTaxConstants,
 	};
 
@@ -544,6 +679,9 @@ export const compileRulePack = async ({
 		supportedRuleIds,
 		ruleCitations,
 		scopeCheck: { question, results },
+		...(compiledQuestions === undefined
+			? {}
+			: { missingFactQuestions: compiledQuestions }),
 		...(compiledTaxConstants === undefined
 			? {}
 			: { taxConstants: compiledTaxConstants }),

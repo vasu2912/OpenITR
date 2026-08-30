@@ -89,6 +89,32 @@ export type ScopeCheckResult =
 			issue: ScopeIssue;
 	  }>;
 
+// One missing-fact question compiled from a rule pack: what to ask, which
+// cited rule requires the fact, the typed answer schema, why the fact is
+// needed, and every result the answer can change. The question carries no
+// value: an unanswered question stays unknown until the taxpayer answers it
+// or accepted evidence supplies the fact instead.
+export type FactAnswerSchema = Readonly<{
+	kind: "exact-money";
+	minimumWholeRupees: number;
+	maximumWholeRupees: number | null;
+}>;
+
+export type FactQuestion = Readonly<{
+	id: QuestionId;
+	prompt: string;
+	helpText: string;
+	requiresRuleId: RuleId;
+	suppliesFact: FactKey;
+	whyRequired: string;
+	affectedResult: Readonly<{
+		resultId: string;
+		label: string;
+	}>;
+	answerSchema: FactAnswerSchema;
+	sourceReference: RuleSourceReference;
+}>;
+
 export type AttestedAnswer = Readonly<{
 	questionId: QuestionId;
 	value: EligibilityAnswerValue;
@@ -130,6 +156,9 @@ export type ScopeRulePack = Readonly<{
 	identity: RulePackIdentity;
 	officialSources: readonly OfficialSource[];
 	question: EligibilityQuestion;
+	// Missing-fact questions this pack permits, in pinned catalog order.
+	// Empty for packs authored before the questionnaire existed.
+	questions: readonly FactQuestion[];
 	taxConstants: CompiledTaxConstants | undefined;
 	evaluate(
 		input: Readonly<{
@@ -184,6 +213,24 @@ export type RulePackManifestScopeCheckRecord = Readonly<{
 	}>;
 }>;
 
+export type RulePackManifestFactQuestionRecord = Readonly<{
+	id: string;
+	prompt: string;
+	helpText: string;
+	requiresRuleId: string;
+	suppliesFactKey: string;
+	whyRequired: string;
+	affectedResult: Readonly<{
+		resultId: string;
+		label: string;
+	}>;
+	answerSchema: Readonly<{
+		kind: "exact-money";
+		minimumWholeRupees: number;
+		maximumWholeRupees: number | null;
+	}>;
+}>;
+
 export type RulePackManifest = Readonly<{
 	rulePackId: string;
 	form: string;
@@ -194,6 +241,10 @@ export type RulePackManifest = Readonly<{
 	officialSources: readonly RulePackManifestSourceRecord[];
 	supportedRules: readonly RulePackManifestRuleRecord[];
 	scopeCheck: RulePackManifestScopeCheckRecord;
+	// Missing-fact questions the pack permits for the documents workflow.
+	// Optional so every revision compiled before questions existed keeps its
+	// exact compiled identity.
+	missingFactQuestions?: readonly RulePackManifestFactQuestionRecord[];
 	taxConstants?: RulePackManifestTaxConstants;
 }>;
 
@@ -208,6 +259,10 @@ export type CompiledRulePack = Readonly<{
 			Record<EligibilityAnswerValue, ScopeCheckResult>
 		>;
 	}>;
+	// Present only when the authored manifest declared missing-fact
+	// questions, so packs compiled before questions existed keep their
+	// exact compiled identity.
+	missingFactQuestions?: readonly FactQuestion[];
 	taxConstants?: CompiledTaxConstants;
 }>;
 
