@@ -307,6 +307,10 @@ const ScopeInteraction = ({
 		snapshot.kind === "document-intake"
 			? snapshot.estimateComputation
 			: undefined;
+	const pendingRecomputation =
+		snapshot.kind === "document-intake"
+			? snapshot.pendingRecomputation
+			: { kind: "idle" as const };
 
 	return (
 		<AppFrame
@@ -397,6 +401,17 @@ const ScopeInteraction = ({
 			/>
 			<SalaryReviewView extractions={extractions} />
 			<SalaryComputationView computation={salaryComputation} />
+			{pendingRecomputation.kind === "pending" ? (
+				<Alert
+					aria-live="polite"
+					isInline
+					title="Recomputing estimate"
+					variant="info"
+				>
+					The previous estimate is hidden while the changed decision is
+					applied.
+				</Alert>
+			) : null}
 			<EstimateView estimate={estimateComputation} />
 			<ResetSessionDialog
 				isOpen={isResetConfirmationOpen}

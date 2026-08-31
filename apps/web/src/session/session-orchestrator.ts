@@ -86,7 +86,23 @@ export type SessionCommand =
 			kind: "remove-missing-fact-answer";
 			answerId: string;
 	  }>
+	| Readonly<{
+			kind: "remove-fact-resolution";
+			resolutionId: string;
+	  }>
 	| Readonly<{ kind: "reset" }>;
+
+export type PendingRecomputation =
+	| Readonly<{ kind: "idle" }>
+	| Readonly<{ kind: "pending" }>;
+
+type PendingRecomputationState =
+	| Readonly<{ kind: "idle" }>
+	| Readonly<{
+			kind: "pending";
+			generation: number;
+			affectedResultIds: readonly string[];
+	  }>;
 
 // One facility runs both worker-backed stages for a candidate document:
 // inspection (identify or reject) and, for supported revisions, observation
@@ -115,6 +131,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	factAnswers: readonly AttestedAnswerFact[];
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
+	pendingRecomputation: PendingRecomputation;
 }>;
 
 export type SessionOrchestratorSnapshot =
@@ -128,6 +145,16 @@ export type SessionOrchestrator = Readonly<{
 	subscribe(listener: () => void): () => void;
 }>;
 
+type AnswerDecision = Readonly<{
+	answer: AttestedAnswerFact;
+	affectedResultIds: readonly string[];
+}>;
+
+type ResolutionDecision = Readonly<{
+	resolution: FactResolution;
+	affectedResultIds: readonly string[];
+}>;
+
 type SessionContext = Readonly<{
 	rulePack: ScopeRulePack;
 	scopeCheck:
@@ -139,12 +166,14 @@ type SessionContext = Readonly<{
 	documentsStageEntered: boolean;
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
-	resolutions: readonly FactResolution[];
-	answers: readonly AttestedAnswerFact[];
+	resolutionDecisions: readonly ResolutionDecision[];
+	answerDecisions: readonly AnswerDecision[];
 	reconciliation: ReconciliationResult;
 	questionnaire: MissingFactQuestionnaire;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
+	recomputationGeneration: number;
+	pendingRecomputation: PendingRecomputationState;
 }>;
 
 const emptyReconciliation: ReconciliationResult = Object.freeze({
@@ -543,21 +572,16 @@ const computeEstimateScenario = ({
 	});
 };
 
-// One derivation per session event: reconciliation runs once, the salary
-// scenario runs once, and every snapshot field is built from those results,
-// so the cards can never disagree.
-const deriveSessionComputations = ({
+const deriveSessionReview = ({
 	rulePack,
 	scopeCheck,
 	extractions,
 	resolutions,
 	answers,
-}: SliceComputationInput): {
+}: SliceComputationInput): Readonly<{
 	reconciliation: ReconciliationResult;
 	questionnaire: MissingFactQuestionnaire;
-	salaryComputation: NewRegimeSalaryComputation | undefined;
-	estimateComputation: RefundOrAmountPayableEstimate | undefined;
-} => {
+}> => {
 	const reconciliation = reconcileSessionFacts({ extractions, resolutions });
 	const questionnaire =
 		scopeCheck.kind === "complete"
@@ -570,6 +594,22 @@ const deriveSessionComputations = ({
 					answers,
 				})
 			: emptyQuestionnaireOf(rulePack);
+	return { reconciliation, questionnaire };
+};
+
+// One derivation per source-document event: reconciliation runs once, the
+// salary scenario runs once, and every snapshot field is built from those
+// results, so the cards can never disagree.
+const deriveSessionComputations = (
+	input: SliceComputationInput,
+): Readonly<{
+	reconciliation: ReconciliationResult;
+	questionnaire: MissingFactQuestionnaire;
+	salaryComputation: NewRegimeSalaryComputation | undefined;
+	estimateComputation: RefundOrAmountPayableEstimate | undefined;
+}> => {
+	const { rulePack, scopeCheck, extractions, answers } = input;
+	const review = deriveSessionReview(input);
 	const salaryComputation = computeSalaryScenario({
 		rulePack,
 		scopeCheck,
@@ -580,15 +620,173 @@ const deriveSessionComputations = ({
 		scopeCheck,
 		extractions,
 		answers,
-		reconciliation,
-		questionnaire,
+		reconciliation: review.reconciliation,
+		questionnaire: review.questionnaire,
 		salaryComputation,
 	});
 	return {
-		reconciliation,
-		questionnaire,
+		...review,
 		salaryComputation,
 		estimateComputation,
+	};
+};
+
+const pendingRecomputationFor = ({
+	generation,
+	affectedResultIds,
+}: Readonly<{
+	generation: number;
+	affectedResultIds: readonly string[];
+}>): PendingRecomputationState =>
+	Object.freeze({
+		kind: "pending",
+		generation,
+		affectedResultIds: Object.freeze([...affectedResultIds]),
+	});
+
+const answersOf = (
+	decisions: readonly AnswerDecision[],
+): readonly AttestedAnswerFact[] => decisions.map((decision) => decision.answer);
+
+const resolutionsOf = (
+	decisions: readonly ResolutionDecision[],
+): readonly FactResolution[] => decisions.map((decision) => decision.resolution);
+
+const deriveDecisionComputations = ({
+	context,
+	answerDecisions,
+	resolutionDecisions,
+	affectedResultIds,
+}: Readonly<{
+	context: SessionContext;
+	answerDecisions: readonly AnswerDecision[];
+	resolutionDecisions: readonly ResolutionDecision[];
+	affectedResultIds: readonly string[];
+}>): Pick<
+	SessionContext,
+	| "answerDecisions"
+	| "resolutionDecisions"
+	| "reconciliation"
+	| "questionnaire"
+	| "salaryComputation"
+	| "estimateComputation"
+	| "recomputationGeneration"
+	| "pendingRecomputation"
+> => {
+	const answers = answersOf(answerDecisions);
+	const resolutions = resolutionsOf(resolutionDecisions);
+	const review = deriveSessionReview({
+		rulePack: context.rulePack,
+		scopeCheck: context.scopeCheck,
+		extractions: context.extractions,
+		resolutions,
+		answers,
+	});
+	const affectsEstimate = affectedResultIds.includes(
+		ESTIMATE_AFFECTED_RESULT.resultId,
+	);
+	if (!affectsEstimate) {
+		return {
+			answerDecisions,
+			resolutionDecisions,
+			...review,
+			salaryComputation: context.salaryComputation,
+			estimateComputation: context.estimateComputation,
+			recomputationGeneration: context.recomputationGeneration,
+			pendingRecomputation: context.pendingRecomputation,
+		};
+	}
+	const generation = context.recomputationGeneration + 1;
+	const shouldDefer =
+		context.estimateComputation?.kind === "computed" ||
+		context.pendingRecomputation.kind === "pending";
+	return {
+		answerDecisions,
+		resolutionDecisions,
+		...review,
+		salaryComputation: context.salaryComputation,
+		estimateComputation: shouldDefer
+			? undefined
+			: computeEstimateScenario({
+					rulePack: context.rulePack,
+				scopeCheck: context.scopeCheck,
+				extractions: context.extractions,
+				answers,
+				reconciliation: review.reconciliation,
+				questionnaire: review.questionnaire,
+				salaryComputation: context.salaryComputation,
+			}),
+		recomputationGeneration: generation,
+		pendingRecomputation: shouldDefer
+			? pendingRecomputationFor({ generation, affectedResultIds })
+			: { kind: "idle" },
+	};
+};
+
+const settlePendingRecomputation = (
+	context: SessionContext,
+): Pick<SessionContext, "estimateComputation" | "pendingRecomputation"> => {
+	if (context.pendingRecomputation.kind !== "pending") {
+		return {
+			estimateComputation: context.estimateComputation,
+			pendingRecomputation: context.pendingRecomputation,
+		};
+	}
+	return {
+		estimateComputation: context.pendingRecomputation.affectedResultIds.includes(
+			ESTIMATE_AFFECTED_RESULT.resultId,
+		)
+			? computeEstimateScenario({
+					rulePack: context.rulePack,
+					scopeCheck: context.scopeCheck,
+					extractions: context.extractions,
+					answers: answersOf(context.answerDecisions),
+					reconciliation: context.reconciliation,
+					questionnaire: context.questionnaire,
+					salaryComputation: context.salaryComputation,
+				})
+			: context.estimateComputation,
+		pendingRecomputation: { kind: "idle" },
+	};
+};
+
+const deriveSourceComputations = ({
+	context,
+	extractions,
+}: Readonly<{
+	context: SessionContext;
+	extractions: readonly DocumentExtractionRecord[];
+}>): Pick<
+	SessionContext,
+	| "extractions"
+	| "reconciliation"
+	| "questionnaire"
+	| "salaryComputation"
+	| "estimateComputation"
+	| "recomputationGeneration"
+	| "pendingRecomputation"
+> => {
+	const derived = deriveSessionComputations({
+		rulePack: context.rulePack,
+		scopeCheck: context.scopeCheck,
+		extractions,
+		resolutions: resolutionsOf(context.resolutionDecisions),
+		answers: answersOf(context.answerDecisions),
+	});
+	if (context.pendingRecomputation.kind === "pending") {
+		return {
+			extractions,
+			...derived,
+			estimateComputation: undefined,
+			recomputationGeneration: context.recomputationGeneration,
+			pendingRecomputation: context.pendingRecomputation,
+		};
+	}
+	return {
+		extractions,
+		...derived,
+		recomputationGeneration: context.recomputationGeneration + 1,
+		pendingRecomputation: { kind: "idle" },
 	};
 };
 
@@ -645,15 +843,23 @@ type SessionEvent =
 	| Readonly<{ type: "document-extraction-cancelled"; candidateKey: number }>
 	| Readonly<{
 			type: "fact-conflict-resolved";
-			resolution: FactResolution;
+			decision: ResolutionDecision;
 	  }>
 	| Readonly<{
 			type: "missing-fact-question-answered";
-			answer: AttestedAnswerFact;
+			decision: AnswerDecision;
 	  }>
 	| Readonly<{
 			type: "missing-fact-answer-removed";
-			answerId: string;
+			decision: AnswerDecision;
+	  }>
+	| Readonly<{
+			type: "fact-resolution-removed";
+			decision: ResolutionDecision;
+	  }>
+	| Readonly<{
+			type: "recomputation-scheduled";
+			generation: number;
 	  }>;
 
 const replaceExtractionRecord = (
@@ -724,12 +930,14 @@ const createSessionMachine = ({
 			documentsStageEntered: false,
 			documents: [],
 			extractions: [],
-			resolutions: [],
-			answers: [],
+			resolutionDecisions: [],
+			answerDecisions: [],
 			reconciliation: emptyReconciliation,
 			questionnaire: emptyQuestionnaireOf(rulePack),
 			salaryComputation: undefined,
 			estimateComputation: undefined,
+			recomputationGeneration: 0,
+			pendingRecomputation: { kind: "idle" },
 		},
 		initial: "awaiting-answer",
 		states: {
@@ -891,13 +1099,9 @@ const createSessionMachine = ({
 									event.candidateKey,
 									(candidate) => withStatus(candidate, "removed"),
 								),
-								extractions: nextExtractions,
-								...deriveSessionComputations({
-									rulePack: context.rulePack,
-									scopeCheck: context.scopeCheck,
+								...deriveSourceComputations({
+									context,
 									extractions: nextExtractions,
-									resolutions: context.resolutions,
-									answers: context.answers,
 								}),
 							};
 						}),
@@ -948,13 +1152,9 @@ const createSessionMachine = ({
 									settleExtractionRecord(record, event.outcome),
 							);
 							return {
-								extractions: nextExtractions,
-								...deriveSessionComputations({
-									rulePack: context.rulePack,
-									scopeCheck: context.scopeCheck,
+								...deriveSourceComputations({
+									context,
 									extractions: nextExtractions,
-									resolutions: context.resolutions,
-									answers: context.answers,
 								}),
 							};
 						}),
@@ -974,16 +1174,10 @@ const createSessionMachine = ({
 							const nextExtractions = context.extractions.filter(
 								(record) => record.candidateKey !== event.candidateKey,
 							);
-							return {
+							return deriveSourceComputations({
+								context,
 								extractions: nextExtractions,
-								...deriveSessionComputations({
-									rulePack: context.rulePack,
-									scopeCheck: context.scopeCheck,
-									extractions: nextExtractions,
-									resolutions: context.resolutions,
-									answers: context.answers,
-								}),
-							};
+							});
 						}),
 					},
 					"fact-conflict-resolved": {
@@ -994,16 +1188,16 @@ const createSessionMachine = ({
 							if (event.type !== "fact-conflict-resolved") {
 								return {};
 							}
-							return {
-								resolutions: [...context.resolutions, event.resolution],
-								...deriveSessionComputations({
-									rulePack: context.rulePack,
-									scopeCheck: context.scopeCheck,
-									extractions: context.extractions,
-									resolutions: [...context.resolutions, event.resolution],
-									answers: context.answers,
-								}),
-							};
+							const resolutionDecisions = [
+								...context.resolutionDecisions,
+								event.decision,
+							];
+							return deriveDecisionComputations({
+								context,
+								answerDecisions: context.answerDecisions,
+								resolutionDecisions,
+								affectedResultIds: event.decision.affectedResultIds,
+							});
 						}),
 					},
 					"missing-fact-question-answered": {
@@ -1011,21 +1205,18 @@ const createSessionMachine = ({
 							if (event.type !== "missing-fact-question-answered") {
 								return {};
 							}
-							const answers = context.rulePack.questions.flatMap((question) =>
-								[...context.answers, event.answer].filter(
-									(answer) => answer.questionId === question.id,
-								),
+							const answerDecisions = context.rulePack.questions.flatMap(
+								(question) =>
+									[...context.answerDecisions, event.decision].filter(
+										(decision) => decision.answer.questionId === question.id,
+									),
 							);
-							return {
-								answers,
-								...deriveSessionComputations({
-									rulePack: context.rulePack,
-									scopeCheck: context.scopeCheck,
-									extractions: context.extractions,
-									resolutions: context.resolutions,
-									answers,
-								}),
-							};
+							return deriveDecisionComputations({
+								context,
+								answerDecisions,
+								resolutionDecisions: context.resolutionDecisions,
+								affectedResultIds: event.decision.affectedResultIds,
+							});
 						}),
 					},
 					"missing-fact-answer-removed": {
@@ -1033,19 +1224,46 @@ const createSessionMachine = ({
 							if (event.type !== "missing-fact-answer-removed") {
 								return {};
 							}
-							const answers = context.answers.filter(
-								(answer) => answer.answerId !== event.answerId,
+							const answerDecisions = context.answerDecisions.filter(
+								(decision) =>
+									decision.answer.answerId !== event.decision.answer.answerId,
 							);
-							return {
-								answers,
-								...deriveSessionComputations({
-									rulePack: context.rulePack,
-									scopeCheck: context.scopeCheck,
-									extractions: context.extractions,
-									resolutions: context.resolutions,
-									answers,
-								}),
-							};
+							return deriveDecisionComputations({
+								context,
+								answerDecisions,
+								resolutionDecisions: context.resolutionDecisions,
+								affectedResultIds: event.decision.affectedResultIds,
+							});
+						}),
+					},
+					"fact-resolution-removed": {
+						actions: sessionSetup.assign(({ context, event }) => {
+							if (event.type !== "fact-resolution-removed") {
+								return {};
+							}
+							const resolutionDecisions = context.resolutionDecisions.filter(
+								(decision) =>
+									decision.resolution.resolutionId !==
+									event.decision.resolution.resolutionId,
+							);
+							return deriveDecisionComputations({
+								context,
+								answerDecisions: context.answerDecisions,
+								resolutionDecisions,
+								affectedResultIds: event.decision.affectedResultIds,
+							});
+						}),
+					},
+					"recomputation-scheduled": {
+						guard: ({ context, event }) =>
+							event.type === "recomputation-scheduled" &&
+							context.pendingRecomputation.kind === "pending" &&
+							context.pendingRecomputation.generation === event.generation,
+						actions: sessionSetup.assign(({ context, event }) => {
+							if (event.type !== "recomputation-scheduled") {
+								return {};
+							}
+							return settlePendingRecomputation(context);
 						}),
 					},
 				},
@@ -1086,11 +1304,15 @@ const toSessionSnapshot = (
 			documents: context.documents,
 			extractions: context.extractions,
 			factConflicts: context.reconciliation.conflicts,
-			factResolutions: context.resolutions,
+			factResolutions: resolutionsOf(context.resolutionDecisions),
 			questionnaire: context.questionnaire,
-			factAnswers: context.answers,
+			factAnswers: answersOf(context.answerDecisions),
 			salaryComputation: context.salaryComputation,
 			estimateComputation: context.estimateComputation,
+			pendingRecomputation:
+				context.pendingRecomputation.kind === "pending"
+					? { kind: "pending" }
+					: { kind: "idle" },
 		};
 		default: {
 			const _exhaustive: never = context.scopeCheck;
@@ -1118,6 +1340,12 @@ export const createSessionOrchestrator = ({
 	let actorSnapshot: SessionActorSnapshot;
 	let sessionSnapshot: SessionOrchestratorSnapshot;
 	let isStopped = false;
+	const recomputationTimers = new Set<ReturnType<typeof setTimeout>>();
+	const RECOMPUTATION_DELAY_MS = 25;
+	const resultIdsOf = (results: readonly AffectedResult[]): readonly string[] =>
+		Object.freeze(
+			[...new Set(results.map((result) => result.resultId))].sort(),
+		);
 
 	const notifyListeners = () => {
 		for (const listener of listeners) {
@@ -1165,6 +1393,30 @@ export const createSessionOrchestrator = ({
 			}
 			controllers.delete(candidateKey);
 		}
+	};
+
+	const schedulePendingRecomputation = (): void => {
+		const pending = actor.getSnapshot().context.pendingRecomputation;
+		if (pending.kind !== "pending") {
+			return;
+		}
+		const targetActor = actor;
+		const generation = pending.generation;
+		const timer = setTimeout(() => {
+			recomputationTimers.delete(timer);
+			targetActor.send({
+				type: "recomputation-scheduled",
+				generation,
+			});
+		}, RECOMPUTATION_DELAY_MS);
+		recomputationTimers.add(timer);
+	};
+
+	const cancelScheduledRecomputations = (): void => {
+		for (const timer of recomputationTimers) {
+			clearTimeout(timer);
+		}
+		recomputationTimers.clear();
 	};
 
 	const startInspection = (
@@ -1333,8 +1585,9 @@ export const createSessionOrchestrator = ({
 			if (isStopped) {
 				return;
 			}
-			switch (command.kind) {
+				switch (command.kind) {
 				case "reset":
+					cancelScheduledRecomputations();
 					for (const candidateKey of [
 						...activeControllers.keys(),
 						...activeExtractionControllers.keys(),
@@ -1395,6 +1648,14 @@ export const createSessionOrchestrator = ({
 					if (snapshot.kind !== "document-intake") {
 						return;
 					}
+					const applicableQuestion = snapshot.questionnaire.questions.find(
+						(question) => question.id === command.questionId,
+					);
+					if (applicableQuestion === undefined) {
+						throw new Error(
+							`Rejected fact answer (${command.questionId}): question-not-applicable`,
+						);
+					}
 					const reconciliation = reconcileSessionFacts({
 						extractions: snapshot.extractions,
 						resolutions: snapshot.factResolutions,
@@ -1425,26 +1686,58 @@ export const createSessionOrchestrator = ({
 							`Rejected fact answer (${command.questionId}): ${attempt.rejection}`,
 						);
 					}
+					const affectedResultIds = Object.freeze([
+						applicableQuestion.affectedResult.resultId,
+					]);
 					actor.send({
 						type: "missing-fact-question-answered",
-						answer: attempt.answer,
+						decision: Object.freeze({
+							answer: attempt.answer,
+							affectedResultIds,
+						}),
 					});
+					schedulePendingRecomputation();
 					return;
 				}
 				case "remove-missing-fact-answer": {
 					const snapshot = getSnapshot();
-					if (
-						snapshot.kind !== "document-intake" ||
-						!snapshot.factAnswers.some(
-							(answer) => answer.answerId === command.answerId,
-						)
-					) {
+					if (snapshot.kind !== "document-intake") {
+						return;
+					}
+					const decision = actor
+						.getSnapshot()
+						.context.answerDecisions.find(
+							(candidate) => candidate.answer.answerId === command.answerId,
+						);
+					if (decision === undefined) {
 						return;
 					}
 					actor.send({
 						type: "missing-fact-answer-removed",
-						answerId: command.answerId,
+						decision,
 					});
+					schedulePendingRecomputation();
+					return;
+				}
+				case "remove-fact-resolution": {
+					const snapshot = getSnapshot();
+					if (snapshot.kind !== "document-intake") {
+						return;
+					}
+					const decision = actor
+						.getSnapshot()
+						.context.resolutionDecisions.find(
+							(candidate) =>
+								candidate.resolution.resolutionId === command.resolutionId,
+						);
+					if (decision === undefined) {
+						return;
+					}
+					actor.send({
+						type: "fact-resolution-removed",
+						decision,
+					});
+					schedulePendingRecomputation();
 					return;
 				}
 				case "resolve-fact-conflict": {
@@ -1456,6 +1749,14 @@ export const createSessionOrchestrator = ({
 						extractions: snapshot.extractions,
 						resolutions: snapshot.factResolutions,
 					});
+					const conflict = reconciliation.conflicts.find(
+						(candidate) => candidate.groupId === command.groupId,
+					);
+					if (conflict === undefined) {
+						throw new Error(
+							`Rejected fact resolution (${command.groupId}): conflict-not-found`,
+						);
+					}
 					let recordedAt;
 					try {
 						recordedAt = parseIsoTimestamp(
@@ -1479,10 +1780,15 @@ export const createSessionOrchestrator = ({
 							`Rejected fact resolution (${command.groupId}): ${attempt.rejection}`,
 						);
 					}
+					const affectedResultIds = resultIdsOf(conflict.affectedResults);
 					actor.send({
 						type: "fact-conflict-resolved",
-						resolution: attempt.resolution,
+						decision: Object.freeze({
+							resolution: attempt.resolution,
+							affectedResultIds,
+						}),
 					});
+					schedulePendingRecomputation();
 					return;
 				}
 				default: {
@@ -1493,6 +1799,7 @@ export const createSessionOrchestrator = ({
 		},
 		stop: () => {
 			isStopped = true;
+			cancelScheduledRecomputations();
 			for (const candidateKey of [
 				...activeControllers.keys(),
 				...activeExtractionControllers.keys(),

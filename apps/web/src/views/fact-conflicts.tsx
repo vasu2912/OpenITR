@@ -282,6 +282,18 @@ export const FactConflictsView = ({
 											— {resolution.reason} · recorded {resolution.recordedAt}
 											. Original evidence retained.
 										</small>
+										<Button
+											aria-label={`Change resolution for ${String(resolution.factKey)}`}
+											onClick={() =>
+												session.send({
+													kind: "remove-fact-resolution",
+													resolutionId: resolution.resolutionId,
+												})
+											}
+											variant="link"
+										>
+											Change resolution
+										</Button>
 									</dd>
 								</div>
 							))}
