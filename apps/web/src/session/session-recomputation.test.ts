@@ -142,9 +142,12 @@ const expectUnchangedEstimateNodes = ({
 		"derived.non-salary-income-total",
 		"derived.taxes-paid-total",
 	]) {
-		expect(after.nodes.find((node) => node.nodeId === nodeId)).toEqual(
-			before.nodes.find((node) => node.nodeId === nodeId),
-		);
+		const beforeNode = before.nodes.find((node) => node.nodeId === nodeId);
+		const afterNode = after.nodes.find((node) => node.nodeId === nodeId);
+		if (beforeNode === undefined || afterNode === undefined) {
+			throw new Error(`Expected unchanged estimate node: ${nodeId}`);
+		}
+		expect(afterNode).toEqual(beforeNode);
 	}
 };
 
@@ -345,6 +348,19 @@ describe("decision recomputation", () => {
 			kind: "remove-fact-resolution",
 			resolutionId: originalResolution.resolutionId,
 		});
+		const unresolvedPending = session.getSnapshot();
+		expect(unresolvedPending.kind).toBe("document-intake");
+		if (unresolvedPending.kind === "document-intake") {
+			expect(unresolvedPending.pendingRecomputation.kind).toBe("pending");
+			expect(unresolvedPending.estimateComputation).toBeUndefined();
+			expect(
+				unresolvedPending.factConflicts.some(
+					(candidate) => candidate.groupId === conflict.groupId,
+				),
+			).toBe(true);
+			expect(unresolvedPending.extractions).toBe(originalExtractions);
+			expect(unresolvedPending.salaryComputation).toBe(originalSalary);
+		}
 		session.send({
 			kind: "resolve-fact-conflict",
 			groupId: conflict.groupId,

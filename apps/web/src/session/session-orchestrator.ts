@@ -600,6 +600,25 @@ const deriveSessionReview = ({
 // One derivation per source-document event: reconciliation runs once, the
 // salary scenario runs once, and every snapshot field is built from those
 // results, so the cards can never disagree.
+const deriveSessionReviewAndSalary = (
+	input: SliceComputationInput,
+): Readonly<{
+	reconciliation: ReconciliationResult;
+	questionnaire: MissingFactQuestionnaire;
+	salaryComputation: NewRegimeSalaryComputation | undefined;
+}> => {
+	const { rulePack, scopeCheck, extractions } = input;
+	const review = deriveSessionReview(input);
+	return {
+		...review,
+		salaryComputation: computeSalaryScenario({
+			rulePack,
+			scopeCheck,
+			extractions,
+		}),
+	};
+};
+
 const deriveSessionComputations = (
 	input: SliceComputationInput,
 ): Readonly<{
@@ -609,24 +628,18 @@ const deriveSessionComputations = (
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
-	const review = deriveSessionReview(input);
-	const salaryComputation = computeSalaryScenario({
-		rulePack,
-		scopeCheck,
-		extractions,
-	});
+	const derived = deriveSessionReviewAndSalary(input);
 	const estimateComputation = computeEstimateScenario({
 		rulePack,
 		scopeCheck,
 		extractions,
 		answers,
-		reconciliation: review.reconciliation,
-		questionnaire: review.questionnaire,
-		salaryComputation,
+		reconciliation: derived.reconciliation,
+		questionnaire: derived.questionnaire,
+		salaryComputation: derived.salaryComputation,
 	});
 	return {
-		...review,
-		salaryComputation,
+		...derived,
 		estimateComputation,
 	};
 };
@@ -709,13 +722,13 @@ const deriveDecisionComputations = ({
 			? undefined
 			: computeEstimateScenario({
 					rulePack: context.rulePack,
-				scopeCheck: context.scopeCheck,
-				extractions: context.extractions,
-				answers,
-				reconciliation: review.reconciliation,
-				questionnaire: review.questionnaire,
-				salaryComputation: context.salaryComputation,
-			}),
+					scopeCheck: context.scopeCheck,
+					extractions: context.extractions,
+					answers,
+					reconciliation: review.reconciliation,
+					questionnaire: review.questionnaire,
+					salaryComputation: context.salaryComputation,
+				}),
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
 			? pendingRecomputationFor({ generation, affectedResultIds })
@@ -766,14 +779,15 @@ const deriveSourceComputations = ({
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
-	const derived = deriveSessionComputations({
+	const input: SliceComputationInput = {
 		rulePack: context.rulePack,
 		scopeCheck: context.scopeCheck,
 		extractions,
 		resolutions: resolutionsOf(context.resolutionDecisions),
 		answers: answersOf(context.answerDecisions),
-	});
+	};
 	if (context.pendingRecomputation.kind === "pending") {
+		const derived = deriveSessionReviewAndSalary(input);
 		return {
 			extractions,
 			...derived,
@@ -782,6 +796,7 @@ const deriveSourceComputations = ({
 			pendingRecomputation: context.pendingRecomputation,
 		};
 	}
+	const derived = deriveSessionComputations(input);
 	return {
 		extractions,
 		...derived,
@@ -1585,7 +1600,7 @@ export const createSessionOrchestrator = ({
 			if (isStopped) {
 				return;
 			}
-				switch (command.kind) {
+			switch (command.kind) {
 				case "reset":
 					cancelScheduledRecomputations();
 					for (const candidateKey of [
