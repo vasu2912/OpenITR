@@ -16,6 +16,11 @@ import type {
 	CompiledTaxConstants,
 	RulePackManifestTaxConstants,
 } from "./rules/tax-constants";
+import type {
+	AnalysisScopeCatalog,
+	AnalysisScopeEvaluation,
+	RulePackManifestAnalysisScopeRecord,
+} from "./scope-analysis";
 
 export * from "./primitives";
 export * from "./money/exact-money";
@@ -25,6 +30,7 @@ export * from "./documents/inspection-outcome";
 export * from "./documents/candidate-document";
 export * from "./documents/observation";
 export * from "./documents/extraction";
+export * from "./scope-analysis";
 
 export type EligibilityAnswerValue = "yes" | "no";
 
@@ -127,6 +133,8 @@ export type CompletedScopeCheck = Readonly<{
 	question: Pick<EligibilityQuestion, "id" | "prompt">;
 	answer: AttestedAnswer;
 	result: ScopeCheckResult;
+	// Present only for revisions that publish the full executable scope.
+	analysisScope?: AnalysisScopeEvaluation;
 }>;
 
 export type RulePackIdentity = Readonly<{
@@ -160,12 +168,18 @@ export type ScopeRulePack = Readonly<{
 	// Empty for packs authored before the questionnaire existed.
 	questions: readonly FactQuestion[];
 	taxConstants: CompiledTaxConstants | undefined;
+	// Newer packs may publish the complete scope catalog. This remains optional
+	// so older revisions retain their exact compiled representation.
+	analysisScope?: AnalysisScopeCatalog;
 	evaluate(
 		input: Readonly<{
 			answer: EligibilityAnswerValue;
 			answeredAt: IsoTimestamp;
 		}>,
 	): CompletedScopeCheck;
+	evaluateAnalysisScope?: (input: Readonly<{
+		facts: readonly import("./scope-analysis").ScopeFact[];
+	}>) => import("./scope-analysis").AnalysisScopeEvaluation;
 }>;
 
 export type TaxAnalysisModuleArtifactIdentity = Readonly<{
@@ -245,6 +259,7 @@ export type RulePackManifest = Readonly<{
 	// Optional so every revision compiled before questions existed keeps its
 	// exact compiled identity.
 	missingFactQuestions?: readonly RulePackManifestFactQuestionRecord[];
+	analysisScope?: RulePackManifestAnalysisScopeRecord;
 	taxConstants?: RulePackManifestTaxConstants;
 }>;
 
@@ -263,6 +278,7 @@ export type CompiledRulePack = Readonly<{
 	// questions, so packs compiled before questions existed keep their
 	// exact compiled identity.
 	missingFactQuestions?: readonly FactQuestion[];
+	analysisScope?: AnalysisScopeCatalog;
 	taxConstants?: CompiledTaxConstants;
 }>;
 
@@ -329,4 +345,5 @@ export type ScopeCheckSessionSnapshot =
 			question: Pick<EligibilityQuestion, "id" | "prompt">;
 			answer: AttestedAnswer;
 			result: ScopeCheckResult;
+			analysisScope?: AnalysisScopeEvaluation;
 	  }>;

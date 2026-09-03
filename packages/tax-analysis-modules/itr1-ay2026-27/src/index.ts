@@ -15,8 +15,21 @@ export {
 } from "./revisions/2026-08-26/rule-pack";
 export { itr1Ay202627RulePackManifest20260826 } from "./revisions/2026-08-26/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260903,
+	itr1Ay202627RulePack20260903,
+} from "./revisions/2026-09-03/rule-pack";
+export { itr1Ay202627RulePackManifest20260903 } from "./revisions/2026-09-03/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
+export {
+	deriveItr1AnalysisScopeFacts,
+	evaluateItr1AnalysisScope,
+	itr1EstimateIsBlockedByScopeFacts,
+	knownScopeFact,
+	parseItr1ScopeQuestionAnswer,
+	unknownScopeFact,
+} from "./scope-analysis";
 export {
 	itr1Ay202627CompiledRulePack,
 	itr1Ay202627RulePack,

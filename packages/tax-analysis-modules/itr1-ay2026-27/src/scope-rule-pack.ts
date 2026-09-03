@@ -5,6 +5,8 @@ import type {
 	ScopeRulePack,
 } from "@openitr/model";
 
+import { evaluateItr1AnalysisScope } from "./scope-analysis";
+
 const answerLabel = (
 	answer: EligibilityAnswerValue,
 	compiled: CompiledRulePack,
@@ -22,6 +24,7 @@ export const createScopeRulePack = ({
 	compiled,
 }: Readonly<{ compiled: CompiledRulePack }>): ScopeRulePack => {
 	const { scopeCheck } = compiled;
+	const analysisScope = compiled.analysisScope;
 
 	const evaluate: ScopeRulePack["evaluate"] = ({ answer, answeredAt }) =>
 		Object.freeze({
@@ -39,12 +42,25 @@ export const createScopeRulePack = ({
 			result: scopeCheck.results[answer],
 		}) satisfies CompletedScopeCheck;
 
-	return Object.freeze({
+	const base = {
 		identity: compiled.identity,
 		officialSources: compiled.officialSources,
 		question: scopeCheck.question,
 		questions: compiled.missingFactQuestions ?? Object.freeze([]),
 		taxConstants: compiled.taxConstants,
 		evaluate,
+	};
+	if (analysisScope === undefined) {
+		return Object.freeze(base);
+	}
+	return Object.freeze({
+		...base,
+		analysisScope,
+		evaluateAnalysisScope: ({ facts }: Readonly<{ facts: readonly import("@openitr/model").ScopeFact[] }>) =>
+			evaluateItr1AnalysisScope({
+				catalog: analysisScope,
+				rulePackIdentity: compiled.identity,
+				facts,
+			}),
 	});
 };

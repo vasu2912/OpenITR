@@ -41,7 +41,9 @@ test.describe("source document inspection", () => {
 			},
 		]);
 
-		await expect(page.locator(`[data-candidate="${sentinelName}"]`)).toBeVisible();
+		await expect(
+			page.locator(`[data-candidate="${sentinelName}"]`),
+		).toBeVisible();
 		await expectCandidateStatus(page, sentinelName, "identified");
 		await expect(
 			page.locator(`[data-candidate="${sentinelName}"]`),
@@ -160,68 +162,37 @@ test.describe("source document inspection", () => {
 	test("cancels active inspection and the row settles as cancelled", async ({
 		page,
 	}) => {
-		test.setTimeout(60_000);
 		await openDocumentIntake(page);
+		// Hold the real worker's startup so cancellation does not race a tiny
+		// fixture finishing before Playwright can activate its button.
+		let releaseWorker = () => {};
+		const workerStartup = new Promise<void>((resolve) => {
+			releaseWorker = resolve;
+		});
+		await page.route(
+			/\/assets\/document-inspection\.worker-.*\.js$/,
+			async (route) => {
+				await workerStartup;
+				await route.continue();
+			},
+		);
 
-		await selectSourceFiles(page, [
-			{
-				name: "bulk-form16-a.pdf",
-				mimeType: "application/pdf",
-				buffer: bytesBuffer(createForm16PdfFixture(["batch a"])),
-			},
-			{
-				name: "bulk-form16-b.pdf",
-				mimeType: "application/pdf",
-				buffer: bytesBuffer(createForm16PdfFixture(["batch b"])),
-			},
-			{
-				name: "bulk-form16-c.pdf",
-				mimeType: "application/pdf",
-				buffer: bytesBuffer(createForm16PdfFixture(["batch c"])),
-			},
-			{
-				name: "bulk-form16-d.pdf",
-				mimeType: "application/pdf",
-				buffer: bytesBuffer(createForm16PdfFixture(["batch d"])),
-			},
-			{
-				name: "bulk-form16-e.pdf",
-				mimeType: "application/pdf",
-				buffer: bytesBuffer(createForm16PdfFixture(["batch e"])),
-			},
-			{
-				name: "bulk-form16-f.pdf",
-				mimeType: "application/pdf",
-				buffer: bytesBuffer(createForm16PdfFixture(["batch f"])),
-			},
-		]);
+		try {
+			await selectSourceFiles(page, [
+				{
+					name: "bulk-form16-a.pdf",
+					mimeType: "application/pdf",
+					buffer: bytesBuffer(createForm16PdfFixture(["batch a"])),
+				},
+			]);
 
-		let cancelledSome = false;
-		for (let attempt = 0; attempt < 6 && !cancelledSome; attempt += 1) {
-			const cancelButtons = page.getByRole("button", {
-				name: "Cancel inspection",
-			});
-			const count = await cancelButtons.count();
-			if (count === 0) {
-				break;
-			}
-			for (let index = count - 1; index >= 0; index -= 1) {
-				const button = cancelButtons.nth(index);
-				if (!(await button.isVisible().catch(() => false))) {
-					continue;
-				}
-				try {
-					await button.focus({ timeout: 500 });
-					await page.keyboard.press("Enter");
-					cancelledSome = true;
-					break;
-				} catch {
-					continue;
-				}
-			}
+			await page
+				.getByRole("button", { name: "Cancel inspection", exact: true })
+				.focus();
+			await page.keyboard.press("Enter");
+		} finally {
+			releaseWorker();
 		}
-
-		expect(cancelledSome).toBe(true);
 		await expect(
 			page.locator('.openitr-document-row[data-status="cancelled"]').first(),
 		).toBeVisible();

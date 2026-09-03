@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import {
 	answerScopeCheck,
-	expectScopeResult,
+	expectInitialScopeAnswer,
 	openScopeQuestion,
 } from "./helpers";
 
@@ -10,7 +10,7 @@ test.describe("OpenITR session lifecycle", () => {
 	test("refreshing the page starts a new empty session", async ({ page }) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
-		await expectScopeResult(page, "Supported by this scope check");
+		await expectInitialScopeAnswer({ page, answer: "Yes" });
 
 		await page.reload();
 
@@ -18,7 +18,7 @@ test.describe("OpenITR session lifecycle", () => {
 			page.getByRole("heading", { name: "Residential status" }),
 		).toBeVisible();
 		await expect(
-			page.getByText("Supported by this scope check"),
+			page.getByRole("heading", { name: "Complete ITR-1 analysis scope" }),
 		).toHaveCount(0);
 		await expect(
 			page.getByRole("radio", { name: "Yes" }),
@@ -30,7 +30,7 @@ test.describe("OpenITR session lifecycle", () => {
 	}) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "No");
-		await expectScopeResult(page, "Not supported by this scope check");
+		await expectInitialScopeAnswer({ page, answer: "No" });
 
 		await page
 			.getByRole("banner")
@@ -49,7 +49,7 @@ test.describe("OpenITR session lifecycle", () => {
 			page.getByRole("heading", { name: "Residential status" }),
 		).toBeVisible();
 		await expect(
-			page.getByText("Not supported by this scope check"),
+			page.getByRole("heading", { name: "Complete ITR-1 analysis scope" }),
 		).toHaveCount(0);
 		await expect(
 			page.getByRole("radio", { name: "No" }),
@@ -61,7 +61,7 @@ test.describe("OpenITR session lifecycle", () => {
 	}) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
-		await expectScopeResult(page, "Supported by this scope check");
+		await expectInitialScopeAnswer({ page, answer: "Yes" });
 
 		await page
 			.getByRole("banner")
@@ -75,7 +75,7 @@ test.describe("OpenITR session lifecycle", () => {
 		await confirmationDialog.getByRole("button", { name: "Cancel" }).click();
 
 		await expect(confirmationDialog).toHaveCount(0);
-		await expectScopeResult(page, "Supported by this scope check");
-		await expect(page.getByText("You answered Yes.")).toBeVisible();
+		await expectInitialScopeAnswer({ page, answer: "Yes" });
+		await expect(page.locator('[data-scope-question="scope-individual"]')).toContainText("Recorded answer: Yes");
 	});
 });

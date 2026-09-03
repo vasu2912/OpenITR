@@ -31,14 +31,15 @@ import type { FormEvent, ReactNode } from "react";
 import { loadRulePack } from "../session/load-rule-pack";
 import { createSessionOrchestrator } from "../session/session-orchestrator";
 import type { SessionOrchestrator } from "../session/session-orchestrator";
-	import { workerInspectionFacility } from "../session/worker-inspection-facility";
-	import { activeAnalysisRelease } from "./release-manifest";
-	import { DocumentsIntakeView } from "../views/documents-intake";
+import { workerInspectionFacility } from "../session/worker-inspection-facility";
+import { activeAnalysisRelease } from "./release-manifest";
+import { DocumentsIntakeView } from "../views/documents-intake";
 import { FactConflictsView } from "../views/fact-conflicts";
 import { SalaryReviewView } from "../views/salary-review";
 import { SalaryComputationView } from "../views/salary-computation";
 import { EstimateView } from "../views/estimate-view";
 import { MissingFactQuestionsView } from "../views/missing-fact-questions";
+import { ScopeAnalysisView } from "../views/scope-analysis";
 
 type SessionLoadState =
 	| Readonly<{ kind: "loading" }>
@@ -140,9 +141,8 @@ const AppFrame = ({
 					Check whether this analysis applies
 				</Title>
 				<p className="openitr-lede">
-					Answer one eligibility question from the pinned AY 2026-27 rule
-					pack. This check covers one condition, not the complete ITR-1
-					analysis envelope.
+					Answer the eligibility question from the pinned AY 2026-27 rule pack,
+					then review the complete ITR-1 analysis scope and its evidence checklist.
 				</p>
 
 				<Alert
@@ -311,6 +311,9 @@ const ScopeInteraction = ({
 		snapshot.kind === "document-intake"
 			? snapshot.pendingRecomputation
 			: { kind: "idle" as const };
+	const analysisScope = snapshot.analysisScope;
+	const canEnterDocuments =
+		analysisScope === undefined || analysisScope.kind === "supported";
 
 	return (
 		<AppFrame
@@ -322,10 +325,9 @@ const ScopeInteraction = ({
 					Reset session
 				</Button>
 			}
-			workflowState="complete"
+			workflowState={canEnterDocuments ? "complete" : "in-progress"}
 		>
-			<Card
-				aria-live="polite"
+			{analysisScope === undefined ? <Card
 				className="openitr-result-card"
 				component="section"
 			>
@@ -380,12 +382,30 @@ const ScopeInteraction = ({
 						decision.
 					</p>
 				</CardBody>
-			</Card>
-			<DocumentsIntakeView
-				documents={documents}
-				extractions={extractions}
-				session={session}
-			/>
+			</Card> : null}
+			{analysisScope === undefined ? null : (
+				<ScopeAnalysisView evaluation={analysisScope} session={session} />
+			)}
+			{canEnterDocuments ? (
+				<DocumentsIntakeView
+					documents={documents}
+					extractions={extractions}
+					session={session}
+				/>
+			) : (
+				<Card className="openitr-documents-card" component="section">
+					<CardTitle>
+						<Title headingLevel="h2" size="lg">
+							Source documents are locked
+						</Title>
+					</CardTitle>
+					<CardBody>
+						<Alert isInline title="Complete the mandatory scope questions before selecting source documents" variant="info">
+							Resolve every unknown, blocked, or outside-scope decision in the complete ITR-1 analysis scope first. This does not make OpenITR a filing-eligibility or portal-acceptance service.
+						</Alert>
+					</CardBody>
+				</Card>
+			)}
 			{snapshot.kind === "document-intake" ? (
 				<MissingFactQuestionsView
 					answers={snapshot.factAnswers}

@@ -7,6 +7,8 @@ import {
 	parseIsoTimestamp,
 } from "@openitr/model";
 import type {
+	AnalysisScopeEvaluation,
+	AttestedAnswer,
 	CandidateDocument,
 	CompletedScopeCheck,
 	DocumentExtractionOutcome,
@@ -18,11 +20,18 @@ import type {
 	IsoTimestamp,
 	QuestionId,
 	ScopeCheckSessionSnapshot,
+	ScopeFact,
 	ScopeRulePack,
 	SelectedSourceFile,
 	Sha256Digest,
 } from "@openitr/model";
-import { computeNewRegimeSalaryScenario } from "@openitr/itr1-ay2026-27";
+import {
+	computeNewRegimeSalaryScenario,
+	deriveItr1AnalysisScopeFacts,
+	knownScopeFact,
+	parseItr1ScopeQuestionAnswer,
+	itr1EstimateIsBlockedByScopeFacts,
+} from "@openitr/itr1-ay2026-27";
 import type {
 	AttestedFactContribution,
 	NewRegimeSalaryComputation,
@@ -83,6 +92,12 @@ export type SessionCommand =
 			executionContext: Readonly<{ answerTime: string }>;
 	  }>
 	| Readonly<{
+			kind: "answer-analysis-scope-question";
+			questionId: string;
+			value: string;
+			executionContext: Readonly<{ answerTime: string }>;
+		}>
+	| Readonly<{
 			kind: "remove-missing-fact-answer";
 			answerId: string;
 	  }>
@@ -129,6 +144,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	factResolutions: readonly FactResolution[];
 	questionnaire: MissingFactQuestionnaire;
 	factAnswers: readonly AttestedAnswerFact[];
+	analysisScope?: AnalysisScopeEvaluation;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 	pendingRecomputation: PendingRecomputation;
@@ -168,6 +184,8 @@ type SessionContext = Readonly<{
 	extractions: readonly DocumentExtractionRecord[];
 	resolutionDecisions: readonly ResolutionDecision[];
 	answerDecisions: readonly AnswerDecision[];
+	analysisScopeFacts: readonly ScopeFact[];
+	analysisScopeEvaluation: AnalysisScopeEvaluation | undefined;
 	reconciliation: ReconciliationResult;
 	questionnaire: MissingFactQuestionnaire;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
@@ -189,6 +207,43 @@ const emptyQuestionnaireOf = (
 		rulePackRevision: rulePack.identity.revision,
 		questions: Object.freeze([]),
 	});
+
+const scopeFactsFromEligibility = (
+	rulePack: ScopeRulePack,
+	completion: CompletedScopeCheck,
+): readonly ScopeFact[] => {
+	if (rulePack.evaluateAnalysisScope === undefined) {
+		return [];
+	}
+	const origin = {
+		kind: "attested-answer" as const,
+		questionId: completion.answer.questionId,
+		questionRevision: rulePack.identity.revision,
+		answeredAt: completion.answer.answeredAt,
+		rulePackId: rulePack.identity.id,
+	};
+	const facts: ScopeFact[] = [];
+	if (completion.answer.value === "yes") {
+		facts.push(
+			knownScopeFact({
+				factKey: parseFactKey("scope.taxpayer-resident-other-than-rnor"),
+				value: { kind: "boolean", value: true },
+				origin,
+			}),
+			knownScopeFact({
+				factKey: parseFactKey("scope.taxpayer-is-individual"),
+				value: { kind: "boolean", value: true },
+				origin,
+			}),
+		);
+	}
+	return Object.freeze(facts);
+};
+
+const evaluateAnalysisScopeOf = (
+	{ rulePack, facts }: Readonly<{ rulePack: ScopeRulePack; facts: readonly ScopeFact[]; }>,
+): AnalysisScopeEvaluation | undefined =>
+	rulePack.evaluateAnalysisScope?.({ facts });
 
 // Only observations that no review issue disputes are accepted facts. The
 // computations themselves re-validate everything and fail closed on gaps.
@@ -251,6 +306,8 @@ type SliceComputationInput = Readonly<{
 	extractions: readonly DocumentExtractionRecord[];
 	resolutions: readonly FactResolution[];
 	answers: readonly AttestedAnswerFact[];
+	analysisScopeFacts: readonly ScopeFact[];
+	documentsStageEntered?: boolean;
 }>;
 
 // Fact keys whose conflicts the taxpayer may resolve by attesting a value.
@@ -392,12 +449,45 @@ const representativeFilterOf = (
 	return (observation) => representatives.has(observation.observationId);
 };
 
+const currentResidentAnswerOf = (
+	{ scopeCheck, analysisScopeFacts }: Readonly<{ scopeCheck: SessionContext["scopeCheck"]; analysisScopeFacts: readonly ScopeFact[]; }>,
+): AttestedAnswer => {
+	if (scopeCheck.kind !== "complete") {
+		throw new Error("A resident answer requires a completed scope check");
+	}
+	const residentFact = analysisScopeFacts.find(
+		(fact) => fact.factKey === parseFactKey("scope.taxpayer-resident-other-than-rnor"),
+	);
+	if (
+		residentFact?.state === "known" &&
+		residentFact.value.kind === "boolean" &&
+		residentFact.origin.kind === "attested-answer"
+	) {
+		const value = residentFact.value.value ? "yes" : "no";
+		return Object.freeze({
+			questionId: residentFact.origin.questionId,
+			value,
+			label: value === "yes" ? "Yes" : "No",
+			answeredAt: residentFact.origin.answeredAt,
+			rulePackId: residentFact.origin.rulePackId,
+		});
+	}
+	return scopeCheck.completion.answer;
+};
+
 const computeSalaryScenario = ({
 	rulePack,
 	scopeCheck,
 	extractions,
-}: Omit<SliceComputationInput, "resolutions" | "answers">): NewRegimeSalaryComputation | undefined => {
+	analysisScopeFacts,
+}: Pick<SliceComputationInput, "rulePack" | "scopeCheck" | "extractions" | "analysisScopeFacts">): NewRegimeSalaryComputation | undefined => {
 	if (scopeCheck.kind !== "complete") {
+		return undefined;
+	}
+	if (
+		rulePack.analysisScope !== undefined &&
+		evaluateAnalysisScopeOf({ rulePack, facts: analysisScopeFacts })?.kind !== "supported"
+	) {
 		return undefined;
 	}
 	const doneRecords = sliceRecords(extractions, "observations");
@@ -410,7 +500,7 @@ const computeSalaryScenario = ({
 	}));
 	return computeNewRegimeSalaryScenario({
 		rulePack,
-		residentAnswer: scopeCheck.completion.answer,
+		residentAnswer: currentResidentAnswerOf({ scopeCheck, analysisScopeFacts }),
 		salaryDocuments,
 	});
 };
@@ -423,6 +513,7 @@ const computeEstimateScenario = ({
 	reconciliation,
 	questionnaire,
 	salaryComputation,
+	analysisScopeFacts,
 }: Omit<SliceComputationInput, "resolutions"> & {
 	reconciliation: ReconciliationResult;
 	questionnaire: MissingFactQuestionnaire;
@@ -431,6 +522,19 @@ const computeEstimateScenario = ({
 	if (scopeCheck.kind !== "complete") {
 		return undefined;
 	}
+	if (
+		rulePack.analysisScope !== undefined &&
+		evaluateAnalysisScopeOf({ rulePack, facts: analysisScopeFacts })?.kind !== "supported"
+	) {
+		return undefined;
+	}
+	if (
+		rulePack.analysisScope !== undefined &&
+		itr1EstimateIsBlockedByScopeFacts(analysisScopeFacts)
+	) {
+		return undefined;
+	}
+	const residentAnswer = currentResidentAnswerOf({ scopeCheck, analysisScopeFacts });
 	const withheldFactKeys = [
 		...new Set(reconciliation.conflicts.map((conflict) => conflict.factKey)),
 	].sort();
@@ -522,7 +626,7 @@ const computeEstimateScenario = ({
 	if (salaryComputation !== undefined) {
 		return estimateRefundOrAmountPayableFromSalaryScenario({
 			rulePack,
-			residentAnswer: scopeCheck.completion.answer,
+			residentAnswer,
 			salaryScenario: salaryComputation,
 			salaryDocuments: salaryRecords.map((record) =>
 				toDocument(record, record.observations, false),
@@ -548,7 +652,7 @@ const computeEstimateScenario = ({
 	}
 	return computeRefundOrAmountPayableEstimate({
 		rulePack,
-		residentAnswer: scopeCheck.completion.answer,
+		residentAnswer,
 		salaryDocuments: salaryRecords.map((record) =>
 			toDocument(record, record.observations, false),
 		),
@@ -572,16 +676,13 @@ const computeEstimateScenario = ({
 	});
 };
 
-const deriveSessionReview = ({
-	rulePack,
-	scopeCheck,
-	extractions,
-	resolutions,
-	answers,
-}: SliceComputationInput): Readonly<{
+const deriveSessionReview = (
+	input: SliceComputationInput,
+): Readonly<{
 	reconciliation: ReconciliationResult;
 	questionnaire: MissingFactQuestionnaire;
 }> => {
+	const { rulePack, scopeCheck, extractions, resolutions, answers } = input;
 	const reconciliation = reconcileSessionFacts({ extractions, resolutions });
 	const questionnaire =
 		scopeCheck.kind === "complete"
@@ -590,7 +691,9 @@ const deriveSessionReview = ({
 					scopeCheck: scopeCheck.completion,
 					acceptedFacts: reconciliation.acceptedFacts,
 					conflictedFacts: reconciliation.conflicts,
-					applicableResultIds: activeEstimateResultIds(extractions),
+					applicableResultIds: input.documentsStageEntered === true
+						? [ESTIMATE_AFFECTED_RESULT.resultId]
+						: activeEstimateResultIds(extractions),
 					answers,
 				})
 			: emptyQuestionnaireOf(rulePack);
@@ -611,11 +714,12 @@ const deriveSessionReviewAndSalary = (
 	const review = deriveSessionReview(input);
 	return {
 		...review,
-		salaryComputation: computeSalaryScenario({
-			rulePack,
-			scopeCheck,
-			extractions,
-		}),
+			salaryComputation: computeSalaryScenario({
+				rulePack,
+				scopeCheck,
+				extractions,
+				analysisScopeFacts: input.analysisScopeFacts,
+			}),
 	};
 };
 
@@ -629,10 +733,17 @@ const deriveSessionComputations = (
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
 	const derived = deriveSessionReviewAndSalary(input);
+	const analysisScopeFacts = deriveItr1AnalysisScopeFacts({
+		baseFacts: input.analysisScopeFacts,
+		acceptedFacts: derived.reconciliation.acceptedFacts,
+		attestedFacts: answers,
+		rulePackId: rulePack.identity.id,
+	});
 	const estimateComputation = computeEstimateScenario({
 		rulePack,
 		scopeCheck,
 		extractions,
+		analysisScopeFacts,
 		answers,
 		reconciliation: derived.reconciliation,
 		questionnaire: derived.questionnaire,
@@ -678,6 +789,8 @@ const deriveDecisionComputations = ({
 }>): Pick<
 	SessionContext,
 	| "answerDecisions"
+	| "analysisScopeFacts"
+	| "analysisScopeEvaluation"
 	| "resolutionDecisions"
 	| "reconciliation"
 	| "questionnaire"
@@ -694,13 +807,26 @@ const deriveDecisionComputations = ({
 		extractions: context.extractions,
 		resolutions,
 		answers,
+		analysisScopeFacts: context.analysisScopeFacts,
+		documentsStageEntered: context.documentsStageEntered,
 	});
+	const analysisScopeFacts = deriveItr1AnalysisScopeFacts({
+		baseFacts: context.analysisScopeFacts,
+		acceptedFacts: review.reconciliation.acceptedFacts,
+		attestedFacts: answers,
+		rulePackId: context.rulePack.identity.id,
+	});
+	const analysisScopeEvaluation = evaluateAnalysisScopeOf(
+		{ rulePack: context.rulePack, facts: analysisScopeFacts },
+	);
 	const affectsEstimate = affectedResultIds.includes(
 		ESTIMATE_AFFECTED_RESULT.resultId,
 	);
 	if (!affectsEstimate) {
 		return {
 			answerDecisions,
+			analysisScopeFacts,
+			analysisScopeEvaluation,
 			resolutionDecisions,
 			...review,
 			salaryComputation: context.salaryComputation,
@@ -715,6 +841,8 @@ const deriveDecisionComputations = ({
 		context.pendingRecomputation.kind === "pending";
 	return {
 		answerDecisions,
+		analysisScopeFacts,
+		analysisScopeEvaluation,
 		resolutionDecisions,
 		...review,
 		salaryComputation: context.salaryComputation,
@@ -728,6 +856,7 @@ const deriveDecisionComputations = ({
 					reconciliation: review.reconciliation,
 					questionnaire: review.questionnaire,
 					salaryComputation: context.salaryComputation,
+					analysisScopeFacts,
 				}),
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
@@ -757,6 +886,7 @@ const settlePendingRecomputation = (
 					reconciliation: context.reconciliation,
 					questionnaire: context.questionnaire,
 					salaryComputation: context.salaryComputation,
+					analysisScopeFacts: context.analysisScopeFacts,
 				})
 			: context.estimateComputation,
 		pendingRecomputation: { kind: "idle" },
@@ -772,6 +902,8 @@ const deriveSourceComputations = ({
 }>): Pick<
 	SessionContext,
 	| "extractions"
+	| "analysisScopeFacts"
+	| "analysisScopeEvaluation"
 	| "reconciliation"
 	| "questionnaire"
 	| "salaryComputation"
@@ -785,11 +917,23 @@ const deriveSourceComputations = ({
 		extractions,
 		resolutions: resolutionsOf(context.resolutionDecisions),
 		answers: answersOf(context.answerDecisions),
+		analysisScopeFacts: context.analysisScopeFacts,
+		documentsStageEntered: context.documentsStageEntered,
 	};
 	if (context.pendingRecomputation.kind === "pending") {
 		const derived = deriveSessionReviewAndSalary(input);
+		const analysisScopeFacts = deriveItr1AnalysisScopeFacts({
+			baseFacts: context.analysisScopeFacts,
+			acceptedFacts: derived.reconciliation.acceptedFacts,
+			attestedFacts: input.answers,
+			rulePackId: context.rulePack.identity.id,
+		});
 		return {
 			extractions,
+			analysisScopeFacts,
+			analysisScopeEvaluation: evaluateAnalysisScopeOf(
+				{ rulePack: context.rulePack, facts: analysisScopeFacts },
+			),
 			...derived,
 			estimateComputation: undefined,
 			recomputationGeneration: context.recomputationGeneration,
@@ -797,8 +941,18 @@ const deriveSourceComputations = ({
 		};
 	}
 	const derived = deriveSessionComputations(input);
+	const analysisScopeFacts = deriveItr1AnalysisScopeFacts({
+		baseFacts: context.analysisScopeFacts,
+		acceptedFacts: derived.reconciliation.acceptedFacts,
+		attestedFacts: input.answers,
+		rulePackId: context.rulePack.identity.id,
+	});
 	return {
 		extractions,
+		analysisScopeFacts,
+		analysisScopeEvaluation: evaluateAnalysisScopeOf(
+			{ rulePack: context.rulePack, facts: analysisScopeFacts },
+		),
 		...derived,
 		recomputationGeneration: context.recomputationGeneration + 1,
 		pendingRecomputation: { kind: "idle" },
@@ -864,6 +1018,10 @@ type SessionEvent =
 			type: "missing-fact-question-answered";
 			decision: AnswerDecision;
 	  }>
+	| Readonly<{
+			type: "analysis-scope-question-answered";
+			fact: ScopeFact;
+		}>
 	| Readonly<{
 			type: "missing-fact-answer-removed";
 			decision: AnswerDecision;
@@ -947,6 +1105,8 @@ const createSessionMachine = ({
 			extractions: [],
 			resolutionDecisions: [],
 			answerDecisions: [],
+			analysisScopeFacts: [],
+			analysisScopeEvaluation: undefined,
 			reconciliation: emptyReconciliation,
 			questionnaire: emptyQuestionnaireOf(rulePack),
 			salaryComputation: undefined,
@@ -971,6 +1131,38 @@ const createSessionMachine = ({
 										answeredAt: event.answeredAt,
 									}),
 								};
+							},
+							analysisScopeFacts: ({ context, event }) => {
+								if (event.type !== "answer-eligibility-question") {
+									return context.analysisScopeFacts;
+								}
+								const completion = context.rulePack.evaluate({
+									answer: event.answer,
+									answeredAt: event.answeredAt,
+								});
+								return deriveItr1AnalysisScopeFacts({
+									baseFacts: scopeFactsFromEligibility(context.rulePack, completion),
+									acceptedFacts: emptyReconciliation.acceptedFacts,
+									attestedFacts: [],
+									rulePackId: context.rulePack.identity.id,
+								});
+							},
+							analysisScopeEvaluation: ({ context, event }) => {
+								if (event.type !== "answer-eligibility-question") {
+									return context.analysisScopeEvaluation;
+								}
+								const completion = context.rulePack.evaluate({
+									answer: event.answer,
+									answeredAt: event.answeredAt,
+								});
+								return evaluateAnalysisScopeOf(
+									{ rulePack: context.rulePack, facts: deriveItr1AnalysisScopeFacts({
+										baseFacts: scopeFactsFromEligibility(context.rulePack, completion),
+										acceptedFacts: emptyReconciliation.acceptedFacts,
+										attestedFacts: [],
+										rulePackId: context.rulePack.identity.id,
+									}) },
+								);
 							},
 						}),
 						target: "complete",
@@ -1234,6 +1426,53 @@ const createSessionMachine = ({
 							});
 						}),
 					},
+					"analysis-scope-question-answered": {
+						actions: sessionSetup.assign(({ context, event }) => {
+							if (event.type !== "analysis-scope-question-answered") {
+								return {};
+							}
+							const nextBaseFacts = Object.freeze([
+								...context.analysisScopeFacts.filter(
+									(fact) => fact.factKey !== event.fact.factKey,
+								),
+								event.fact,
+							]);
+							const analysisScopeFacts = deriveItr1AnalysisScopeFacts({
+								baseFacts: nextBaseFacts,
+								acceptedFacts: context.reconciliation.acceptedFacts,
+								attestedFacts: answersOf(context.answerDecisions),
+								rulePackId: context.rulePack.identity.id,
+							});
+							const analysisScopeEvaluation = evaluateAnalysisScopeOf(
+								{ rulePack: context.rulePack, facts: analysisScopeFacts },
+							);
+							if (analysisScopeEvaluation?.kind === "supported") {
+								const derived = deriveSessionComputations({
+									rulePack: context.rulePack,
+									scopeCheck: context.scopeCheck,
+									extractions: context.extractions,
+									resolutions: resolutionsOf(context.resolutionDecisions),
+									answers: answersOf(context.answerDecisions),
+									analysisScopeFacts,
+								});
+								return {
+									analysisScopeFacts,
+									analysisScopeEvaluation,
+									...derived,
+									pendingRecomputation: { kind: "idle" as const },
+								};
+							}
+							return {
+								analysisScopeFacts,
+								analysisScopeEvaluation,
+								// A scope correction invalidates any prior result that
+								// depended on the old envelope.
+								salaryComputation: undefined,
+								estimateComputation: undefined,
+								pendingRecomputation: { kind: "idle" as const },
+							};
+						}),
+					},
 					"missing-fact-answer-removed": {
 						actions: sessionSetup.assign(({ context, event }) => {
 							if (event.type !== "missing-fact-answer-removed") {
@@ -1309,6 +1548,9 @@ const toSessionSnapshot = (
 					workflow: "eligibility",
 					rulePackId: context.rulePack.identity.id,
 					...context.scopeCheck.completion,
+					...(context.analysisScopeEvaluation === undefined
+						? {}
+						: { analysisScope: context.analysisScopeEvaluation }),
 				};
 			}
 		return {
@@ -1322,6 +1564,9 @@ const toSessionSnapshot = (
 			factResolutions: resolutionsOf(context.resolutionDecisions),
 			questionnaire: context.questionnaire,
 			factAnswers: answersOf(context.answerDecisions),
+			...(context.analysisScopeEvaluation === undefined
+				? {}
+				: { analysisScope: context.analysisScopeEvaluation }),
 			salaryComputation: context.salaryComputation,
 			estimateComputation: context.estimateComputation,
 			pendingRecomputation:
@@ -1550,6 +1795,16 @@ export const createSessionOrchestrator = ({
 		) {
 			return;
 		}
+		// The legacy one-question packs retain their historical workflow. A
+		// complete-scope pack may enter document intake only after every
+		// mandatory analysis-scope fact is supported; composition questions are
+		// intentionally non-blocking and remain a checklist concern.
+		if (
+			rulePack.analysisScope !== undefined &&
+			current.analysisScope?.kind !== "supported"
+		) {
+			return;
+		}
 		void (async () => {
 			for (const file of files) {
 				const identityBytes = await file.readBytes();
@@ -1633,6 +1888,50 @@ export const createSessionOrchestrator = ({
 				case "select-source-documents":
 					handleSelectDocuments(command.documents);
 					return;
+				case "answer-analysis-scope-question": {
+					const snapshot = getSnapshot();
+					if (
+						snapshot.kind !== "scope-check-complete" &&
+						snapshot.kind !== "document-intake"
+					) {
+						return;
+					}
+					const question = rulePack.analysisScope?.questions.find(
+						(candidate) => candidate.id === command.questionId,
+					);
+					if (question === undefined) {
+						throw new Error(
+							`Rejected scope answer (${command.questionId}): question-not-found`,
+						);
+					}
+					let answeredAt: IsoTimestamp;
+					try {
+						answeredAt = parseIsoTimestamp(
+							command.executionContext.answerTime,
+						);
+					} catch {
+						throw new Error(
+							`Invalid scope answer timestamp: ${command.executionContext.answerTime}`,
+						);
+					}
+					let fact: ScopeFact;
+					try {
+						fact = parseItr1ScopeQuestionAnswer({
+							question,
+							rawValue: command.value,
+							answeredAt,
+							rulePackIdentity: rulePack.identity,
+						});
+					} catch (error: unknown) {
+						throw new Error(
+							`Rejected scope answer (${command.questionId}): ${
+								error instanceof Error ? error.message : "invalid-value"
+							}`,
+						);
+					}
+					actor.send({ type: "analysis-scope-question-answered", fact });
+					return;
+				}
 				case "remove-source-document": {
 					const candidateKey = resolveActiveCandidateKey(
 						command.documentId,

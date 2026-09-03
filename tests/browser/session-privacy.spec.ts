@@ -4,7 +4,7 @@ import {
 	answerScopeCheck,
 	captureStorageSnapshot,
 	expectNoStoredSessionData,
-	expectScopeResult,
+	expectInitialScopeAnswer,
 	openScopeQuestion,
 	seedVisitorStorage,
 } from "./helpers";
@@ -18,7 +18,7 @@ test.describe("OpenITR browser privacy boundary", () => {
 		const snapshotBeforeAnswer = await captureStorageSnapshot(page);
 
 		await answerScopeCheck(page, "Yes");
-		await expectScopeResult(page, "Supported by this scope check");
+		await expectInitialScopeAnswer({ page, answer: "Yes" });
 
 		const snapshotAfterAnswer = await captureStorageSnapshot(page);
 		expect(snapshotAfterAnswer.localStorageJson).toBe(
@@ -39,7 +39,7 @@ test.describe("OpenITR browser privacy boundary", () => {
 		seedVisitorStorage(page);
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "No");
-		await expectScopeResult(page, "Not supported by this scope check");
+		await expectInitialScopeAnswer({ page, answer: "No" });
 
 		await page
 			.getByRole("banner")
@@ -68,23 +68,18 @@ test.describe("OpenITR browser privacy boundary", () => {
 		await seedVisitorStorage(firstTab);
 		await openScopeQuestion(firstTab);
 		await answerScopeCheck(firstTab, "Yes");
-		await expectScopeResult(firstTab, "Supported by this scope check");
+		await expectInitialScopeAnswer({ page: firstTab, answer: "Yes" });
 
 		const secondTab = await context.newPage();
 		await seedVisitorStorage(secondTab);
 		await openScopeQuestion(secondTab);
 		await expect(
-			secondTab.getByText("Supported by this scope check"),
+			secondTab.getByRole("heading", { name: "Complete ITR-1 analysis scope" }),
 		).toHaveCount(0);
 		await answerScopeCheck(secondTab, "No");
-		await expectScopeResult(secondTab, "Not supported by this scope check");
+		await expectInitialScopeAnswer({ page: secondTab, answer: "No" });
 
-		await expect(
-			firstTab.getByText("Supported by this scope check"),
-		).toBeVisible();
-		await expect(
-			firstTab.getByText("Not supported by this scope check"),
-		).toHaveCount(0);
+		await expectInitialScopeAnswer({ page: firstTab, answer: "Yes" });
 
 		const firstSnapshot = await captureStorageSnapshot(firstTab);
 		await expectNoStoredSessionData(firstTab, firstSnapshot);

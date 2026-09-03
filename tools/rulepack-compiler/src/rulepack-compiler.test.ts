@@ -1,5 +1,8 @@
 import { parseRuleId } from "@openitr/model";
-import type { RulePackManifest } from "@openitr/model";
+import type {
+	RulePackManifest,
+	RulePackManifestAnalysisScopeRecord,
+} from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { compileRulePack } from "./rulepack-compiler";
@@ -312,6 +315,181 @@ describe("rule-pack compiler", () => {
 		).rejects.toThrow(
 			'Unknown rule reference: scope check requires undeclared rule "TEST-OTHER-RULE"',
 		);
+	});
+
+	test("compiles an optional full analysis-scope catalog without changing legacy fields", async () => {
+		const compiled = await compileRulePack({
+			manifest: syntheticManifest((manifest) => ({
+				...manifest,
+				supportedRules: [
+					...manifest.supportedRules,
+					{
+						id: "TEST-FULL-SCOPE-RULE",
+						citation: "Synthetic source A, full scope condition",
+						sourceId: "synthetic-source-a",
+						sourceLocation: "Synthetic source A, full scope condition",
+					},
+				],
+				analysisScope: {
+					facts: [
+						{
+							key: "scope.test-amount",
+							label: "Test amount",
+							schema: {
+								kind: "exact-money",
+								minimumWholeRupees: 0,
+								maximumWholeRupees: 5000000,
+							},
+						},
+					],
+					rules: [
+						{
+							id: "TEST-FULL-SCOPE-RULE",
+							factKey: "scope.test-amount",
+							condition: {
+								kind: "at-most-exact-money",
+								limit: "5000000",
+							},
+							citation: "Synthetic source A, full scope condition",
+							sourceId: "synthetic-source-a",
+							sourceLocation: "Synthetic source A, full scope condition",
+							supportedTitle: "In scope",
+							supportedExplanation: "The amount is in scope.",
+							unsupportedTitle: "Out of scope",
+							unsupportedExplanation: "The amount exceeds the limit.",
+							unknownExplanation: "The amount is needed.",
+							blockedExplanation: "The amount cannot be evaluated.",
+							recoveryAction: "Review the amount.",
+						},
+					],
+					questions: [],
+					documentExpectations: [],
+					educationalLimitations: ["Educational analysis only."],
+				},
+			})),
+		});
+
+		expect(compiled.analysisScope?.rules[0]?.condition).toEqual({
+			kind: "at-most-exact-money",
+			limit: "5000000",
+		});
+		expect(compiled.analysisScope?.facts[0]?.schema).toEqual({
+			kind: "exact-money",
+			minimumWholeRupees: 0,
+			maximumWholeRupees: 5000000,
+		});
+	});
+
+	test("resolves scope citation identity from supportedRules", async () => {
+		await expect(
+			compileRulePack({
+				manifest: syntheticManifest((manifest) => ({
+					...manifest,
+					supportedRules: [
+						...manifest.supportedRules,
+						{
+							id: "TEST-FULL-SCOPE-RULE",
+							citation: "Synthetic source A, full scope condition",
+							sourceId: "synthetic-source-a",
+							sourceLocation: "Synthetic source A, full scope condition",
+						},
+					],
+					analysisScope: {
+						facts: [
+							{ key: "scope.test-amount", label: "Test amount", schema: { kind: "exact-money", minimumWholeRupees: 0, maximumWholeRupees: 100 } },
+						],
+						rules: [
+							{
+								id: "TEST-FULL-SCOPE-RULE",
+								factKey: "scope.test-amount",
+								condition: { kind: "at-most-exact-money", limit: "100" },
+								citation: "Synthetic source A, full scope condition",
+								sourceId: "synthetic-source-a",
+								sourceLocation: "Different location",
+								supportedTitle: "In scope",
+								supportedExplanation: "The amount is in scope.",
+								unsupportedTitle: "Out of scope",
+								unsupportedExplanation: "The amount exceeds the limit.",
+								unknownExplanation: "The amount is needed.",
+								blockedExplanation: "The amount cannot be evaluated.",
+								recoveryAction: "Review the amount.",
+							},
+						],
+						questions: [],
+						documentExpectations: [],
+						educationalLimitations: ["Educational analysis only."],
+					},
+				})),
+			}),
+		).rejects.toThrow("citation differs from its supportedRules citation");
+	});
+
+	test("rejects incompatible scope condition and question schemas at the compiler boundary", async () => {
+		const baseScope: RulePackManifestAnalysisScopeRecord = {
+			facts: [
+				{ key: "scope.test-amount", label: "Test amount", schema: { kind: "exact-money" as const, minimumWholeRupees: 0, maximumWholeRupees: 100 } },
+			],
+			rules: [
+				{
+					id: "TEST-FULL-SCOPE-RULE",
+					factKey: "scope.test-amount",
+					condition: { kind: "at-most-exact-money" as const, limit: "100" },
+					citation: "Synthetic source A, full scope condition",
+					sourceId: "synthetic-source-a",
+					sourceLocation: "Synthetic source A, full scope condition",
+					supportedTitle: "In scope",
+					supportedExplanation: "The amount is in scope.",
+					unsupportedTitle: "Out of scope",
+					unsupportedExplanation: "The amount exceeds the limit.",
+					unknownExplanation: "The amount is needed.",
+					blockedExplanation: "The amount cannot be evaluated.",
+					recoveryAction: "Review the amount.",
+				},
+			],
+			questions: [],
+			documentExpectations: [],
+			educationalLimitations: ["Educational analysis only."],
+		};
+		const withSupportedRule = (scope: typeof baseScope): RulePackManifest =>
+			syntheticManifest((manifest) => ({
+				...manifest,
+				supportedRules: [
+					...manifest.supportedRules,
+					{
+						id: "TEST-FULL-SCOPE-RULE",
+						citation: "Synthetic source A, full scope condition",
+						sourceId: "synthetic-source-a",
+						sourceLocation: "Synthetic source A, full scope condition",
+					},
+				],
+				analysisScope: scope,
+			}));
+
+		await expect(
+			compileRulePack({
+				manifest: withSupportedRule({
+					...baseScope,
+					rules: [{ ...baseScope.rules[0]!, condition: { kind: "must-be-false" } }],
+				}),
+			}),
+		).rejects.toThrow("condition boolean is incompatible with fact");
+
+		await expect(
+			compileRulePack({
+				manifest: withSupportedRule({
+					...baseScope,
+					questions: [{
+						id: "scope-test-amount",
+						factKey: "scope.test-amount",
+						prompt: "What is the amount?",
+						helpText: "Enter the amount.",
+						requiresRuleId: "TEST-FULL-SCOPE-RULE",
+						whyRequired: "The amount is needed.",
+						answerSchema: { kind: "boolean" as const },
+					}],
+				}),
+			}),
+		).rejects.toThrow("answer schema boolean is incompatible with fact");
 	});
 });
 
