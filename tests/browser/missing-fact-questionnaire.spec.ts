@@ -1,5 +1,6 @@
 import {
 	createAisJsonBankInterestFixture,
+	createForm16SalaryPdfFixture,
 	createForm26AsTextFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
@@ -11,6 +12,61 @@ const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
 test.describe("missing-fact questionnaire", () => {
+	test("back navigation hides the old estimate while the changed answer recomputes", async ({
+		page,
+	}) => {
+		await openDocumentIntake(page);
+		await selectSourceFiles(page, [
+			{
+				name: "openitr-sentinel-form16-salary.pdf",
+				mimeType: "application/pdf",
+				buffer: bufferOf(createForm16SalaryPdfFixture()),
+			},
+			{
+				name: "openitr-sentinel-26as-export.txt",
+				mimeType: "text/plain",
+				buffer: bufferOf(utf8Bytes(createForm26AsTextFixture())),
+			},
+		]);
+
+		const questionnaire = page.locator(".openitr-missing-facts-card");
+		await expect(
+			questionnaire.getByText("2 missing facts can be answered"),
+		).toBeVisible({ timeout: 30_000 });
+		await questionnaire
+			.getByLabel("How much savings-account interest did you receive in FY 2025-26?")
+			.fill("4850.25");
+		await questionnaire.getByRole("button", { name: "Record answer" }).first().click();
+		await questionnaire
+			.getByLabel(
+				"How much interest on deposits (fixed or recurring) did you receive in FY 2025-26?",
+			)
+			.fill("12000");
+		await questionnaire.getByRole("button", { name: "Record answer" }).click();
+
+		const estimate = page.locator(".openitr-estimate-card");
+		await expect(estimate.getByText("₹ 61,250").first()).toBeVisible({
+			timeout: 30_000,
+		});
+		await questionnaire.getByRole("button", { name: "Change answer" }).first().click();
+
+		await expect(
+			page.getByText("The previous estimate is hidden while the changed decision is applied."),
+		).toBeVisible();
+		await expect(page.locator(".openitr-estimate-card")).toHaveCount(0);
+
+		const replacement = questionnaire.getByLabel(
+			"How much savings-account interest did you receive in FY 2025-26?",
+		);
+		await replacement.fill("9000");
+		await questionnaire.getByRole("button", { name: "Record answer" }).first().click();
+		await expect(
+			page.locator(".openitr-estimate-card").getByText("₹ 21,000").first(),
+		).toBeVisible({
+			timeout: 30_000,
+		});
+	});
+
 	test("validates attested answers and clears stale missing-fact results", async ({
 		page,
 	}) => {
