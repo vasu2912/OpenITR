@@ -218,6 +218,7 @@ const collectSalaryObservations = ({
 				ruleId: definition.ruleId,
 				description: definition.description,
 			},
+			record: { kind: "prefilled-aggregate" },
 		});
 	}
 

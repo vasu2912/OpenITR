@@ -1,4 +1,5 @@
 import {
+	addExactMoney,
 	compareExactMoney,
 	exactMoneyFromWholeRupees,
 	minExactMoney,
@@ -54,14 +55,14 @@ export const SALARY_COMPUTATION_ISSUE_CODES = Object.freeze({
 	employerDocumentRequired: parseIssueCode(
 		"FACT_SALARY_EMPLOYER_DOCUMENT_REQUIRED",
 	),
-	multipleEmployerDocuments: parseIssueCode(
-		"FACT_SALARY_MULTIPLE_EMPLOYER_DOCUMENTS",
-	),
 	answerRulePackMismatch: parseIssueCode("QUESTION_RULE_PACK_MISMATCH"),
 	salaryFieldMissing: parseIssueCode("FACT_SALARY_FIELD_MISSING"),
 	salaryFieldDuplicated: parseIssueCode("FACT_SALARY_FIELD_DUPLICATED"),
 	salaryFieldInvalid: parseIssueCode("FACT_SALARY_FIELD_INVALID"),
 	salaryTotalMismatch: parseIssueCode("FACT_SALARY_TOTAL_MISMATCH"),
+	mixedAggregateAndItemizedSources: parseIssueCode(
+		"FACT_SALARY_MIXED_AGGREGATE_AND_ITEMIZED_SOURCES",
+	),
 });
 
 const RECOVERY_ACTIONS = Object.freeze({
@@ -69,8 +70,6 @@ const RECOVERY_ACTIONS = Object.freeze({
 		"Load a rule-pack revision that pins the new-regime computation constants before requesting this scenario.",
 	employerDocumentRequired:
 		"Select a supported Form 16 so its reviewed salary observations can feed the analysis.",
-	multipleEmployerDocuments:
-		"This scenario analyses one employer at a time. Keep one Form 16 selected, or review multi-source analysis when it becomes available.",
 	answerRulePackMismatch:
 		"Answer the eligibility question again so your answer is pinned to the current rule-pack revision.",
 	salaryFieldMissing:
@@ -81,10 +80,15 @@ const RECOVERY_ACTIONS = Object.freeze({
 		"Select the document again so a reviewed adapter can re-read this field as whole rupees.",
 	salaryTotalMismatch:
 		"The document's own Part A figures disagree. Re-check the selected pages against the official employer-issued Form 16.",
+	mixedAggregateAndItemizedSources:
+		"Use either the aggregate salary section from one prefilled ITR-1 export or the individual Form 16 sources. Combining both would count the same salary twice.",
 });
 
 export type AcceptedSalaryDocumentFacts = Readonly<{
 	documentId: Sha256Digest;
+	sourceId?: string;
+	sourceKind?: "form16" | "prefilled-aggregate" | "unidentified-document";
+	sourceDocumentIds?: readonly Sha256Digest[];
 	observations: readonly SalaryObservation[];
 }>;
 
@@ -121,12 +125,25 @@ export type NewRegimeSalarySummary = Readonly<{
 	finalTaxLiability: ExactMoney;
 }>;
 
+export type SalarySourceSummary = Readonly<{
+	documentId: Sha256Digest;
+	sourceId: string;
+	sourceKind: "form16" | "prefilled-aggregate" | "unidentified-document";
+	sourceDocumentIds: readonly Sha256Digest[];
+	grossSalary: ExactMoney;
+	exemptAllowances: ExactMoney;
+	taxableSalary: ExactMoney;
+}>;
+
 export type NewRegimeSalaryComputation =
 	| Readonly<{
 			kind: "computed";
-			scenario: "one-employer-new-regime-salary-fy-2025-26";
+			scenario:
+				| "one-employer-new-regime-salary-fy-2025-26"
+				| "multiple-source-new-regime-salary-fy-2025-26";
 			rulePackRevision: string;
 			nodes: readonly ComputationTraceNode[];
+			sources: readonly SalarySourceSummary[];
 			summary: NewRegimeSalarySummary;
 	  }>
 	| Readonly<{
@@ -175,15 +192,6 @@ export const computeNewRegimeSalaryScenario = ({
 			),
 		);
 	}
-	if (salaryDocuments.length > 1) {
-		issues.push(
-			blockingIssue(
-				SALARY_COMPUTATION_ISSUE_CODES.multipleEmployerDocuments,
-				RECOVERY_ACTIONS.multipleEmployerDocuments,
-				[...Object.values(SALARY_FACT_KEYS)],
-			),
-		);
-	}
 	if (residentAnswer.rulePackId !== rulePack.identity.id) {
 		issues.push(
 			blockingIssue(
@@ -194,10 +202,38 @@ export const computeNewRegimeSalaryScenario = ({
 		);
 	}
 
-	let documentObservations: readonly SalaryObservation[] = [];
-	if (salaryDocuments.length === 1) {
-		const [document] = salaryDocuments;
-		documentObservations = document?.observations ?? [];
+	const uniqueSalaryDocuments = [
+		...new Map(
+			salaryDocuments.map((document) => [
+				document.sourceId ?? String(document.documentId),
+				document,
+			]),
+		).values(),
+	].sort((left, right) =>
+		String(left.documentId).localeCompare(String(right.documentId)),
+	);
+	const sourceKinds = new Set(
+		uniqueSalaryDocuments.map(
+			(document) =>
+				document.sourceKind ??
+				document.observations[0]?.record.kind ??
+				"unidentified-document",
+		),
+	);
+	if (
+		sourceKinds.has("prefilled-aggregate") &&
+		(sourceKinds.has("form16") || sourceKinds.has("unidentified-document"))
+	) {
+		issues.push(
+			blockingIssue(
+				SALARY_COMPUTATION_ISSUE_CODES.mixedAggregateAndItemizedSources,
+				RECOVERY_ACTIONS.mixedAggregateAndItemizedSources,
+				[...Object.values(SALARY_FACT_KEYS)],
+			),
+		);
+	}
+	for (const document of uniqueSalaryDocuments) {
+		const documentObservations = document.observations;
 		for (const requiredKey of [
 			SALARY_FACT_KEYS.section17_1,
 			SALARY_FACT_KEYS.exemptAllowancesSection10,
@@ -247,8 +283,11 @@ export const computeNewRegimeSalaryScenario = ({
 
 	const revision = rulePack.identity.revision;
 
-	const observationFor = (factKey: FactKey): SalaryObservation => {
-		const found = documentObservations.find(
+	const observationFor = (
+		document: AcceptedSalaryDocumentFacts,
+		factKey: FactKey,
+	): SalaryObservation => {
+		const found = document.observations.find(
 			(candidate) => candidate.factKey === factKey,
 		);
 		if (found === undefined) {
@@ -257,29 +296,29 @@ export const computeNewRegimeSalaryScenario = ({
 		return found;
 	};
 
-	const section17_1 = observationFor(SALARY_FACT_KEYS.section17_1);
-	const exemptAllowances = observationFor(
-		SALARY_FACT_KEYS.exemptAllowancesSection10,
-	);
-	const printedTaxableTotal = observationFor(SALARY_FACT_KEYS.taxableTotal);
-
-	const section17_1Value = exactMoneyFromWholeRupees(
-		section17_1.normalizedValue,
-	);
-	const exemptAllowancesValue = exactMoneyFromWholeRupees(
-		exemptAllowances.normalizedValue,
-	);
-	const printedTaxableTotalValue = exactMoneyFromWholeRupees(
-		printedTaxableTotal.normalizedValue,
-	);
-
-	const expectedTaxableTotal = subtractExactMoney(
-		section17_1Value,
-		exemptAllowancesValue,
-	);
-	if (
-		compareExactMoney(expectedTaxableTotal, printedTaxableTotalValue) !== 0
-	) {
+	const sources: SalarySourceSummary[] = [];
+	for (const document of uniqueSalaryDocuments) {
+		const section17_1 = observationFor(document, SALARY_FACT_KEYS.section17_1);
+		const exemptAllowances = observationFor(
+			document,
+			SALARY_FACT_KEYS.exemptAllowancesSection10,
+		);
+		const printedTaxableTotal = observationFor(
+			document,
+			SALARY_FACT_KEYS.taxableTotal,
+		);
+		const grossSalary = exactMoneyFromWholeRupees(section17_1.normalizedValue);
+		const exemptAllowancesValue = exactMoneyFromWholeRupees(
+			exemptAllowances.normalizedValue,
+		);
+		const taxableSalary = exactMoneyFromWholeRupees(
+			printedTaxableTotal.normalizedValue,
+		);
+		const expectedTaxableTotal = subtractExactMoney(
+			grossSalary,
+			exemptAllowancesValue,
+		);
+		if (compareExactMoney(expectedTaxableTotal, taxableSalary) !== 0) {
 		return Object.freeze({
 			kind: "blocked",
 			issues: Object.freeze([
@@ -294,40 +333,79 @@ export const computeNewRegimeSalaryScenario = ({
 				),
 			]),
 		});
+		}
+		sources.push(
+			Object.freeze({
+				documentId: document.documentId,
+				sourceId: document.sourceId ?? `document:${document.documentId}`,
+				sourceKind:
+					document.sourceKind ??
+					document.observations[0]?.record.kind ??
+					"unidentified-document",
+				sourceDocumentIds: Object.freeze(
+					[...(document.sourceDocumentIds ?? [document.documentId])],
+				),
+				grossSalary,
+				exemptAllowances: exemptAllowancesValue,
+				taxableSalary,
+			}),
+		);
 	}
-
+	const zero = exactMoneyFromWholeRupees(0);
+	const section17_1Value = sources.reduce(
+		(total, source) => addExactMoney(total, source.grossSalary),
+		zero,
+	);
 	const standardDeduction = exactMoneyFromWholeRupees(
 		constants.standardDeductionWholeRupees,
 	);
 
 	type NodeDraft = ComputationNodeDraft;
 	const nodes: NodeDraft[] = [];
+	const sourceContributions = sources.map((source) => ({
+		source,
+		node: {
+			nodeId: parseFactKey(`derived.salary-source-${source.documentId}`),
+			ruleId: parseRuleId("ITR1-SALARY-EXEMPT-ALLOWANCES-SECTION-10"),
+			operation: "subtract-exempt-allowances",
+			inputs: [
+				factInput(SALARY_FACT_KEYS.section17_1, source.grossSalary),
+				factInput(
+					SALARY_FACT_KEYS.exemptAllowancesSection10,
+					source.exemptAllowances,
+				),
+			],
+			unroundedValue: source.taxableSalary,
+			roundedValue: source.taxableSalary,
+			note: `Accepted salary or pension source ${source.documentId}`,
+		} satisfies NodeDraft,
+	}));
+	const sourceNodes = sourceContributions.map(({ node }) => node);
+	nodes.push(...sourceNodes);
 
 	const salaryTotalNode: NodeDraft = {
 		nodeId: parseFactKey("derived.salary-total"),
 		ruleId: parseRuleId("ITR1-SALARY-INCOME-SECTION-15"),
 		operation: "sum-of-accepted-observations",
-		inputs: [factInput(SALARY_FACT_KEYS.section17_1, section17_1Value)],
+		inputs: sources.map((source) =>
+			factInput(SALARY_FACT_KEYS.section17_1, source.grossSalary),
+		),
 		unroundedValue: section17_1Value,
 		roundedValue: section17_1Value,
 	};
 	nodes.push(salaryTotalNode);
 
-	const afterExemptionsValue = subtractExactMoney(
-		section17_1Value,
-		exemptAllowancesValue,
+	const afterExemptionsValue = sources.reduce(
+		(total, source) => addExactMoney(total, source.taxableSalary),
+		zero,
 	);
 	const afterExemptionsNode: NodeDraft = {
 		nodeId: parseFactKey("derived.salary-after-section-10-exemptions"),
 		ruleId: parseRuleId("ITR1-SALARY-EXEMPT-ALLOWANCES-SECTION-10"),
-		operation: "subtract-exempt-allowances",
-		inputs: [
-			nodeInput(salaryTotalNode.nodeId, section17_1Value),
-			factInput(
-				SALARY_FACT_KEYS.exemptAllowancesSection10,
-				exemptAllowancesValue,
-			),
-		],
+		operation: "sum-of-accepted-observations",
+		inputs: sourceContributions.map(({ node, source }) =>
+			nodeInput(node.nodeId, source.taxableSalary),
+		),
 		unroundedValue: afterExemptionsValue,
 		roundedValue: afterExemptionsValue,
 	};
@@ -389,8 +467,12 @@ export const computeNewRegimeSalaryScenario = ({
 
 	return Object.freeze({
 		kind: "computed",
-		scenario: "one-employer-new-regime-salary-fy-2025-26",
+		scenario:
+			sources.length === 1
+				? "one-employer-new-regime-salary-fy-2025-26"
+				: "multiple-source-new-regime-salary-fy-2025-26",
 		rulePackRevision: revision,
+		sources: Object.freeze(sources),
 		nodes: finalizeComputationNodes(
 			[...nodes, ...liability.nodes],
 			revision,

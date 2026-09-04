@@ -36,12 +36,17 @@ const residentAnswer = (): AttestedAnswer => ({
 let nextEvidenceY = 600;
 
 const observation = ({
+	documentId: sourceDocumentId = documentId,
 	factKey,
 	wholeRupees,
-}: Readonly<{ factKey: string; wholeRupees: number }>): SalaryObservation => ({
-	observationId: `${factKey}@${documentId}`,
+}: Readonly<{
+	documentId?: typeof documentId;
+	factKey: string;
+	wholeRupees: number;
+}>): SalaryObservation => ({
+	observationId: `${factKey}@${sourceDocumentId}`,
 	factKey: parseFactKey(factKey),
-	sourceDocumentId: documentId,
+	sourceDocumentId,
 	adapterId: "form16-pdf",
 	adapterVersion: "1",
 	originalText: `${factKey}: Rs ${wholeRupees}`,
@@ -59,33 +64,43 @@ const observation = ({
 		ruleId: parseRuleId("FORM16-PARTA-SALARY-TAXABLE-TOTAL"),
 		description: "Form 16 Part A field definition",
 	},
+	record: { kind: "unidentified-document" },
 });
 
-const oneEmployerDocument = ({
+const salaryDocument = ({
+	documentId: sourceDocumentId,
 	section17_1,
 	exemptAllowances,
 	taxableTotal,
 }: Readonly<{
+	documentId: typeof documentId;
 	section17_1: number;
 	exemptAllowances: number;
 	taxableTotal: number;
 }>) => ({
-	documentId,
+	documentId: sourceDocumentId,
 	observations: [
 		observation({
+			documentId: sourceDocumentId,
 			factKey: SALARY_FACT_KEYS.section17_1,
 			wholeRupees: section17_1,
 		}),
 		observation({
+			documentId: sourceDocumentId,
 			factKey: SALARY_FACT_KEYS.exemptAllowancesSection10,
 			wholeRupees: exemptAllowances,
 		}),
 		observation({
+			documentId: sourceDocumentId,
 			factKey: SALARY_FACT_KEYS.taxableTotal,
 			wholeRupees: taxableTotal,
 		}),
 	],
 });
+
+const oneEmployerDocument = (
+	input: Omit<Parameters<typeof salaryDocument>[0], "documentId">,
+) => salaryDocument({ ...input, documentId });
 
 const computeOneEmployer = (
 	salary: ReturnType<typeof oneEmployerDocument>,
@@ -253,6 +268,102 @@ describe("one-employer new-regime salary scenario", () => {
 	});
 });
 
+describe("multiple salary and pension sources", () => {
+	test("keeps every source separate in the trace and combines taxable salary before one standard deduction", () => {
+		const pensionDocumentId = parseSha256Digest("cd".repeat(32));
+		const result = computeNewRegimeSalaryScenario({
+			rulePack: itr1Ay202627RulePack,
+			residentAnswer: residentAnswer(),
+			salaryDocuments: [
+				oneEmployerDocument({
+					section17_1: 1200000,
+					exemptAllowances: 150000,
+					taxableTotal: 1050000,
+				}),
+				salaryDocument({
+					documentId: pensionDocumentId,
+					section17_1: 300000,
+					exemptAllowances: 0,
+					taxableTotal: 300000,
+				}),
+			],
+		});
+
+		expect(result.kind).toBe("computed");
+		if (result.kind !== "computed") {
+			return;
+		}
+		expect(result.scenario).toBe(
+			"multiple-source-new-regime-salary-fy-2025-26",
+		);
+		expect(result.summary.salaryTotal).toBe("1500000");
+		expect(result.summary.taxableIncome).toBe("1275000");
+		expect(result.sources).toEqual([
+			{
+				documentId,
+				sourceId: `document:${documentId}`,
+				sourceKind: "unidentified-document",
+				sourceDocumentIds: [documentId],
+				grossSalary: "1200000",
+				exemptAllowances: "150000",
+				taxableSalary: "1050000",
+			},
+			{
+				documentId: pensionDocumentId,
+				sourceId: `document:${pensionDocumentId}`,
+				sourceKind: "unidentified-document",
+				sourceDocumentIds: [pensionDocumentId],
+				grossSalary: "300000",
+				exemptAllowances: "0",
+				taxableSalary: "300000",
+			},
+		]);
+		const sourceNodes = result.nodes.filter((node) =>
+			String(node.nodeId).startsWith("derived.salary-source-"),
+		);
+		expect(sourceNodes).toHaveLength(2);
+		expect(sourceNodes.map((node) => node.note)).toEqual([
+			`Accepted salary or pension source ${documentId}`,
+			`Accepted salary or pension source ${pensionDocumentId}`,
+		]);
+	});
+
+	test("blocks aggregate prefilled salary beside itemized Form 16 sources", () => {
+		const result = computeNewRegimeSalaryScenario({
+			rulePack: itr1Ay202627RulePack,
+			residentAnswer: residentAnswer(),
+			salaryDocuments: [
+				{
+					...oneEmployerDocument({
+						section17_1: 1200000,
+						exemptAllowances: 150000,
+						taxableTotal: 1050000,
+					}),
+					sourceKind: "form16",
+				},
+				{
+					...salaryDocument({
+						documentId: parseSha256Digest("ef".repeat(32)),
+						section17_1: 1200000,
+						exemptAllowances: 150000,
+						taxableTotal: 1050000,
+					}),
+					sourceKind: "prefilled-aggregate",
+				},
+			],
+		});
+
+		expect(result.kind).toBe("blocked");
+		expect(
+			result.kind === "blocked"
+				? result.issues.map((issue) => String(issue.code))
+				: [],
+		).toContain(
+			"FACT_SALARY_MIXED_AGGREGATE_AND_ITEMIZED_SOURCES",
+		);
+	});
+});
+
 describe("accepted-fact enforcement fails closed", () => {
 	const otherPackId = parseRulePackId("other-module.2099-01-01");
 	const answerFor = (rulePackId: RulePackId): AttestedAnswer => ({
@@ -280,27 +391,19 @@ describe("accepted-fact enforcement fails closed", () => {
 		expect(issueCodesOf(result)).toContain("FACT_SALARY_EMPLOYER_DOCUMENT_REQUIRED");
 	});
 
-	test("blocks when more than one employer document is supplied", () => {
-		const secondDocumentId = parseSha256Digest("cd".repeat(32));
-		const secondDocument = {
-			documentId: secondDocumentId,
-			observations: [
-				observation({
-					factKey: SALARY_FACT_KEYS.section17_1,
-					wholeRupees: 900000,
-				}),
-			],
-		};
+	test("counts a byte-identical salary document only once", () => {
 		const result = computeNewRegimeSalaryScenario({
 			rulePack: itr1Ay202627RulePack,
 			residentAnswer: residentAnswer(),
-			salaryDocuments: [reviewedFixture, secondDocument],
+			salaryDocuments: [reviewedFixture, reviewedFixture],
 		});
 
-		expect(result.kind).toBe("blocked");
-		expect(issueCodesOf(result)).toContain(
-			"FACT_SALARY_MULTIPLE_EMPLOYER_DOCUMENTS",
-		);
+		expect(result.kind).toBe("computed");
+		if (result.kind !== "computed") {
+			return;
+		}
+		expect(result.sources).toHaveLength(1);
+		expect(result.summary.salaryTotal).toBe("1200000");
 	});
 
 	test("blocks with the missing fact key when a Part A field never arrived", () => {

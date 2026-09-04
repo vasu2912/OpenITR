@@ -1,5 +1,6 @@
 import type {
 	BankInterestObservation,
+	CandidateDocument,
 	DocumentExtractionRecord,
 	NonSalaryIncomeObservation,
 	ObservationTransformationStep,
@@ -339,8 +340,12 @@ const groupsOfRecord = (
 ];
 
 export const SalaryReviewView = ({
+	documents,
 	extractions,
-}: Readonly<{ extractions: readonly DocumentExtractionRecord[] }>) => {
+}: Readonly<{
+	documents: readonly CandidateDocument[];
+	extractions: readonly DocumentExtractionRecord[];
+}>) => {
 	const doneRecords = extractions.filter((record) => record.status === "done");
 	if (doneRecords.length === 0) {
 		return null;
@@ -370,6 +375,14 @@ export const SalaryReviewView = ({
 						data-document-id={record.documentId}
 						key={record.candidateKey}
 					>
+						<header className="openitr-review-document-header">
+							<h3>
+								{documents.find(
+									(document) => document.candidateKey === record.candidateKey,
+								)?.displayName ?? "Source document"}
+							</h3>
+							<small>Document {String(record.documentId).slice(0, 12)}…</small>
+						</header>
 						{record.issues.map((issue, issueIndex) => (
 							<Alert
 								key={`${String(issue.code)}-${issueIndex}`}
@@ -387,9 +400,9 @@ export const SalaryReviewView = ({
 										data-evidence-role={group.role}
 										key={group.label}
 									>
-										<h3 className="openitr-review-group-heading">
+										<h4 className="openitr-review-group-heading">
 											{group.label}
-										</h3>
+										</h4>
 										{group.observations.map((observation) => (
 											<ObservationCard
 												key={observation.observationId}

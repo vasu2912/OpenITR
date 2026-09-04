@@ -2,6 +2,7 @@ import {
 	computeSourceDocumentIdentity,
 	createExtractionRejectionOutcome,
 	createInspectionFailedOutcome,
+	exactMoneyFromWholeRupees,
 	parseExactMoney,
 	parseFactKey,
 	parseIsoTimestamp,
@@ -23,6 +24,7 @@ import type {
 	ScopeFact,
 	ScopeRulePack,
 	SelectedSourceFile,
+	SalaryObservation,
 	Sha256Digest,
 } from "@openitr/model";
 import {
@@ -33,6 +35,7 @@ import {
 	itr1EstimateIsBlockedByScopeFacts,
 } from "@openitr/itr1-ay2026-27";
 import type {
+	AcceptedSalaryDocumentFacts,
 	AttestedFactContribution,
 	NewRegimeSalaryComputation,
 } from "@openitr/itr1-ay2026-27";
@@ -285,6 +288,11 @@ const ESTIMATE_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	label: "Estimated refund or amount payable",
 });
 
+const SALARY_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "new-regime-salary-computation",
+	label: "New-regime salary computation",
+});
+
 const activeEstimateResultIds = (
 	extractions: readonly DocumentExtractionRecord[],
 ): readonly string[] =>
@@ -314,8 +322,8 @@ type SliceComputationInput = Readonly<{
 // Tax-payment facts are excluded on purpose: attesting a payment without
 // receipt evidence would invent taxes paid. Non-salary certificate rows are
 // additive receipts with no cross-document identity, so they never form
-// conflicts, and salary facts stay outside reconciliation because that
-// slice analyses one employer document.
+// conflicts. Salary conflicts may select one observed official source, but
+// may not be resolved by inventing an attested amount.
 const ATTESTABLE_FACT_KEYS = [
 	parseFactKey("bank-interest.savings-account"),
 	parseFactKey("bank-interest.deposits"),
@@ -334,6 +342,19 @@ const upsertGroup = (
 		...existing,
 		candidates: [...existing.candidates, ...group.candidates],
 	});
+};
+
+const salarySourceIdOf = (
+	observation: SalaryObservation,
+): string => {
+	switch (observation.record.kind) {
+		case "form16":
+			return `form16:${observation.record.deductorTan}`;
+		case "prefilled-aggregate":
+			return "prefilled-aggregate";
+		case "unidentified-document":
+			return `document:${observation.sourceDocumentId}`;
+	}
 };
 
 // Collect every reconciled fact group from the done extraction records.
@@ -388,6 +409,21 @@ const collectFactGroups = (
 				observation,
 			);
 		}
+		for (const observation of record.observations) {
+			if (disputedFactKeys.has(observation.factKey)) {
+				continue;
+			}
+			addObservation(
+				observation.factKey,
+				`${String(observation.factKey)}|salary-source|${salarySourceIdOf(observation)}`,
+				{
+					...observation,
+					normalizedValue: exactMoneyFromWholeRupees(
+						observation.normalizedValue,
+					),
+				},
+			);
+		}
 		for (const observation of record.taxPaymentObservations) {
 			if (disputedFactKeys.has(observation.factKey)) {
 				continue;
@@ -425,6 +461,12 @@ const reconcileSessionFacts = ({
 				result: ESTIMATE_AFFECTED_RESULT,
 				requiredGroupIds: groups.map((group) => group.groupId),
 			},
+			{
+				result: SALARY_AFFECTED_RESULT,
+				requiredGroupIds: groups
+					.filter((group) => group.groupId.includes("|salary-source|"))
+					.map((group) => group.groupId),
+			},
 		],
 	});
 };
@@ -447,6 +489,78 @@ const representativeFilterOf = (
 		),
 	);
 	return (observation) => representatives.has(observation.observationId);
+};
+
+const acceptedSalarySourcesOf = ({
+	extractions,
+	reconciliation,
+}: Readonly<{
+	extractions: readonly DocumentExtractionRecord[];
+	reconciliation: ReconciliationResult;
+}>): readonly AcceptedSalaryDocumentFacts[] => {
+	const observations = extractions.flatMap((record) =>
+		record.status === "done"
+			? acceptedObservationsOf(record, record.observations)
+			: [],
+	);
+	const observationById = new Map(
+		observations.map((observation) => [observation.observationId, observation]),
+	);
+	const bySource = new Map<
+		string,
+		{
+			kind: SalaryObservation["record"]["kind"];
+			observations: SalaryObservation[];
+			documentIds: Set<Sha256Digest>;
+		}
+	>();
+
+	for (const fact of reconciliation.acceptedFacts) {
+		if (!fact.groupId.includes("|salary-source|")) {
+			continue;
+		}
+		const representativeId = fact.representativeObservationId;
+		if (representativeId === undefined) {
+			continue;
+		}
+		const observation = observationById.get(representativeId);
+		if (observation === undefined) {
+			continue;
+		}
+		const sourceId = salarySourceIdOf(observation);
+		const existing = bySource.get(sourceId) ?? {
+			kind: observation.record.kind,
+			observations: [],
+			documentIds: new Set<Sha256Digest>(),
+		};
+		existing.observations.push(observation);
+		for (const candidate of fact.agreeingCandidates) {
+			existing.documentIds.add(candidate.sourceDocumentId);
+		}
+		bySource.set(sourceId, existing);
+	}
+
+	return [...bySource.entries()]
+		.sort(([left], [right]) => left.localeCompare(right))
+		.map(([sourceId, source]) => {
+			const sourceDocumentIds = [...source.documentIds].sort();
+			const documentId =
+				sourceDocumentIds[0] ?? source.observations[0]?.sourceDocumentId;
+			if (documentId === undefined) {
+				throw new Error(`Accepted salary source ${sourceId} lost its evidence`);
+			}
+			return Object.freeze({
+				documentId,
+				sourceId,
+				sourceKind: source.kind,
+				sourceDocumentIds: Object.freeze(sourceDocumentIds),
+				observations: Object.freeze(
+					[...source.observations].sort((left, right) =>
+						left.factKey.localeCompare(right.factKey),
+					),
+				),
+			});
+		});
 };
 
 const currentResidentAnswerOf = (
@@ -480,7 +594,10 @@ const computeSalaryScenario = ({
 	scopeCheck,
 	extractions,
 	analysisScopeFacts,
-}: Pick<SliceComputationInput, "rulePack" | "scopeCheck" | "extractions" | "analysisScopeFacts">): NewRegimeSalaryComputation | undefined => {
+	reconciliation,
+}: Pick<SliceComputationInput, "rulePack" | "scopeCheck" | "extractions" | "analysisScopeFacts"> & {
+	reconciliation: ReconciliationResult;
+}): NewRegimeSalaryComputation | undefined => {
 	if (scopeCheck.kind !== "complete") {
 		return undefined;
 	}
@@ -494,10 +611,10 @@ const computeSalaryScenario = ({
 	if (doneRecords.length === 0) {
 		return undefined;
 	}
-	const salaryDocuments = doneRecords.map((record) => ({
-		documentId: record.documentId,
-		observations: acceptedObservationsOf(record, record.observations),
-	}));
+	const salaryDocuments = acceptedSalarySourcesOf({
+		extractions: doneRecords,
+		reconciliation,
+	});
 	return computeNewRegimeSalaryScenario({
 		rulePack,
 		residentAnswer: currentResidentAnswerOf({ scopeCheck, analysisScopeFacts }),
@@ -585,6 +702,10 @@ const computeEstimateScenario = ({
 	);
 	const isRepresentative = representativeFilterOf(reconciliation);
 	const salaryRecords = sliceRecords(extractions, "observations");
+	const acceptedSalaryDocuments = acceptedSalarySourcesOf({
+		extractions: salaryRecords,
+		reconciliation,
+	});
 	const bankInterestRecords = sliceRecords(
 		extractions,
 		"bankInterestObservations",
@@ -628,9 +749,7 @@ const computeEstimateScenario = ({
 			rulePack,
 			residentAnswer,
 			salaryScenario: salaryComputation,
-			salaryDocuments: salaryRecords.map((record) =>
-				toDocument(record, record.observations, false),
-			),
+			salaryDocuments: acceptedSalaryDocuments,
 			bankInterestDocuments: bankInterestRecords.map((record) =>
 				toDocument(record, record.bankInterestObservations, true),
 			),
@@ -653,9 +772,7 @@ const computeEstimateScenario = ({
 	return computeRefundOrAmountPayableEstimate({
 		rulePack,
 		residentAnswer,
-		salaryDocuments: salaryRecords.map((record) =>
-			toDocument(record, record.observations, false),
-		),
+		salaryDocuments: acceptedSalaryDocuments,
 		bankInterestDocuments: bankInterestRecords.map((record) =>
 			toDocument(record, record.bankInterestObservations, true),
 		),
@@ -719,6 +836,7 @@ const deriveSessionReviewAndSalary = (
 				scopeCheck,
 				extractions,
 				analysisScopeFacts: input.analysisScopeFacts,
+				reconciliation: review.reconciliation,
 			}),
 	};
 };

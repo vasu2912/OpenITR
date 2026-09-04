@@ -350,6 +350,60 @@ body,
 	gap: var(--pf-t--global--spacer--sm);
 }
 
+.openitr-review-document + .openitr-review-document {
+	border-top: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	margin-top: var(--pf-t--global--spacer--lg);
+	padding-top: var(--pf-t--global--spacer--lg);
+}
+
+.openitr-review-document-header h3,
+.openitr-review-document-header small,
+.openitr-salary-source h4,
+.openitr-salary-source-documents {
+	margin: 0;
+}
+
+.openitr-review-document-header small,
+.openitr-salary-source-documents {
+	color: var(--pf-t--global--text--color--subtle);
+	overflow-wrap: anywhere;
+}
+
+.openitr-salary-source-list {
+	display: grid;
+	gap: var(--pf-t--global--spacer--md);
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+	margin-top: var(--pf-t--global--spacer--sm);
+}
+
+.openitr-salary-source {
+	border: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	display: grid;
+	gap: var(--pf-t--global--spacer--sm);
+	min-width: 0;
+	padding: var(--pf-t--global--spacer--md);
+}
+
+.openitr-salary-source dl {
+	display: grid;
+	gap: var(--pf-t--global--spacer--xs);
+	margin: 0;
+}
+
+.openitr-salary-source dl div {
+	display: flex;
+	gap: var(--pf-t--global--spacer--sm);
+	justify-content: space-between;
+}
+
+.openitr-salary-source dd {
+	font-weight: 700;
+	margin: 0;
+	text-align: end;
+}
+
 .openitr-observation {
 	border: var(--pf-t--global--border--width--regular) solid
 		var(--pf-t--global--border--color--default);

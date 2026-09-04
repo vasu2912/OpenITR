@@ -184,6 +184,7 @@ const engineRun = (
 			ruleId: "FORM16-PARTA-SALARY-TAXABLE-TOTAL" as never,
 			description: "fixture",
 		},
+		record: { kind: "unidentified-document" as const },
 	});
 	const result = computeNewRegimeSalaryScenario({
 		rulePack: itr1Ay202627RulePack,
