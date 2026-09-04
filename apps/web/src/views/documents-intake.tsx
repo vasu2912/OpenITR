@@ -10,24 +10,31 @@ import {
 	Card,
 	CardBody,
 	CardTitle,
+	Label,
+	MultipleFileUpload,
+	MultipleFileUploadMain,
+	Stack,
 	Title,
 } from "@patternfly/react-core";
-import type { ChangeEvent } from "react";
+import type { LabelProps } from "@patternfly/react-core";
 
 import type { SessionOrchestrator } from "../session/session-orchestrator";
 
 const CANDIDATE_STATUS_PRESENTATION: Readonly<
 	Record<
 		CandidateDocument["status"],
-		Readonly<{ marker: string; label: string }>
+		Readonly<{
+			label: string;
+			status: NonNullable<LabelProps["status"]>;
+		}>
 	>
 > = Object.freeze({
-	queued: Object.freeze({ marker: "•", label: "Queued" }),
-	inspecting: Object.freeze({ marker: "⟳", label: "Inspecting" }),
-	identified: Object.freeze({ marker: "✓", label: "Identified" }),
-	rejected: Object.freeze({ marker: "✗", label: "Rejected" }),
-	cancelled: Object.freeze({ marker: "⊘", label: "Cancelled" }),
-	removed: Object.freeze({ marker: "—", label: "Removed" }),
+	queued: Object.freeze({ label: "Queued", status: "info" }),
+	inspecting: Object.freeze({ label: "Inspecting", status: "info" }),
+	identified: Object.freeze({ label: "Identified", status: "success" }),
+	rejected: Object.freeze({ label: "Rejected", status: "danger" }),
+	cancelled: Object.freeze({ label: "Cancelled", status: "warning" }),
+	removed: Object.freeze({ label: "Removed", status: "custom" }),
 });
 
 const formatDocumentType = (
@@ -101,30 +108,22 @@ export const DocumentsIntakeView = ({
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
 }>) => {
-	const handleFiles = async (
-		event: ChangeEvent<HTMLInputElement>,
-	): Promise<void> => {
-		const fileList = event.target.files;
-		if (fileList === null || fileList.length === 0) {
+	const handleFiles = async (files: readonly File[]): Promise<void> => {
+		if (files.length === 0) {
 			return;
 		}
 		const selected = await Promise.all(
-			[...fileList].map(async (file) => ({
+			files.map(async (file) => ({
 				displayName: file.name,
-				...(file.type === ""
-					? {}
-					: { suppliedMediaType: file.type }),
+				...(file.type === "" ? {} : { suppliedMediaType: file.type }),
 				readBytes: () =>
 					file.arrayBuffer().then(
-						(buffer) => new Uint8Array(buffer) as Uint8Array<ArrayBuffer>,
+						(buffer) =>
+							new Uint8Array(buffer) as Uint8Array<ArrayBuffer>,
 					),
 			})),
 		);
-		event.target.value = "";
-		session.send({
-			kind: "select-source-documents",
-			documents: selected,
-		});
+		session.send({ kind: "select-source-documents", documents: selected });
 	};
 
 	const activeCount = documents.filter(
@@ -140,123 +139,112 @@ export const DocumentsIntakeView = ({
 				</Title>
 			</CardTitle>
 			<CardBody>
-				<Alert
-					className="openitr-privacy-note"
-					isInline
-					title="Your documents stay in this browser"
-					variant="info"
-				>
-					OpenITR inspects every file locally in this tab. No document bytes,
-					file names, or extracted values leave your browser.
-				</Alert>
+				<Stack hasGutter>
+					<Alert isInline title="Your documents stay in this browser" variant="info">
+						OpenITR inspects every file locally in this tab. No document bytes,
+						file names, or extracted values leave your browser.
+					</Alert>
 
-				<form className="openitr-document-form">
-					<label className="openitr-document-label" htmlFor="document-input">
-						Add one or more source documents, in any order
-					</label>
-					<input
-						className="openitr-document-input"
-						id="document-input"
-						multiple
-						onChange={(event) => {
-							void handleFiles(event);
+					<MultipleFileUpload
+						aria-label="Select source documents"
+						onFileDrop={(_event, files) => {
+							void handleFiles(files);
 						}}
-						type="file"
-					/>
-				</form>
+					>
+						<MultipleFileUploadMain
+							browseButtonText="Browse source documents"
+							infoText="Supported formats include PDF, JSON, CSV, XLS, XLSX, and TXT."
+							titleText="Drag and drop source documents here"
+							titleTextSeparator="or"
+						/>
+					</MultipleFileUpload>
 
-				{(() => {
-					const extractingCount = extractions.filter(
-						(record) => record.status === "extracting",
-					).length;
-					const doneCount = extractions.filter(
-						(record) => record.status === "done",
-					).length;
-					return (
-						<p aria-live="polite" className="openitr-document-live">
-							{activeCount > 0
-								? `Inspecting ${activeCount} document${activeCount === 1 ? "" : "s"}`
-								: "No inspections running"}
-							{extractingCount > 0
-								? ` · Extracting observations from ${extractingCount}`
-								: ""}
-							{doneCount > 0
-								? ` · ${doneCount} document${doneCount === 1 ? "" : "s"} ready for review`
-								: ""}
-						</p>
-					);
-				})()}
-
-				<ul className="openitr-document-list">
-					{documents.map((candidate) => {
-						const presentation =
-							CANDIDATE_STATUS_PRESENTATION[candidate.status];
-						const detail = candidateDetailLine(candidate);
+					{(() => {
+						const extractingCount = extractions.filter(
+							(record) => record.status === "extracting",
+						).length;
+						const doneCount = extractions.filter(
+							(record) => record.status === "done",
+						).length;
 						return (
-							<li
-								className="openitr-document-row"
-								data-candidate={candidate.displayName}
-								data-status={candidate.status}
-								key={candidate.candidateKey}
-							>
-								<span
-									aria-hidden="true"
-									className="openitr-document-marker"
-									data-status={candidate.status}
-								>
-									{presentation.marker}
-								</span>
-								<span className="openitr-document-summary">
-									<strong>{candidate.displayName}</strong>
-									<small>
-										{presentation.label}
-										{detail ? ` — ${detail}` : ""}
-									</small>
-								</span>
-								{(candidate.status === "queued" ||
-									candidate.status === "inspecting") && (
-									<Button
-										onClick={() =>
-											session.send({
-												kind: "cancel-document-inspection",
-												documentId: candidate.documentId,
-											})
-										}
-										variant="link"
-									>
-										Cancel inspection
-									</Button>
-								)}
-												{(() => {
-									const extractionLine = extractionStatusLine(
-										extractions.find(
-											(record) =>
-												record.candidateKey === candidate.candidateKey,
-										),
-									);
-									return extractionLine ? (
-										<small className="openitr-extraction-status">
-											{extractionLine}
-										</small>
-									) : null;
-								})()}
-								{candidate.status !== "removed" && (
-									<Button
-										onClick={() =>
-											session.send({
-												kind: "remove-source-document",
-												documentId: candidate.documentId,
-											})
-										}
-										variant="secondary"
-									>
-										Remove
-									</Button>
-								)}
-							</li>
+							<p aria-live="polite" className="openitr-document-live">
+								{activeCount > 0
+									? `Inspecting ${activeCount} document${activeCount === 1 ? "" : "s"}`
+									: "No inspections running"}
+								{extractingCount > 0
+									? ` · Extracting observations from ${extractingCount}`
+									: ""}
+								{doneCount > 0
+									? ` · ${doneCount} document${doneCount === 1 ? "" : "s"} ready for review`
+									: ""}
+							</p>
 						);
-					})}
-				</ul>
+					})()}
+
+					<ul className="openitr-document-list">
+						{documents.map((candidate) => {
+							const presentation =
+								CANDIDATE_STATUS_PRESENTATION[candidate.status];
+							const detail = candidateDetailLine(candidate);
+							return (
+								<li
+									className="openitr-document-row"
+									data-candidate={candidate.displayName}
+									data-status={candidate.status}
+									key={candidate.candidateKey}
+								>
+									<Label isCompact status={presentation.status}>
+										{presentation.label}
+									</Label>
+									<span className="openitr-document-summary">
+										<strong>{candidate.displayName}</strong>
+										{detail ? <small>{detail}</small> : null}
+									</span>
+									{(candidate.status === "queued" ||
+										candidate.status === "inspecting") && (
+										<Button
+											onClick={() =>
+												session.send({
+													kind: "cancel-document-inspection",
+													documentId: candidate.documentId,
+												})
+											}
+											variant="link"
+										>
+											Cancel inspection
+										</Button>
+									)}
+									{(() => {
+										const extractionLine = extractionStatusLine(
+											extractions.find(
+												(record) =>
+													record.candidateKey === candidate.candidateKey,
+											),
+										);
+										return extractionLine ? (
+											<small className="openitr-extraction-status">
+												{extractionLine}
+											</small>
+										) : null;
+									})()}
+									{candidate.status !== "removed" && (
+										<Button
+											onClick={() =>
+												session.send({
+													kind: "remove-source-document",
+													documentId: candidate.documentId,
+												})
+											}
+											variant="secondary"
+										>
+											Remove
+										</Button>
+									)}
+								</li>
+							);
+						})}
+					</ul>
+				</Stack>
 			</CardBody>
 		</Card>
 	);

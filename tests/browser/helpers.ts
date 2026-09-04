@@ -79,9 +79,7 @@ export const expectScopeResult = (
 	resultTitle:
 		| "Supported by this scope check"
 		| "Not supported by this scope check",
-): void => {
-	expect(page.getByText(resultTitle)).toBeVisible();
-};
+): Promise<void> => expect(page.getByText(resultTitle)).toBeVisible();
 
 export const captureStorageSnapshot = (
 	page: Page,
@@ -150,7 +148,7 @@ export const selectSourceFiles = async (
 	files: readonly BrowserFixtureFile[],
 ): Promise<void> => {
 	await page.setInputFiles(
-		"#document-input",
+		'[aria-label="Select source documents"] input[type="file"]',
 		files.map((file) => ({
 			name: file.name,
 			mimeType: file.mimeType,

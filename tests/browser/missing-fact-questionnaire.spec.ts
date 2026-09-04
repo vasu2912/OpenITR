@@ -12,7 +12,7 @@ const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
 test.describe("missing-fact questionnaire", () => {
-	test("back navigation hides the old estimate while the changed answer recomputes", async ({
+	test("changing an earlier answer hides the old estimate while it recomputes", async ({
 		page,
 	}) => {
 		await openDocumentIntake(page);
