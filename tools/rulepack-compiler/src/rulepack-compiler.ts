@@ -17,6 +17,7 @@ import {
 	parseExactMoney,
 } from "@openitr/model";
 import type {
+	CompiledHousePropertyTaxConstants,
 	CompiledNewRegimeTaxConstants,
 	CompiledSelfOccupiedHousePropertyTaxConstants,
 	CompiledRulePack,
@@ -1108,11 +1109,46 @@ export const compileRulePack = async ({
 				),
 			};
 		}
+		const authoredCompleteHouseProperty = authoredTaxConstants.houseProperty;
+		let houseProperty: CompiledHousePropertyTaxConstants | undefined;
+		if (authoredCompleteHouseProperty !== undefined) {
+			const selfOccupiedEnhancedInterestLimitWholeRupees =
+				requirePositiveWholeRupees(
+					authoredCompleteHouseProperty.selfOccupiedEnhancedInterestLimitWholeRupees,
+					"The enhanced self-occupied interest limit",
+				);
+			const selfOccupiedBasicInterestLimitWholeRupees =
+				requirePositiveWholeRupees(
+					authoredCompleteHouseProperty.selfOccupiedBasicInterestLimitWholeRupees,
+					"The basic self-occupied interest limit",
+				);
+			if (selfOccupiedBasicInterestLimitWholeRupees > selfOccupiedEnhancedInterestLimitWholeRupees) {
+				throw new Error(
+					"The basic self-occupied interest limit must not exceed the enhanced limit",
+				);
+			}
+			houseProperty = {
+				selfOccupiedEnhancedInterestLimitWholeRupees,
+				selfOccupiedBasicInterestLimitWholeRupees,
+				letOutStandardDeductionPercent: requireWholePercentage(
+					authoredCompleteHouseProperty.letOutStandardDeductionPercent,
+					"The let-out standard-deduction rate",
+				),
+				selfOccupiedAnnualValueRuleId: resolveConstantRule(authoredCompleteHouseProperty.selfOccupiedAnnualValueRuleId, "The self-occupied annual-value rule"),
+				selfOccupiedOldRegimeInterestRuleId: resolveConstantRule(authoredCompleteHouseProperty.selfOccupiedOldRegimeInterestRuleId, "The old-regime self-occupied interest rule"),
+				selfOccupiedNewRegimeInterestRuleId: resolveConstantRule(authoredCompleteHouseProperty.selfOccupiedNewRegimeInterestRuleId, "The new-regime self-occupied interest rule"),
+				letOutGrossAnnualValueRuleId: resolveConstantRule(authoredCompleteHouseProperty.letOutGrossAnnualValueRuleId, "The let-out gross annual-value rule"),
+				letOutMunicipalTaxRuleId: resolveConstantRule(authoredCompleteHouseProperty.letOutMunicipalTaxRuleId, "The let-out municipal-tax rule"),
+				letOutStandardDeductionRuleId: resolveConstantRule(authoredCompleteHouseProperty.letOutStandardDeductionRuleId, "The let-out standard-deduction rule"),
+				letOutInterestRuleId: resolveConstantRule(authoredCompleteHouseProperty.letOutInterestRuleId, "The let-out interest rule"),
+			};
+		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
 			...(selfOccupiedHouseProperty === undefined
 				? {}
 				: { selfOccupiedHouseProperty }),
+			...(houseProperty === undefined ? {} : { houseProperty }),
 		});
 	}
 

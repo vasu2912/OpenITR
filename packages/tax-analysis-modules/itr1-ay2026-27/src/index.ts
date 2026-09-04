@@ -25,6 +25,11 @@ export {
 } from "./revisions/2026-09-04/rule-pack";
 export { itr1Ay202627RulePackManifest20260904 } from "./revisions/2026-09-04/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260905,
+	itr1Ay202627RulePack20260905,
+} from "./revisions/2026-09-05/rule-pack";
+export { itr1Ay202627RulePackManifest20260905 } from "./revisions/2026-09-05/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -65,6 +70,14 @@ export type {
 	SelfOccupiedHousePropertyComputation,
 	SelfOccupiedHousePropertyFact,
 } from "./computations/self-occupied-house-property";
+export { computeHouseProperties } from "./computations/house-property";
+export type {
+	ComputedHouseProperty,
+	HousePropertyComputation,
+	HousePropertyFact,
+	HousePropertyNumber,
+	SignedHousePropertyAmount,
+} from "./computations/house-property";
 export type {
 	AcceptedBankInterestDocumentFacts,
 	AcceptedNonSalaryIncomeDocumentFacts,

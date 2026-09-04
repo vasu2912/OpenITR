@@ -1,62 +1,86 @@
-import type { SelfOccupiedHousePropertyComputation } from "@openitr/itr1-ay2026-27";
+import type {
+	ComputedHouseProperty,
+	HousePropertyComputation,
+	SignedHousePropertyAmount,
+} from "@openitr/itr1-ay2026-27";
 import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
+const SignedAmount = ({ amount }: Readonly<{ amount: SignedHousePropertyAmount }>) => (
+	<>₹ {rupeeFormat(amount.amount)} {amount.kind}</>
+);
+
 const RegimeResult = ({
 	name,
-	result,
+	property,
+	regime,
 }: Readonly<{
 	name: string;
-	result: Extract<
-		SelfOccupiedHousePropertyComputation,
-		{ kind: "computed" }
-	>["oldRegime"];
-}>) => (
-	<section className="openitr-property-regime">
-		<h3>{name}</h3>
-		<dl className="openitr-result-details">
-			<div><dt>Annual value</dt><dd>₹ {rupeeFormat(result.annualValue)}</dd></div>
-			<div><dt>Interest deduction</dt><dd>₹ {rupeeFormat(result.interestDeduction)}</dd></div>
-			<div><dt>Taxable-income effect</dt><dd>₹ {rupeeFormat(result.taxableIncomeEffect.replace("-", ""))} {result.taxableIncomeEffect.startsWith("-") ? "reduction" : "change"}</dd></div>
-			{result.limitApplied === undefined ? null : (
-				<div><dt>Interest limit applied</dt><dd>₹ {rupeeFormat(result.limitApplied)}</dd></div>
-			)}
-		</dl>
-		<p className="openitr-trace-heading">Cited computation details</p>
-		<div className="openitr-trace-list">
-			{result.trace.map((node) => (
-				<details className="openitr-trace-node" key={`${name}-${String(node.ruleId)}`}>
-					<summary><strong>{node.label}</strong><span className="openitr-trace-node-value">₹ {rupeeFormat(node.result)}</span></summary>
-					<dl className="openitr-trace-details">
-						<dt>Rule</dt><dd>{node.ruleId}</dd>
-						<dt>Operation</dt><dd>{node.operation}</dd>
-						<dt>Inputs</dt><dd>{node.inputs.map(String).join(", ")}</dd>
-					</dl>
-				</details>
-			))}
-		</div>
-	</section>
-);
+	property: ComputedHouseProperty;
+	regime: "old" | "new";
+}>) => {
+	const interestDeduction = regime === "old" ? property.interestDeduction : property.newRegimeInterestDeduction;
+	const income = regime === "old" ? property.income : property.newRegimeIncome;
+	const trace = regime === "old" ? property.trace : property.newRegimeTrace;
+	return (
+		<section className="openitr-property-regime">
+			<h4>{name}</h4>
+			<dl className="openitr-result-details">
+				{property.grossAnnualValue === undefined ? null : (
+					<div><dt>Gross annual value</dt><dd>₹ {rupeeFormat(property.grossAnnualValue)}</dd></div>
+				)}
+				<div><dt>Annual value</dt><dd>₹ {rupeeFormat(property.annualValue)}</dd></div>
+				<div><dt>Standard deduction</dt><dd>₹ {rupeeFormat(property.standardDeduction)}</dd></div>
+				<div><dt>Interest deduction</dt><dd>₹ {rupeeFormat(interestDeduction)}</dd></div>
+				<div><dt>Property income</dt><dd><SignedAmount amount={income} /></dd></div>
+			</dl>
+			<p className="openitr-trace-heading">Cited computation details</p>
+			<div className="openitr-trace-list">
+				{trace.map((node) => (
+					<details className="openitr-trace-node" key={`${name}-${node.label}-${String(node.ruleId)}`}>
+						<summary><strong>{node.label}</strong><span className="openitr-trace-node-value">₹ {rupeeFormat(node.result)}</span></summary>
+						<dl className="openitr-trace-details">
+							<dt>Rule</dt><dd>{node.ruleId}</dd>
+							<dt>Operation</dt><dd>{node.operation}</dd>
+							<dt>Inputs</dt><dd>{node.inputs.map(String).join(", ")}</dd>
+						</dl>
+					</details>
+				))}
+			</div>
+		</section>
+	);
+};
 
 export const HousePropertyComputationView = ({
 	computation,
-}: Readonly<{
-	computation: SelfOccupiedHousePropertyComputation | undefined;
-}>) => {
+}: Readonly<{ computation: HousePropertyComputation | undefined }>) => {
 	if (computation === undefined || computation.kind === "not-applicable") return null;
 	return (
 		<Card className="openitr-property-card" component="section">
-			<CardTitle><Title headingLevel="h2" size="lg">Self-occupied house property</Title></CardTitle>
+			<CardTitle><Title headingLevel="h2" size="lg">House-property analysis</Title></CardTitle>
 			<CardBody>
 				<Alert isInline title="Educational analysis only" variant="info">
-					This local analysis applies the pinned house-property rules to facts you attested. Review the evidence and cited steps yourself.
+					This local analysis applies the pinned house-property rules to facts you attested. Review each amount, source, and cited step yourself.
 				</Alert>
 				{computation.kind === "computed" ? (
-					<div className="openitr-property-regimes">
-						<RegimeResult name="Old regime" result={computation.oldRegime} />
-						<RegimeResult name="New regime" result={computation.newRegime} />
-					</div>
+					<>
+						<dl className="openitr-result-details openitr-property-summary">
+							<div><dt>Old-regime combined result</dt><dd><SignedAmount amount={computation.combined} /></dd></div>
+							<div><dt>New-regime combined result</dt><dd><SignedAmount amount={computation.newRegimeCombined} /></dd></div>
+						</dl>
+						<div className="openitr-property-list">
+							{computation.properties.map((property) => (
+								<section className="openitr-property-item" key={property.propertyNumber}>
+									<h3>Property {property.propertyNumber}: {property.occupancy === "let-out" ? "Let-out" : "Self-occupied"}</h3>
+									<div className="openitr-property-regimes">
+										<RegimeResult name="Old regime" property={property} regime="old" />
+										<RegimeResult name="New regime" property={property} regime="new" />
+									</div>
+								</section>
+							))}
+						</div>
+					</>
 				) : (
 					<Alert
 						isInline

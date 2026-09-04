@@ -28,9 +28,8 @@ import type {
 	Sha256Digest,
 } from "@openitr/model";
 import {
+	computeHouseProperties,
 	computeNewRegimeSalaryScenario,
-	computeSelfOccupiedHouseProperty,
-	SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS,
 	deriveItr1AnalysisScopeFacts,
 	knownScopeFact,
 	parseItr1ScopeQuestionAnswer,
@@ -39,9 +38,9 @@ import {
 import type {
 	AcceptedSalaryDocumentFacts,
 	AttestedFactContribution,
+	HousePropertyComputation,
+	HousePropertyFact,
 	NewRegimeSalaryComputation,
-	SelfOccupiedHousePropertyComputation,
-	SelfOccupiedHousePropertyFact,
 } from "@openitr/itr1-ay2026-27";
 import {
 	computeRefundOrAmountPayableEstimate,
@@ -155,7 +154,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	analysisScope?: AnalysisScopeEvaluation;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
-	housePropertyComputation: SelfOccupiedHousePropertyComputation | undefined;
+	housePropertyComputation: HousePropertyComputation | undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
@@ -199,7 +198,7 @@ type SessionContext = Readonly<{
 	questionnaire: MissingFactQuestionnaire;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
-	housePropertyComputation: SelfOccupiedHousePropertyComputation | undefined;
+	housePropertyComputation: HousePropertyComputation | undefined;
 	recomputationGeneration: number;
 	pendingRecomputation: PendingRecomputationState;
 }>;
@@ -300,10 +299,8 @@ const SALARY_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	label: "New-regime salary computation",
 });
 
-const HOUSE_PROPERTY_AFFECTED_RESULT: AffectedResult = Object.freeze({
-	resultId: "self-occupied-house-property",
-	label: "Self-occupied house-property analysis",
-});
+const housePropertyResultId = (propertyNumber: 1 | 2): string =>
+	`house-property-${propertyNumber}`;
 
 const housePropertyCountOf = (facts: readonly ScopeFact[]): number => {
 	const fact = facts.find(
@@ -322,33 +319,20 @@ const computeHousePropertyScenario = ({
 	rulePack: ScopeRulePack;
 	analysisScopeFacts: readonly ScopeFact[];
 	answers: readonly AttestedAnswerFact[];
-}>): SelfOccupiedHousePropertyComputation | undefined => {
+}>): HousePropertyComputation | undefined => {
 	const propertyCount = housePropertyCountOf(analysisScopeFacts);
 	if (propertyCount === 0) return undefined;
 	const facts = answers.flatMap(
-		(answer): readonly SelfOccupiedHousePropertyFact[] => {
-			const key = answer.factKey;
-			if (key === SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS.interest) {
-				return typeof answer.value === "string"
-					? [{ factKey: SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS.interest, value: answer.value }]
-					: [];
-			}
-			for (const booleanKey of [
-				SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS.ownedByTaxpayer,
-				SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS.usedThroughoutYear,
-				SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS.acquisitionOrConstruction,
-				SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS.borrowedAfter1999,
-				SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS.completedWithinFiveYears,
-				SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS.interestCertificate,
-			] as const) {
-				if (key === booleanKey && typeof answer.value === "boolean") {
-					return [{ factKey: booleanKey, value: answer.value }];
+		(answer): readonly HousePropertyFact[] => {
+			for (const propertyNumber of [1, 2] as const) {
+				if (answer.factKey.startsWith(`house-property.${propertyNumber}.`)) {
+					return [{ propertyNumber, factKey: answer.factKey, value: answer.value }];
 				}
 			}
 			return [];
 		},
 	);
-	return computeSelfOccupiedHouseProperty({ rulePack, propertyCount, facts });
+	return computeHouseProperties({ rulePack, propertyCount, facts });
 };
 
 const activeEstimateResultIds = (
@@ -863,13 +847,16 @@ const deriveSessionReview = (
 }> => {
 	const { rulePack, scopeCheck, extractions, resolutions, answers } = input;
 	const reconciliation = reconcileSessionFacts({ extractions, resolutions });
+	const propertyCount = housePropertyCountOf(input.analysisScopeFacts);
 	const applicableResultIds = [
 		...(input.documentsStageEntered === true
 			? [ESTIMATE_AFFECTED_RESULT.resultId]
 			: activeEstimateResultIds(extractions)),
-		...(input.documentsStageEntered === true &&
-		housePropertyCountOf(input.analysisScopeFacts) === 1
-			? [HOUSE_PROPERTY_AFFECTED_RESULT.resultId]
+		...(input.documentsStageEntered === true && propertyCount >= 1
+			? [housePropertyResultId(1)]
+			: []),
+		...(input.documentsStageEntered === true && propertyCount >= 2
+			? [housePropertyResultId(2)]
 			: []),
 	];
 	const questionnaire =
@@ -917,7 +904,7 @@ const deriveSessionComputations = (
 	questionnaire: MissingFactQuestionnaire;
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
-	housePropertyComputation: SelfOccupiedHousePropertyComputation | undefined;
+	housePropertyComputation: HousePropertyComputation | undefined;
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
 	const derived = deriveSessionReviewAndSalary(input);
