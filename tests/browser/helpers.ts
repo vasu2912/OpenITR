@@ -78,7 +78,9 @@ export const expectInitialScopeAnswer = async ({
 	page,
 	answer,
 }: Readonly<{ page: Page; answer: "Yes" | "No" }>): Promise<void> => {
-	await expect(page.getByRole("heading", { name: "Complete ITR-1 analysis scope" })).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Complete ITR-1 analysis scope" }),
+	).toBeVisible();
 	await expect(page.getByText("More scope facts are needed")).toBeVisible();
 	const individual = page.locator('[data-scope-question="scope-individual"]');
 	if (answer === "Yes") {
@@ -87,6 +89,13 @@ export const expectInitialScopeAnswer = async ({
 		await expect(individual.getByRole("combobox")).toHaveValue("");
 	}
 };
+
+export const expectScopeResult = (
+	page: Page,
+	resultTitle:
+		| "Supported by this scope check"
+		| "Not supported by this scope check",
+): Promise<void> => expect(page.getByText(resultTitle)).toBeVisible();
 
 export const captureStorageSnapshot = (
 	page: Page,
@@ -169,9 +178,8 @@ export const openDocumentIntake = async (page: Page): Promise<void> => {
 		"scope-foreign-tax-relief": "no",
 		"scope-other-source-deductions": "no",
 		"scope-other-person-tds": "no",
-		// Composition questions are deliberately answered explicitly for the
-		// estimate scenarios. Bank interest stays unresolved until AIS or the
-		// existing #36 amount questions supply it.
+		// Composition questions are answered explicitly for estimate scenarios.
+		// Bank interest remains unresolved until evidence or an amount answer supplies it.
 		"scope-salary-pension": "yes",
 		"scope-other-sources": "no",
 	})) {
@@ -203,7 +211,7 @@ export const selectSourceFiles = async (
 	files: readonly BrowserFixtureFile[],
 ): Promise<void> => {
 	await page.setInputFiles(
-		"#document-input",
+		'[aria-label="Select source documents"] input[type="file"]',
 		files.map((file) => ({
 			name: file.name,
 			mimeType: file.mimeType,
@@ -215,7 +223,7 @@ export const selectSourceFiles = async (
 export const candidateRow = (page: Page, displayName: string) =>
 	page.locator(`[data-candidate="${displayName}"]`);
 
-export const expectCandidateStatus = async (
+export const expectCandidateStatus = (
 	page: Page,
 	displayName: string,
 	status:
@@ -225,11 +233,11 @@ export const expectCandidateStatus = async (
 		| "rejected"
 		| "cancelled"
 		| "removed",
-): Promise<void> => {
+): void => {
 	// expect.poll reads the attribute through protocol round-trips. The
 	// rAF-injected polling behind web-first assertions can stall a module
 	// worker's first message delivery in headless Chromium.
-	await expect
+	expect
 		.poll(() => candidateRow(page, displayName).getAttribute("data-status"), {
 			timeout: 15_000,
 		})
