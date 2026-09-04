@@ -233,11 +233,11 @@ export const expectCandidateStatus = (
 		| "rejected"
 		| "cancelled"
 		| "removed",
-): void => {
+): Promise<void> => {
 	// expect.poll reads the attribute through protocol round-trips. The
 	// rAF-injected polling behind web-first assertions can stall a module
 	// worker's first message delivery in headless Chromium.
-	expect
+	return expect
 		.poll(() => candidateRow(page, displayName).getAttribute("data-status"), {
 			timeout: 15_000,
 		})
