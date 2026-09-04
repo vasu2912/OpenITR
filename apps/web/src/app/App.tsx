@@ -3,12 +3,14 @@ import type {
 	EligibilityQuestion,
 } from "@openitr/model";
 import {
+	ActionGroup,
 	Alert,
 	Button,
 	Card,
 	CardBody,
 	CardFooter,
 	CardTitle,
+	Divider,
 	Form,
 	Masthead,
 	MastheadBrand,
@@ -23,6 +25,10 @@ import {
 	PageSidebar,
 	PageSidebarBody,
 	Radio,
+	Stack,
+	Toolbar,
+	ToolbarContent,
+	ToolbarItem,
 	Title,
 } from "@patternfly/react-core";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -31,14 +37,14 @@ import type { FormEvent, ReactNode } from "react";
 import { loadRulePack } from "../session/load-rule-pack";
 import { createSessionOrchestrator } from "../session/session-orchestrator";
 import type { SessionOrchestrator } from "../session/session-orchestrator";
-	import { workerInspectionFacility } from "../session/worker-inspection-facility";
-	import { activeAnalysisRelease } from "./release-manifest";
-	import { DocumentsIntakeView } from "../views/documents-intake";
-import { FactConflictsView } from "../views/fact-conflicts";
-import { SalaryReviewView } from "../views/salary-review";
-import { SalaryComputationView } from "../views/salary-computation";
+import { workerInspectionFacility } from "../session/worker-inspection-facility";
+import { DocumentsIntakeView } from "../views/documents-intake";
 import { EstimateView } from "../views/estimate-view";
+import { FactConflictsView } from "../views/fact-conflicts";
 import { MissingFactQuestionsView } from "../views/missing-fact-questions";
+import { SalaryComputationView } from "../views/salary-computation";
+import { SalaryReviewView } from "../views/salary-review";
+import { activeAnalysisRelease } from "./release-manifest";
 
 type SessionLoadState =
 	| Readonly<{ kind: "loading" }>
@@ -54,11 +60,11 @@ type SessionLoadState =
 type WorkflowState = "in-progress" | "complete" | "blocked";
 
 const workflowStatePresentation: Readonly<
-	Record<WorkflowState, Readonly<{ marker: string; label: string }>>
+	Record<WorkflowState, Readonly<{ label: string }>>
 > = Object.freeze({
-	"in-progress": Object.freeze({ marker: "1", label: "In progress" }),
-	complete: Object.freeze({ marker: "✓", label: "Complete" }),
-	blocked: Object.freeze({ marker: "!", label: "Blocked" }),
+	"in-progress": Object.freeze({ label: "In progress" }),
+	complete: Object.freeze({ label: "Complete" }),
+	blocked: Object.freeze({ label: "Blocked" }),
 });
 
 const AppMasthead = ({
@@ -71,11 +77,21 @@ const AppMasthead = ({
 			</MastheadBrand>
 		</MastheadMain>
 		<MastheadContent>
-			<span className="openitr-masthead-context">
-				{activeAnalysisRelease.form} · AY{" "}
-				{activeAnalysisRelease.assessmentYear} · In-browser session
-			</span>
-			{sessionActions}
+			<Toolbar colorVariant="no-background" hasNoPadding isFullHeight>
+				<ToolbarContent alignItems="center">
+					<ToolbarItem>
+						<span className="openitr-masthead-context">
+							{activeAnalysisRelease.form} · AY{" "}
+							{activeAnalysisRelease.assessmentYear} · In-browser session
+						</span>
+					</ToolbarItem>
+					{sessionActions === undefined ? null : (
+						<ToolbarItem align={{ default: "alignEnd" }}>
+							{sessionActions}
+						</ToolbarItem>
+					)}
+				</ToolbarContent>
+			</Toolbar>
 		</MastheadContent>
 	</Masthead>
 );
@@ -85,7 +101,7 @@ const WorkflowSidebar = ({
 }: Readonly<{ workflowState: WorkflowState }>) => {
 	const presentation = workflowStatePresentation[workflowState];
 	return (
-		<PageSidebar className="openitr-sidebar" isManagedSidebar>
+		<PageSidebar className="openitr-sidebar">
 			<PageSidebarBody>
 				<nav aria-label="Analysis workflow" className="openitr-workflow">
 					<p className="openitr-workflow-heading">Analysis workflow</p>
@@ -98,7 +114,7 @@ const WorkflowSidebar = ({
 							data-status={workflowState}
 						>
 							<span aria-hidden="true" className="openitr-step-marker">
-								{presentation.marker}
+								1
 							</span>
 							<span>
 								<strong>Scope check</strong>
@@ -129,28 +145,23 @@ const AppFrame = ({
 		masthead={<AppMasthead sessionActions={sessionActions} />}
 		sidebar={<WorkflowSidebar workflowState={workflowState} />}
 	>
-		<PageSection className="openitr-content" isFilled>
-			<div className="openitr-content-inner">
-				<p className="openitr-eyebrow">
-					FY {activeAnalysisRelease.financialYear} · AY{" "}
-					{activeAnalysisRelease.assessmentYear} ·{" "}
-					{activeAnalysisRelease.form}
-				</p>
-				<Title headingLevel="h1" size="2xl">
-					Check whether this analysis applies
-				</Title>
-				<p className="openitr-lede">
-					Answer one eligibility question from the pinned AY 2026-27 rule
-					pack. This check covers one condition, not the complete ITR-1
-					analysis envelope.
-				</p>
-
-				<Alert
-					className="openitr-scope-alert"
-					isInline
-					title="Educational analysis only"
-					variant="info"
-				>
+		<PageSection isFilled={false}>
+			<p className="openitr-eyebrow">
+				FY {activeAnalysisRelease.financialYear} · AY{" "}
+				{activeAnalysisRelease.assessmentYear} · {activeAnalysisRelease.form}
+			</p>
+			<Title headingLevel="h1" size="2xl">
+				Check whether this analysis applies
+			</Title>
+			<p className="openitr-lede">
+				Answer one eligibility question from the pinned AY 2026-27 rule
+				pack. This check covers one condition, not the complete ITR-1
+				analysis envelope.
+			</p>
+		</PageSection>
+		<PageSection isFilled variant="secondary">
+			<Stack hasGutter>
+				<Alert isInline title="Educational analysis only" variant="info">
 					OpenITR does not prepare or submit a tax return. It does not provide
 					tax, legal, or professional advice and does not guarantee
 					correctness or filing eligibility.
@@ -158,12 +169,13 @@ const AppFrame = ({
 
 				{children}
 
-				<footer className="openitr-session-note">
+				<Divider />
+				<footer>
 					<strong>No account is required.</strong> Your answer stays in this
 					tab's memory and disappears when you refresh, reset, or close the
 					tab.
 				</footer>
-			</div>
+			</Stack>
 		</PageSection>
 	</Page>
 );
@@ -212,9 +224,15 @@ const ScopeQuestionCard = ({
 							))}
 						</div>
 					</fieldset>
-					<Button isDisabled={answer === undefined} type="submit" variant="primary">
-						Check scope
-					</Button>
+					<ActionGroup>
+						<Button
+							isDisabled={answer === undefined}
+							type="submit"
+							variant="primary"
+						>
+							Check scope
+						</Button>
+					</ActionGroup>
 				</Form>
 			</CardBody>
 			<CardFooter>
@@ -316,13 +334,16 @@ const ScopeInteraction = ({
 		<AppFrame
 			sessionActions={
 				<Button
+					className="openitr-session-action"
 					onClick={() => setResetConfirmationOpen(true)}
-					variant="secondary"
+					variant="plain"
 				>
 					Reset session
 				</Button>
 			}
-			workflowState="complete"
+			workflowState={
+				completion.result.kind === "supported" ? "complete" : "blocked"
+			}
 		>
 			<Card
 				aria-live="polite"
@@ -381,38 +402,43 @@ const ScopeInteraction = ({
 					</p>
 				</CardBody>
 			</Card>
-			<DocumentsIntakeView
-				documents={documents}
-				extractions={extractions}
-				session={session}
-			/>
-			{snapshot.kind === "document-intake" ? (
-				<MissingFactQuestionsView
-					answers={snapshot.factAnswers}
-					questionnaire={snapshot.questionnaire}
-					session={session}
-				/>
+			{completion.result.kind === "supported" ? (
+				<>
+					<DocumentsIntakeView
+						documents={documents}
+						extractions={extractions}
+						session={session}
+					/>
+					{snapshot.kind === "document-intake" ? (
+						<MissingFactQuestionsView
+							answers={snapshot.factAnswers}
+							questionnaire={snapshot.questionnaire}
+							session={session}
+						/>
+					) : null}
+					<FactConflictsView
+						conflicts={factConflicts}
+						documents={documents}
+						resolutions={factResolutions}
+						session={session}
+					/>
+					<SalaryReviewView extractions={extractions} />
+					<SalaryComputationView computation={salaryComputation} />
+					{pendingRecomputation.kind === "pending" ? (
+						<Alert
+							aria-live="polite"
+							className="openitr-recomputation-status"
+							isInline
+							title="Recomputing estimate"
+							variant="info"
+						>
+							The previous estimate is hidden while the changed decision is
+							applied.
+						</Alert>
+					) : null}
+					<EstimateView estimate={estimateComputation} />
+				</>
 			) : null}
-			<FactConflictsView
-				conflicts={factConflicts}
-				documents={documents}
-				resolutions={factResolutions}
-				session={session}
-			/>
-			<SalaryReviewView extractions={extractions} />
-			<SalaryComputationView computation={salaryComputation} />
-			{pendingRecomputation.kind === "pending" ? (
-				<Alert
-					aria-live="polite"
-					isInline
-					title="Recomputing estimate"
-					variant="info"
-				>
-					The previous estimate is hidden while the changed decision is
-					applied.
-				</Alert>
-			) : null}
-			<EstimateView estimate={estimateComputation} />
 			<ResetSessionDialog
 				isOpen={isResetConfirmationOpen}
 				onCancel={() => setResetConfirmationOpen(false)}
