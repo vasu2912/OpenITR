@@ -29,6 +29,7 @@ import type {
 } from "@openitr/model";
 import {
 	computeHouseProperties,
+	computeOtherSources,
 	computeNewRegimeSalaryScenario,
 	deriveItr1AnalysisScopeFacts,
 	knownScopeFact,
@@ -41,6 +42,8 @@ import type {
 	HousePropertyComputation,
 	HousePropertyFact,
 	NewRegimeSalaryComputation,
+	OtherSourceFact,
+	OtherSourcesComputation,
 } from "@openitr/itr1-ay2026-27";
 import {
 	computeRefundOrAmountPayableEstimate,
@@ -155,6 +158,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 	housePropertyComputation: HousePropertyComputation | undefined;
+	otherSourcesComputation: OtherSourcesComputation | undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
@@ -199,6 +203,7 @@ type SessionContext = Readonly<{
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 	housePropertyComputation: HousePropertyComputation | undefined;
+	otherSourcesComputation: OtherSourcesComputation | undefined;
 	recomputationGeneration: number;
 	pendingRecomputation: PendingRecomputationState;
 }>;
@@ -299,6 +304,11 @@ const SALARY_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	label: "New-regime salary computation",
 });
 
+const OTHER_SOURCES_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "other-sources",
+	label: "Income from other sources analysis",
+});
+
 const housePropertyResultId = (propertyNumber: 1 | 2): string =>
 	`house-property-${propertyNumber}`;
 
@@ -333,6 +343,55 @@ const computeHousePropertyScenario = ({
 		},
 	);
 	return computeHouseProperties({ rulePack, propertyCount, facts });
+};
+
+const otherSourcesApply = (facts: readonly ScopeFact[]): boolean => {
+	const fact = facts.find(
+		(candidate) => candidate.factKey === parseFactKey("scope.allowed-other-sources-income"),
+	);
+	return fact?.state === "known" && fact.value.kind === "boolean" && fact.value.value;
+};
+
+const OTHER_SOURCE_FACT_KEYS = new Set<FactKey>([
+	parseFactKey("non-salary-income.dividends"),
+	parseFactKey("non-salary-income.interest-other-than-securities"),
+	parseFactKey("non-salary-income.family-pension"),
+]);
+
+const computeOtherSourcesScenario = ({
+	rulePack,
+	analysisScopeFacts,
+	answers,
+	reconciliation,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	analysisScopeFacts: readonly ScopeFact[];
+	answers: readonly AttestedAnswerFact[];
+	reconciliation: ReconciliationResult;
+}>): OtherSourcesComputation | undefined => {
+	if (!otherSourcesApply(analysisScopeFacts)) return undefined;
+	const observedFactKeys = new Set(
+		reconciliation.acceptedFacts.map((accepted) => accepted.factKey),
+	);
+	const answerFacts = answers.flatMap(
+		(answer): readonly OtherSourceFact[] =>
+			typeof answer.value === "string" &&
+			OTHER_SOURCE_FACT_KEYS.has(answer.factKey) &&
+			!observedFactKeys.has(answer.factKey)
+				? [{ factKey: answer.factKey, value: answer.value }]
+				: [],
+	);
+	const observedFacts = reconciliation.acceptedFacts.flatMap(
+		(accepted): readonly OtherSourceFact[] =>
+			OTHER_SOURCE_FACT_KEYS.has(accepted.factKey)
+				? [{ factKey: accepted.factKey, value: accepted.value }]
+				: [],
+	);
+	return computeOtherSources({
+		rulePack,
+		applicable: true,
+		facts: [...observedFacts, ...answerFacts],
+	});
 };
 
 const activeEstimateResultIds = (
@@ -466,6 +525,16 @@ const collectFactGroups = (
 				},
 			);
 		}
+		for (const observation of record.nonSalaryIncomeObservations) {
+			if (disputedFactKeys.has(observation.factKey)) {
+				continue;
+			}
+			addObservation(
+				observation.factKey,
+				`${String(observation.factKey)}|non-salary-source|${observation.sourceDocumentId}|${observation.observationId}`,
+				observation,
+			);
+		}
 		for (const observation of record.taxPaymentObservations) {
 			if (disputedFactKeys.has(observation.factKey)) {
 				continue;
@@ -507,6 +576,12 @@ const reconcileSessionFacts = ({
 				result: SALARY_AFFECTED_RESULT,
 				requiredGroupIds: groups
 					.filter((group) => group.groupId.includes("|salary-source|"))
+					.map((group) => group.groupId),
+			},
+			{
+				result: OTHER_SOURCES_AFFECTED_RESULT,
+				requiredGroupIds: groups
+					.filter((group) => group.groupId.includes("|non-salary-source|"))
 					.map((group) => group.groupId),
 			},
 		],
@@ -858,6 +933,9 @@ const deriveSessionReview = (
 		...(input.documentsStageEntered === true && propertyCount >= 2
 			? [housePropertyResultId(2)]
 			: []),
+		...(input.documentsStageEntered === true && otherSourcesApply(input.analysisScopeFacts)
+			? [OTHER_SOURCES_AFFECTED_RESULT.resultId]
+			: []),
 	];
 	const questionnaire =
 		scopeCheck.kind === "complete"
@@ -905,6 +983,7 @@ const deriveSessionComputations = (
 	salaryComputation: NewRegimeSalaryComputation | undefined;
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 	housePropertyComputation: HousePropertyComputation | undefined;
+	otherSourcesComputation: OtherSourcesComputation | undefined;
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
 	const derived = deriveSessionReviewAndSalary(input);
@@ -929,10 +1008,17 @@ const deriveSessionComputations = (
 		analysisScopeFacts,
 		answers,
 	});
+	const otherSourcesComputation = computeOtherSourcesScenario({
+		rulePack,
+		analysisScopeFacts,
+		answers,
+		reconciliation: derived.reconciliation,
+	});
 	return {
 		...derived,
 		estimateComputation,
 		housePropertyComputation,
+		otherSourcesComputation,
 	};
 };
 
@@ -986,6 +1072,7 @@ const deriveDecisionComputations = ({
 	| "salaryComputation"
 	| "estimateComputation"
 	| "housePropertyComputation"
+	| "otherSourcesComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1017,6 +1104,12 @@ const deriveDecisionComputations = ({
 		analysisScopeFacts,
 		answers,
 	});
+	const otherSourcesComputation = computeOtherSourcesScenario({
+		rulePack: context.rulePack,
+		analysisScopeFacts,
+		answers,
+		reconciliation: review.reconciliation,
+	});
 	if (!affectsEstimate) {
 		return {
 			answerDecisions,
@@ -1027,6 +1120,7 @@ const deriveDecisionComputations = ({
 			salaryComputation: context.salaryComputation,
 			estimateComputation: context.estimateComputation,
 			housePropertyComputation,
+			otherSourcesComputation,
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
 		};
@@ -1055,6 +1149,7 @@ const deriveDecisionComputations = ({
 					analysisScopeFacts,
 				}),
 		housePropertyComputation,
+		otherSourcesComputation,
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
 			? pendingRecomputationFor({ generation, affectedResultIds })
@@ -1315,6 +1410,7 @@ const createSessionMachine = ({
 			salaryComputation: undefined,
 			estimateComputation: undefined,
 			housePropertyComputation: undefined,
+			otherSourcesComputation: undefined,
 			recomputationGeneration: 0,
 			pendingRecomputation: { kind: "idle" },
 		},
@@ -1782,6 +1878,7 @@ const toSessionSnapshot = (
 			salaryComputation: context.salaryComputation,
 			estimateComputation: context.estimateComputation,
 			housePropertyComputation: context.housePropertyComputation,
+			otherSourcesComputation: context.otherSourcesComputation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"
 					? { kind: "pending" }

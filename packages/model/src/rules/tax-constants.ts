@@ -40,6 +40,7 @@ export type RulePackManifestTaxConstants = Readonly<{
 	newRegime: NewRegimeTaxConstantRecord;
 	selfOccupiedHouseProperty?: SelfOccupiedHousePropertyTaxConstantRecord;
 	houseProperty?: HousePropertyTaxConstantRecord;
+	otherSources?: OtherSourcesTaxConstantRecord;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -61,6 +62,18 @@ export type HousePropertyTaxConstantRecord = Readonly<{
 	letOutMunicipalTaxRuleId: string;
 	letOutStandardDeductionRuleId: string;
 	letOutInterestRuleId: string;
+}>;
+
+export type OtherSourcesTaxConstantRecord = Readonly<{
+	familyPensionDeductionDivisor: number;
+	oldRegimeFamilyPensionDeductionLimitWholeRupees: number;
+	newRegimeFamilyPensionDeductionLimitWholeRupees: number;
+	dividendRuleId: string;
+	interestRuleId: string;
+	familyPensionIncomeRuleId: string;
+	oldRegimeFamilyPensionDeductionRuleId: string;
+	newRegimeFamilyPensionDeductionRuleId: string;
+	totalRuleId: string;
 }>;
 
 // The compiled form resolves every authored rule identifier to a validated
@@ -88,6 +101,7 @@ export type CompiledTaxConstants = Readonly<{
 	newRegime: CompiledNewRegimeTaxConstants;
 	selfOccupiedHouseProperty?: CompiledSelfOccupiedHousePropertyTaxConstants;
 	houseProperty?: CompiledHousePropertyTaxConstants;
+	otherSources?: CompiledOtherSourcesTaxConstants;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
@@ -109,4 +123,16 @@ export type CompiledHousePropertyTaxConstants = Readonly<{
 	letOutMunicipalTaxRuleId: RuleId;
 	letOutStandardDeductionRuleId: RuleId;
 	letOutInterestRuleId: RuleId;
+}>;
+
+export type CompiledOtherSourcesTaxConstants = Readonly<{
+	familyPensionDeductionDivisor: number;
+	oldRegimeFamilyPensionDeductionLimitWholeRupees: number;
+	newRegimeFamilyPensionDeductionLimitWholeRupees: number;
+	dividendRuleId: RuleId;
+	interestRuleId: RuleId;
+	familyPensionIncomeRuleId: RuleId;
+	oldRegimeFamilyPensionDeductionRuleId: RuleId;
+	newRegimeFamilyPensionDeductionRuleId: RuleId;
+	totalRuleId: RuleId;
 }>;

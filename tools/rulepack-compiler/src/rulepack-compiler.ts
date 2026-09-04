@@ -19,6 +19,7 @@ import {
 import type {
 	CompiledHousePropertyTaxConstants,
 	CompiledNewRegimeTaxConstants,
+	CompiledOtherSourcesTaxConstants,
 	CompiledSelfOccupiedHousePropertyTaxConstants,
 	CompiledRulePack,
 	EligibilityAnswerValue,
@@ -1143,12 +1144,28 @@ export const compileRulePack = async ({
 				letOutInterestRuleId: resolveConstantRule(authoredCompleteHouseProperty.letOutInterestRuleId, "The let-out interest rule"),
 			};
 		}
+		const authoredOtherSources = authoredTaxConstants.otherSources;
+		let otherSources: CompiledOtherSourcesTaxConstants | undefined;
+		if (authoredOtherSources !== undefined) {
+			otherSources = {
+				familyPensionDeductionDivisor: requirePositiveWholeRupees(authoredOtherSources.familyPensionDeductionDivisor, "The family-pension deduction divisor"),
+				oldRegimeFamilyPensionDeductionLimitWholeRupees: requirePositiveWholeRupees(authoredOtherSources.oldRegimeFamilyPensionDeductionLimitWholeRupees, "The old-regime family-pension deduction limit"),
+				newRegimeFamilyPensionDeductionLimitWholeRupees: requirePositiveWholeRupees(authoredOtherSources.newRegimeFamilyPensionDeductionLimitWholeRupees, "The new-regime family-pension deduction limit"),
+				dividendRuleId: resolveConstantRule(authoredOtherSources.dividendRuleId, "The dividend income rule"),
+				interestRuleId: resolveConstantRule(authoredOtherSources.interestRuleId, "The other-interest income rule"),
+				familyPensionIncomeRuleId: resolveConstantRule(authoredOtherSources.familyPensionIncomeRuleId, "The family-pension income rule"),
+				oldRegimeFamilyPensionDeductionRuleId: resolveConstantRule(authoredOtherSources.oldRegimeFamilyPensionDeductionRuleId, "The old-regime family-pension deduction rule"),
+				newRegimeFamilyPensionDeductionRuleId: resolveConstantRule(authoredOtherSources.newRegimeFamilyPensionDeductionRuleId, "The new-regime family-pension deduction rule"),
+				totalRuleId: resolveConstantRule(authoredOtherSources.totalRuleId, "The other-source total rule"),
+			};
+		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
 			...(selfOccupiedHouseProperty === undefined
 				? {}
 				: { selfOccupiedHouseProperty }),
 			...(houseProperty === undefined ? {} : { houseProperty }),
+			...(otherSources === undefined ? {} : { otherSources }),
 		});
 	}
 

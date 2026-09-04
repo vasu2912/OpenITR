@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	addExactMoney,
 	compareExactMoney,
+	divideExactMoneyByWholeAndRound,
 	exactMoneyFromWholeRupees,
 	maxExactMoney,
 	minExactMoney,
@@ -111,6 +112,17 @@ describe("exact money arithmetic", () => {
 		expect(() => multiplyByWholePercent(m("100"), -1)).toThrow();
 		expect(() => multiplyByWholePercent(m("100"), 101)).toThrow();
 		expect(() => multiplyByWholePercent(m("100"), 4.5)).toThrow();
+	});
+
+	test("divides by a whole number and returns an exact whole-rupee result", () => {
+		expect(divideExactMoneyByWholeAndRound(m("30000"), 3)).toBe("10000");
+		expect(divideExactMoneyByWholeAndRound(m("100"), 3)).toBe("33");
+		expect(divideExactMoneyByWholeAndRound(m("101"), 3)).toBe("34");
+	});
+
+	test("rejects a non-positive or fractional divisor", () => {
+		expect(() => divideExactMoneyByWholeAndRound(m("100"), 0)).toThrow();
+		expect(() => divideExactMoneyByWholeAndRound(m("100"), 1.5)).toThrow();
 	});
 });
 

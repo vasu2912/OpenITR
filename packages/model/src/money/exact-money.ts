@@ -93,6 +93,23 @@ export const multiplyByWholePercent = (
 	);
 };
 
+// Some statutory fractions feed whole-rupee form fields. Divide with the
+// isolated decimal engine, then round once so no recurring approximation
+// escapes as an ExactMoney value.
+export const divideExactMoneyByWholeAndRound = (
+	amount: ExactMoney,
+	divisor: number,
+): ExactMoney => {
+	if (!Number.isSafeInteger(divisor) || divisor <= 0) {
+		throw new Error(`Invalid whole-number divisor: ${divisor}`);
+	}
+	return canonical(
+		asExactDecimal(amount)
+			.dividedBy(divisor)
+			.toDecimalPlaces(0, Decimal.ROUND_HALF_UP),
+	);
+};
+
 // Nearest multiple of `base`; an exact half of `base` rounds up, matching
 // sections 288A and 288B rounding of income and tax.
 export const roundToNearestMultipleOf = (

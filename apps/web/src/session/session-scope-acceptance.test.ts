@@ -1,11 +1,12 @@
 import {
 	createAisJsonBankInterestFixture,
 	createForm16SalaryPdfFixture,
+	createForm16APdfFixture,
 	createForm26AsTextFixture,
 	createPrefilledItr1JsonFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
-import { itr1Ay202627RulePack20260905 as pack } from "@openitr/itr1-ay2026-27";
+import { itr1Ay202627RulePack20260906 as pack } from "@openitr/itr1-ay2026-27";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
@@ -252,6 +253,54 @@ describe("complete scope through the public session workflow", () => {
 		expect(snapshot.questionnaire.questions.map((question) => question.id)).toContain(
 			"house-property-1-owned-by-taxpayer",
 		);
+	});
+
+	test("uses accepted other-source evidence and asks only for the missing family pension", async () => {
+		const session = start();
+		completeScope({ session });
+		answer({ session, questionId: "scope-other-sources", value: "yes" });
+		select({ session, displayName: "synthetic-form16a.pdf", bytes: createForm16APdfFixture() });
+		await waitForExtractions({ session, count: 1 });
+
+		let snapshot = documentsOf(session);
+		expect(
+			snapshot.questionnaire.questions
+				.filter((question) => question.affectedResult.resultId === "other-sources")
+				.map((question) => question.id),
+		).toEqual(["other-sources-family-pension"]);
+		expect(snapshot.otherSourcesComputation).toMatchObject({
+			kind: "blocked",
+			issue: { code: "FACT_OTHER_SOURCES_FAMILY_PENSION_MISSING" },
+		});
+
+		answerBankAmount({ session, questionId: "other-sources-family-pension", value: "90000" });
+		snapshot = documentsOf(session);
+		expect(snapshot.otherSourcesComputation).toMatchObject({
+			kind: "computed",
+			categories: [
+				{ kind: "dividends", amount: "25000" },
+				{ kind: "other-interest", amount: "120000" },
+				{ kind: "family-pension", amount: "90000" },
+			],
+			oldRegime: { familyPensionDeduction: "15000", total: "220000" },
+			newRegime: { familyPensionDeduction: "25000", total: "210000" },
+		});
+		const form16a = snapshot.extractions[0];
+		if (form16a?.status !== "done") throw new Error("Expected accepted Form 16A evidence");
+		expect(form16a.nonSalaryIncomeObservations.map((observation) => String(observation.factKey)).sort()).toEqual([
+			"non-salary-income.dividends",
+			"non-salary-income.interest-other-than-securities",
+		]);
+		expect(snapshot.factAnswers.find((answer) => answer.factKey === "non-salary-income.family-pension")?.origin.kind).toBe("attested-answer");
+		const familyPensionAnswer = snapshot.factAnswers.find((answer) => answer.factKey === "non-salary-income.family-pension");
+		if (familyPensionAnswer === undefined) throw new Error("Expected family-pension answer");
+		session.send({ kind: "remove-missing-fact-answer", answerId: familyPensionAnswer.answerId });
+		snapshot = documentsOf(session);
+		expect(snapshot.otherSourcesComputation).toMatchObject({
+			kind: "blocked",
+			issue: { code: "FACT_OTHER_SOURCES_FAMILY_PENSION_MISSING" },
+		});
+		expect(snapshot.questionnaire.questions.filter((question) => question.affectedResult.resultId === "other-sources").map((question) => question.id)).toEqual(["other-sources-family-pension"]);
 	});
 
 	test("does not repeat a bank-interest question after accepted AIS facts resolve it", async () => {
