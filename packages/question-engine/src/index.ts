@@ -33,6 +33,7 @@ export type ApplicableFactQuestion = Readonly<{
 		label: string;
 	}>;
 	answerSchema: ScopeRulePack["questions"][number]["answerSchema"];
+	visibility?: ScopeRulePack["questions"][number]["visibility"];
 	sourceReference: ScopeRulePack["questions"][number]["sourceReference"];
 }>;
 
@@ -52,7 +53,7 @@ export type AttestedAnswerFact = Readonly<{
 	questionId: QuestionId;
 	questionRevision: string;
 	factKey: FactKey;
-	value: ExactMoney;
+	value: ExactMoney | boolean;
 	origin: Readonly<{ kind: "attested-answer"; rulePackId: RulePackId }>;
 	answeredAt: IsoTimestamp;
 }>;
@@ -116,18 +117,44 @@ const isApplicable = (
 		answeredQuestionIds,
 		conflictedFactKeys,
 		applicableResultIds,
+		answersByFact,
 	}: Readonly<{
 		question: ScopeRulePack["questions"][number];
 		suppliedFactKeys: ReadonlySet<FactKey>;
 		answeredQuestionIds: ReadonlySet<QuestionId>;
 		conflictedFactKeys: ReadonlySet<FactKey>;
 		applicableResultIds: ReadonlySet<string>;
+		answersByFact: ReadonlyMap<FactKey, ExactMoney | boolean>;
 	}>,
-): boolean =>
-	!suppliedFactKeys.has(question.suppliesFact) &&
-	!answeredQuestionIds.has(question.id) &&
-	!conflictedFactKeys.has(question.suppliesFact) &&
-	applicableResultIds.has(question.affectedResult.resultId);
+): boolean => {
+	const visibility = question.visibility ?? { kind: "always" as const };
+	let visible: boolean;
+	switch (visibility.kind) {
+		case "always":
+			visible = true;
+			break;
+		case "fact-boolean-equals":
+			visible = answersByFact.get(visibility.factKey) === visibility.value;
+			break;
+		case "fact-money-greater-than": {
+			const value = answersByFact.get(visibility.factKey);
+			visible =
+				typeof value === "string" &&
+				compareExactMoney(
+					value,
+					exactMoneyFromWholeRupees(visibility.wholeRupees),
+				) > 0;
+			break;
+		}
+	}
+	return (
+		visible &&
+		!suppliedFactKeys.has(question.suppliesFact) &&
+		!answeredQuestionIds.has(question.id) &&
+		!conflictedFactKeys.has(question.suppliesFact) &&
+		applicableResultIds.has(question.affectedResult.resultId)
+	);
+};
 
 const answerIdOf = ({
 	rulePackId,
@@ -137,7 +164,7 @@ const answerIdOf = ({
 }: Readonly<{
 	rulePackId: RulePackId;
 	questionId: QuestionId;
-	value: ExactMoney;
+	value: ExactMoney | boolean;
 	answeredAt: IsoTimestamp;
 }>): string =>
 	`fact-answer:${rulePackId}:${questionId}:${value}:${answeredAt}`;
@@ -153,6 +180,9 @@ export const deriveMissingFactQuestions = (
 	const answeredQuestionIds = answeredQuestionIdsOf(input.answers);
 	const conflictedFactKeys = suppliedFactKeysOf(input.conflictedFacts);
 	const applicableResultIds = new Set(input.applicableResultIds);
+	const answersByFact = new Map(
+		input.answers.map((answer) => [answer.factKey, answer.value] as const),
+	);
 	const questions = scopePermitsQuestions(input.rulePack, input.scopeCheck)
 		? input.rulePack.questions
 		: [];
@@ -168,6 +198,7 @@ export const deriveMissingFactQuestions = (
 						answeredQuestionIds,
 						conflictedFactKeys,
 						applicableResultIds,
+						answersByFact,
 					}),
 				)
 				.map((question) =>
@@ -180,6 +211,9 @@ export const deriveMissingFactQuestions = (
 						whyRequired: question.whyRequired,
 						affectedResult: Object.freeze({ ...question.affectedResult }),
 						answerSchema: Object.freeze({ ...question.answerSchema }),
+						...(question.visibility === undefined
+							? {}
+							: { visibility: Object.freeze({ ...question.visibility }) }),
 						sourceReference: Object.freeze({ ...question.sourceReference }),
 					}),
 				),
@@ -213,6 +247,9 @@ export const evaluateFactAnswerAttempt = (
 			answeredQuestionIds: answeredQuestionIdsOf(input.answers),
 			conflictedFactKeys: suppliedFactKeysOf(input.conflictedFacts),
 			applicableResultIds: new Set(input.applicableResultIds),
+			answersByFact: new Map(
+				input.answers.map((answer) => [answer.factKey, answer.value] as const),
+			),
 		})
 	) {
 		return Object.freeze({
@@ -222,30 +259,43 @@ export const evaluateFactAnswerAttempt = (
 		});
 	}
 
-	let value: ExactMoney;
-	try {
-		value = parseExactMoney(input.rawValue.trim());
-	} catch {
-		return Object.freeze({
-			kind: "rejected",
-			rejection: "invalid-value",
-			questionId: question.id,
-		});
-	}
-
-	const { minimumWholeRupees, maximumWholeRupees } = question.answerSchema;
-	if (
-		compareExactMoney(value, exactMoneyFromWholeRupees(minimumWholeRupees)) <
-			0 ||
-		(maximumWholeRupees !== null &&
-			compareExactMoney(value, exactMoneyFromWholeRupees(maximumWholeRupees)) >
-				0)
-	) {
-		return Object.freeze({
-			kind: "rejected",
-			rejection: "value-out-of-range",
-			questionId: question.id,
-		});
+	let value: ExactMoney | boolean;
+	switch (question.answerSchema.kind) {
+		case "boolean":
+			if (input.rawValue === "yes") value = true;
+			else if (input.rawValue === "no") value = false;
+			else {
+				return Object.freeze({
+					kind: "rejected",
+					rejection: "invalid-value",
+					questionId: question.id,
+				});
+			}
+			break;
+		case "exact-money": {
+			try {
+				value = parseExactMoney(input.rawValue.trim());
+			} catch {
+				return Object.freeze({
+					kind: "rejected",
+					rejection: "invalid-value",
+					questionId: question.id,
+				});
+			}
+			const { minimumWholeRupees, maximumWholeRupees } = question.answerSchema;
+			if (
+				compareExactMoney(value, exactMoneyFromWholeRupees(minimumWholeRupees)) < 0 ||
+				(maximumWholeRupees !== null &&
+					compareExactMoney(value, exactMoneyFromWholeRupees(maximumWholeRupees)) > 0)
+			) {
+				return Object.freeze({
+					kind: "rejected",
+					rejection: "value-out-of-range",
+					questionId: question.id,
+				});
+			}
+			break;
+		}
 	}
 
 	return Object.freeze({
@@ -268,4 +318,45 @@ export const evaluateFactAnswerAttempt = (
 			answeredAt: input.answeredAt,
 		}),
 	});
+};
+
+export const removeFactAnswerAndDependents = ({
+	rulePack,
+	answers,
+	answerId,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	answers: readonly AttestedAnswerFact[];
+	answerId: string;
+}>): readonly AttestedAnswerFact[] => {
+	const removedFactKeys = new Set<FactKey>();
+	const target = answers.find((answer) => answer.answerId === answerId);
+	if (target === undefined) return answers;
+	removedFactKeys.add(target.factKey);
+
+	let changed = true;
+	while (changed) {
+		changed = false;
+		for (const answer of answers) {
+			const question = rulePack.questions.find(
+				(candidate) => candidate.id === answer.questionId,
+			);
+			const dependency =
+				question?.visibility?.kind === "fact-boolean-equals" ||
+				question?.visibility?.kind === "fact-money-greater-than"
+					? question.visibility.factKey
+					: undefined;
+			if (
+				dependency !== undefined &&
+				removedFactKeys.has(dependency) &&
+				!removedFactKeys.has(answer.factKey)
+			) {
+				removedFactKeys.add(answer.factKey);
+				changed = true;
+			}
+		}
+	}
+	return Object.freeze(
+		answers.filter((answer) => !removedFactKeys.has(answer.factKey)),
+	);
 };

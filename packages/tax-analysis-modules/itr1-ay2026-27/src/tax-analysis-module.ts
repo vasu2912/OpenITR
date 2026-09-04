@@ -10,6 +10,7 @@ import { itr1Ay202627RulePack20260824 } from "./revisions/2026-08-24/rule-pack";
 import { itr1Ay202627RulePack20260824b } from "./revisions/2026-08-24b/rule-pack";
 import { itr1Ay202627RulePack20260826 } from "./revisions/2026-08-26/rule-pack";
 import { itr1Ay202627RulePack20260903 } from "./revisions/2026-09-03/rule-pack";
+import { itr1Ay202627RulePack20260904 } from "./revisions/2026-09-04/rule-pack";
 
 const moduleId = parseTaxAnalysisModuleId("itr1-ay2026-27");
 
@@ -42,6 +43,10 @@ export const itr1Ay202627TaxAnalysisModuleArtifact = Object.freeze({
 			Object.freeze({
 				identity: itr1Ay202627RulePack20260903.identity,
 				load: async () => itr1Ay202627RulePack20260903,
+			}),
+			Object.freeze({
+				identity: itr1Ay202627RulePack20260904.identity,
+				load: async () => itr1Ay202627RulePack20260904,
 			}),
 		],
 	}),

@@ -145,10 +145,13 @@ export const expectNoStoredSessionData = async (
 	expect(snapshotUrl.hash).toBe("");
 };
 
-export const openDocumentIntake = async (page: Page): Promise<void> => {
+export const openDocumentIntake = async (
+	page: Page,
+	scopeOverrides: Readonly<Record<string, string>> = {},
+): Promise<void> => {
 	await openScopeQuestion(page);
 	await answerScopeCheck(page, "Yes");
-	for (const [questionId, value] of Object.entries({
+	for (const [questionId, defaultValue] of Object.entries({
 		"scope-individual": "yes",
 		"scope-resident-other-than-rnor": "yes",
 		"scope-total-income": "900000",
@@ -183,6 +186,7 @@ export const openDocumentIntake = async (page: Page): Promise<void> => {
 		"scope-salary-pension": "yes",
 		"scope-other-sources": "no",
 	})) {
+		const value = scopeOverrides[questionId] ?? defaultValue;
 		const row = page.locator(`[data-scope-question="${questionId}"]`);
 		const input = row.locator(`#${questionId}-answer`);
 		if ((await input.count()) === 0) {

@@ -38,6 +38,15 @@ export type NewRegimeTaxConstantRecord = Readonly<{
 
 export type RulePackManifestTaxConstants = Readonly<{
 	newRegime: NewRegimeTaxConstantRecord;
+	selfOccupiedHouseProperty?: SelfOccupiedHousePropertyTaxConstantRecord;
+}>;
+
+export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
+	enhancedInterestLimitWholeRupees: number;
+	basicInterestLimitWholeRupees: number;
+	annualValueRuleId: string;
+	oldRegimeInterestRuleId: string;
+	newRegimeInterestRuleId: string;
 }>;
 
 // The compiled form resolves every authored rule identifier to a validated
@@ -63,4 +72,13 @@ export type CompiledNewRegimeTaxConstants = Readonly<{
 
 export type CompiledTaxConstants = Readonly<{
 	newRegime: CompiledNewRegimeTaxConstants;
+	selfOccupiedHouseProperty?: CompiledSelfOccupiedHousePropertyTaxConstants;
+}>;
+
+export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
+	enhancedInterestLimitWholeRupees: number;
+	basicInterestLimitWholeRupees: number;
+	annualValueRuleId: RuleId;
+	oldRegimeInterestRuleId: RuleId;
+	newRegimeInterestRuleId: RuleId;
 }>;
