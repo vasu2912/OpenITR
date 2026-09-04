@@ -30,6 +30,11 @@ export {
 } from "./revisions/2026-09-05/rule-pack";
 export { itr1Ay202627RulePackManifest20260905 } from "./revisions/2026-09-05/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260906,
+	itr1Ay202627RulePack20260906,
+} from "./revisions/2026-09-06/rule-pack";
+export { itr1Ay202627RulePackManifest20260906 } from "./revisions/2026-09-06/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -78,6 +83,14 @@ export type {
 	HousePropertyNumber,
 	SignedHousePropertyAmount,
 } from "./computations/house-property";
+export { computeOtherSources } from "./computations/other-sources";
+export type {
+	OtherSourceCategory,
+	OtherSourceFact,
+	OtherSourcesComputation,
+	OtherSourcesIssue,
+	OtherSourcesTraceNode,
+} from "./computations/other-sources";
 export type {
 	AcceptedBankInterestDocumentFacts,
 	AcceptedNonSalaryIncomeDocumentFacts,

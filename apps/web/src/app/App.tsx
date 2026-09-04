@@ -43,6 +43,7 @@ import { EstimateView } from "../views/estimate-view";
 import { FactConflictsView } from "../views/fact-conflicts";
 import { MissingFactQuestionsView } from "../views/missing-fact-questions";
 import { HousePropertyComputationView } from "../views/house-property-computation";
+import { OtherSourcesComputationView } from "../views/other-sources-computation";
 import { ScopeAnalysisView } from "../views/scope-analysis";
 import { SalaryComputationView } from "../views/salary-computation";
 import { SalaryReviewView } from "../views/salary-review";
@@ -330,6 +331,10 @@ const ScopeInteraction = ({
 		snapshot.kind === "document-intake"
 			? snapshot.housePropertyComputation
 			: undefined;
+	const otherSourcesComputation =
+		snapshot.kind === "document-intake"
+			? snapshot.otherSourcesComputation
+			: undefined;
 	const pendingRecomputation =
 		snapshot.kind === "document-intake"
 			? snapshot.pendingRecomputation
@@ -469,6 +474,7 @@ const ScopeInteraction = ({
 						documents={documents}
 					/>
 					<HousePropertyComputationView computation={housePropertyComputation} />
+					<OtherSourcesComputationView computation={otherSourcesComputation} />
 					{pendingRecomputation.kind === "pending" ? (
 						<Alert
 							aria-live="polite"

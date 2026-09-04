@@ -517,7 +517,13 @@ body,
 }
 
 .openitr-property-summary,
-.openitr-property-list {
+.openitr-property-list,
+.openitr-other-sources-summary,
+.openitr-other-sources-categories {
+	margin-top: var(--pf-t--global--spacer--lg);
+}
+
+.openitr-other-sources-card h3 {
 	margin-top: var(--pf-t--global--spacer--lg);
 }
 
