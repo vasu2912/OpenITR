@@ -48,12 +48,16 @@ test.describe("missing-fact questionnaire", () => {
 		await expect(estimate.getByText("₹ 61,250").first()).toBeVisible({
 			timeout: 30_000,
 		});
+		// Inspect the pending state before its scheduled recomputation settles.
+		await page.clock.install({ time: new Date("2026-09-03T12:00:00Z") });
+		await page.clock.pauseAt(new Date("2026-09-03T12:00:01Z"));
 		await questionnaire.getByRole("button", { name: "Change answer" }).first().click();
 
 		await expect(
 			page.getByText("The previous estimate is hidden while the changed decision is applied."),
 		).toBeVisible();
 		await expect(page.locator(".openitr-estimate-card")).toHaveCount(0);
+		await page.clock.resume();
 
 		const replacement = questionnaire.getByLabel(
 			"How much savings-account interest did you receive in FY 2025-26?",

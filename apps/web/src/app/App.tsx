@@ -42,6 +42,7 @@ import { DocumentsIntakeView } from "../views/documents-intake";
 import { EstimateView } from "../views/estimate-view";
 import { FactConflictsView } from "../views/fact-conflicts";
 import { MissingFactQuestionsView } from "../views/missing-fact-questions";
+import { ScopeAnalysisView } from "../views/scope-analysis";
 import { SalaryComputationView } from "../views/salary-computation";
 import { SalaryReviewView } from "../views/salary-review";
 import { activeAnalysisRelease } from "./release-manifest";
@@ -154,9 +155,8 @@ const AppFrame = ({
 				Check whether this analysis applies
 			</Title>
 			<p className="openitr-lede">
-				Answer one eligibility question from the pinned AY 2026-27 rule
-				pack. This check covers one condition, not the complete ITR-1
-				analysis envelope.
+				Answer the eligibility question from the pinned AY 2026-27 rule pack,
+				then review the complete ITR-1 analysis scope and its evidence checklist.
 			</p>
 		</PageSection>
 		<PageSection isFilled variant="secondary">
@@ -329,6 +329,9 @@ const ScopeInteraction = ({
 		snapshot.kind === "document-intake"
 			? snapshot.pendingRecomputation
 			: { kind: "idle" as const };
+	const analysisScope = snapshot.analysisScope;
+	const canEnterDocuments =
+		analysisScope === undefined || analysisScope.kind === "supported";
 
 	return (
 		<AppFrame
@@ -342,80 +345,113 @@ const ScopeInteraction = ({
 				</Button>
 			}
 			workflowState={
-				completion.result.kind === "supported" ? "complete" : "blocked"
+				completion.result.kind === "unsupported"
+					? "blocked"
+					: canEnterDocuments
+						? "complete"
+						: "in-progress"
 			}
 		>
-			<Card
-				aria-live="polite"
-				className="openitr-result-card"
-				component="section"
-			>
-				<CardTitle>
-					<Title headingLevel="h2" size="lg">
-						Scope-check result
-					</Title>
-				</CardTitle>
-				<CardBody>
-					<Alert
-						isInline
-						title={completion.result.title}
-						variant={
-							completion.result.kind === "supported" ? "success" : "warning"
-						}
-					>
-						{completion.result.explanation}
-					</Alert>
-					<dl className="openitr-result-details">
-						<div>
-							<dt>Question</dt>
-							<dd>{completion.question.prompt}</dd>
-						</div>
-						<div>
-							<dt>Your answer</dt>
-							<dd>{completion.answer.label}</dd>
-						</div>
-						<div>
-							<dt>Rule</dt>
-							<dd>{completion.result.rule.id}</dd>
-						</div>
-						<div>
-							<dt>Official source</dt>
-							<dd>
-								<a
-									href={completion.result.rule.sourceUrl}
-									rel="noreferrer"
-									target="_blank"
-								>
-									{completion.result.rule.citation}
-								</a>
-							</dd>
-						</div>
-					</dl>
-					{completion.result.kind === "unsupported" ? (
-						<p className="openitr-recovery-action">
-							<strong>Next action:</strong> {completion.result.issue.recoveryAction}
+			{analysisScope === undefined ? (
+				<Card
+					aria-live="polite"
+					className="openitr-result-card"
+					component="section"
+				>
+					<CardTitle>
+						<Title headingLevel="h2" size="lg">
+							Scope-check result
+						</Title>
+					</CardTitle>
+					<CardBody>
+						<Alert
+							isInline
+							title={completion.result.title}
+							variant={
+								completion.result.kind === "supported"
+									? "success"
+									: "warning"
+							}
+						>
+							{completion.result.explanation}
+						</Alert>
+						<dl className="openitr-result-details">
+							<div>
+								<dt>Question</dt>
+								<dd>{completion.question.prompt}</dd>
+							</div>
+							<div>
+								<dt>Your answer</dt>
+								<dd>{completion.answer.label}</dd>
+							</div>
+							<div>
+								<dt>Rule</dt>
+								<dd>{completion.result.rule.id}</dd>
+							</div>
+							<div>
+								<dt>Official source</dt>
+								<dd>
+									<a
+										href={completion.result.rule.sourceUrl}
+										rel="noreferrer"
+										target="_blank"
+									>
+										{completion.result.rule.citation}
+									</a>
+								</dd>
+							</div>
+						</dl>
+						{completion.result.kind === "unsupported" ? (
+							<p className="openitr-recovery-action">
+								<strong>Next action:</strong>{" "}
+								{completion.result.issue.recoveryAction}
+							</p>
+						) : null}
+						<p className="openitr-result-limit">
+							This result covers only this question. It is not a
+							filing-eligibility decision.
 						</p>
-					) : null}
-					<p className="openitr-result-limit">
-						This result covers only this question. It is not a filing-eligibility
-						decision.
-					</p>
-				</CardBody>
-			</Card>
-			{completion.result.kind === "supported" ? (
+					</CardBody>
+				</Card>
+			) : null}
+			{analysisScope === undefined ? null : (
+				<ScopeAnalysisView evaluation={analysisScope} session={session} />
+			)}
+			{canEnterDocuments ? (
+				<DocumentsIntakeView
+					documents={documents}
+					extractions={extractions}
+					session={session}
+				/>
+			) : (
+				<Card className="openitr-documents-card" component="section">
+					<CardTitle>
+						<Title headingLevel="h2" size="lg">
+							Source documents are locked
+						</Title>
+					</CardTitle>
+					<CardBody>
+						<Alert
+							isInline
+							title="Complete the mandatory scope questions before selecting source documents"
+							variant="info"
+						>
+							Resolve every unknown, blocked, or outside-scope decision in the
+							complete ITR-1 analysis scope first. This does not make OpenITR a
+							filing-eligibility or portal-acceptance service.
+						</Alert>
+					</CardBody>
+				</Card>
+			)}
+			{canEnterDocuments && snapshot.kind === "document-intake" ? (
+				<MissingFactQuestionsView
+					answers={snapshot.factAnswers}
+					questionnaire={snapshot.questionnaire}
+					session={session}
+				/>
+			) : null}
+			{canEnterDocuments ? (
 				<>
-					<DocumentsIntakeView
-						documents={documents}
-						extractions={extractions}
-						session={session}
-					/>
-					{snapshot.kind === "document-intake" ? (
-						<MissingFactQuestionsView
-							answers={snapshot.factAnswers}
-							questionnaire={snapshot.questionnaire}
-							session={session}
-						/>
-					) : null}
 					<FactConflictsView
 						conflicts={factConflicts}
 						documents={documents}

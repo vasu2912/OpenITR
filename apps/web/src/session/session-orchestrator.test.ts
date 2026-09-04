@@ -1,4 +1,7 @@
-import { itr1Ay202627RulePack } from "@openitr/itr1-ay2026-27";
+import {
+	itr1Ay202627RulePack,
+	itr1Ay202627RulePack20260903,
+} from "@openitr/itr1-ay2026-27";
 import { parseRulePackId } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
@@ -200,6 +203,114 @@ describe("ITR-1 scope check", () => {
 			expect(snapshot.answer.answeredAt).toBe(answerTime);
 		}
 
+		session.stop();
+	});
+});
+
+describe("ITR-1 full scope workflow", () => {
+	const createFullScopeSession = () =>
+		createSessionOrchestrator({
+			rulePack: itr1Ay202627RulePack20260903,
+			documents: inProcessInspectionFacility(),
+		});
+	const answerRequiredScopeFacts = (session: ReturnType<typeof createFullScopeSession>) => {
+		const snapshot = session.getSnapshot();
+		if (snapshot.kind !== "scope-check-complete" || snapshot.analysisScope === undefined) {
+			throw new Error("Expected a full-scope completion snapshot");
+		}
+		for (const question of snapshot.analysisScope.questions) {
+			if (question.requiresRuleId === undefined) {
+				continue;
+			}
+			const value =
+				question.id === "scope-total-income"
+					? "5000000"
+					: question.answerSchema.kind === "boolean"
+						? "no"
+						: question.answerSchema.kind === "whole-number"
+							? "0"
+							: "0";
+			session.send({
+				kind: "answer-analysis-scope-question",
+				questionId: question.id,
+				value,
+				executionContext: { answerTime: fixedAnswerTime },
+			});
+		}
+	};
+
+	test("publishes unresolved full-scope questions after the legacy answer", () => {
+		const session = createFullScopeSession();
+		session.send({
+			kind: "answer-eligibility-question",
+			questionId: itr1Ay202627RulePack20260903.question.id,
+			answer: "yes",
+			executionContext: { answerTime: fixedAnswerTime },
+		});
+		const snapshot = session.getSnapshot();
+		expect(snapshot.kind).toBe("scope-check-complete");
+		if (snapshot.kind === "scope-check-complete") {
+			expect(snapshot.analysisScope?.kind).toBe("unknown");
+			expect(snapshot.analysisScope?.questions.map((question) => question.id)).toContain("scope-total-income");
+			expect(snapshot.analysisScope?.decisions.find((decision) => decision.rule.id === "ITR1-SCOPE-TOTAL-INCOME-50-LAKH")?.explanation).toContain("Missing fact key: scope.total-income");
+		}
+		session.stop();
+	});
+
+	test("accepts one typed scope answer and invalidates stale estimates on correction", () => {
+		const session = createFullScopeSession();
+		session.send({
+			kind: "answer-eligibility-question",
+			questionId: itr1Ay202627RulePack20260903.question.id,
+			answer: "yes",
+			executionContext: { answerTime: fixedAnswerTime },
+		});
+		session.send({
+			kind: "answer-analysis-scope-question",
+			questionId: "scope-total-income",
+			value: "5000000",
+			executionContext: { answerTime: "2026-09-03T00:01:00.000Z" },
+		});
+		let snapshot = session.getSnapshot();
+		expect(snapshot.kind).toBe("scope-check-complete");
+		if (snapshot.kind === "scope-check-complete") {
+			expect(snapshot.analysisScope?.decisions.find((decision) => decision.rule.id === "ITR1-SCOPE-TOTAL-INCOME-50-LAKH")?.kind).toBe("supported");
+		}
+		session.send({
+			kind: "answer-analysis-scope-question",
+			questionId: "scope-total-income",
+			value: "5000000.01",
+			executionContext: { answerTime: "2026-09-03T00:02:00.000Z" },
+		});
+		snapshot = session.getSnapshot();
+		if (snapshot.kind === "scope-check-complete") {
+			expect(snapshot.analysisScope?.decisions.find((decision) => decision.rule.id === "ITR1-SCOPE-TOTAL-INCOME-50-LAKH")?.kind).toBe("unsupported");
+		}
+		session.stop();
+	});
+
+	test("can reach supported scope while composition evidence remains a checklist concern", () => {
+		const session = createFullScopeSession();
+		session.send({
+			kind: "answer-eligibility-question",
+			questionId: itr1Ay202627RulePack20260903.question.id,
+			answer: "yes",
+			executionContext: { answerTime: fixedAnswerTime },
+		});
+		answerRequiredScopeFacts(session);
+		const snapshot = session.getSnapshot();
+		expect(snapshot.kind).toBe("scope-check-complete");
+		if (snapshot.kind === "scope-check-complete" && snapshot.analysisScope !== undefined) {
+			expect(snapshot.analysisScope.kind).toBe("supported");
+			expect(snapshot.analysisScope.questions.map((question) => question.id)).toEqual([
+				"scope-salary-pension",
+				"scope-bank-interest",
+				"scope-other-sources",
+			]);
+			expect(snapshot.analysisScope.checklist.map((item) => item.id)).toContain("salary-and-pension-evidence");
+			expect(snapshot.analysisScope.checklist.map((item) => item.id)).toContain("bank-interest-evidence");
+			expect(snapshot.analysisScope.checklist.map((item) => item.id)).not.toContain("tax-payment-evidence");
+		}
 		session.stop();
 	});
 });

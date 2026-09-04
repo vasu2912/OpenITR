@@ -1,5 +1,6 @@
 import {
 	parseAssessmentYear,
+	parseDocumentKind,
 	parseFactKey,
 	parseFinancialYear,
 	parseIssueCode,
@@ -9,6 +10,11 @@ import {
 	parseSha256Digest,
 	parseSourceId,
 	parseTaxFormId,
+} from "@openitr/model";
+import {
+	compareExactMoney,
+	exactMoneyFromWholeRupees,
+	parseExactMoney,
 } from "@openitr/model";
 import type {
 	CompiledNewRegimeTaxConstants,
@@ -27,6 +33,11 @@ import type {
 	RulePackSlabBand,
 	ScopeCheckResult,
 	SourceId,
+	AnalysisScopeCatalog,
+	RulePackManifestAnalysisScopeRecord,
+	ScopeFactSchema,
+	ScopeQuestionAnswerSchema,
+	ScopeRuleCondition,
 } from "@openitr/model";
 
 const compareStrings = (left: string, right: string): number => {
@@ -383,6 +394,382 @@ const compileMissingFactQuestions = ({
 	return questions;
 };
 
+const compileScopeFactSchema = (
+	{ schema, description }: Readonly<{ schema: ScopeFactSchema; description: string; }>,
+): ScopeFactSchema => {
+	switch (schema.kind) {
+		case "boolean":
+			return deepFreeze({ kind: "boolean" });
+		case "exact-money": {
+			const minimum = requireNonNegativeWholeRupees(
+				schema.minimumWholeRupees,
+				`${description} minimum`,
+			);
+			const maximum =
+				schema.maximumWholeRupees === null
+					? null
+					: requireNonNegativeWholeRupees(
+							schema.maximumWholeRupees,
+							`${description} maximum`,
+						);
+			if (maximum !== null && maximum < minimum) {
+				throw new Error(
+					`${description} maximum must not be less than its minimum`,
+				);
+			}
+			return deepFreeze({
+				kind: "exact-money",
+				minimumWholeRupees: minimum,
+				maximumWholeRupees: maximum,
+			});
+		}
+		case "whole-number": {
+			const minimum = requireNonNegativeWholeRupees(
+				schema.minimum,
+				`${description} minimum`,
+			);
+			const maximum =
+				schema.maximum === null
+					? null
+					: requireNonNegativeWholeRupees(
+							schema.maximum,
+							`${description} maximum`,
+						);
+			if (maximum !== null && maximum < minimum) {
+				throw new Error(
+					`${description} maximum must not be less than its minimum`,
+				);
+			}
+			return deepFreeze({ kind: "whole-number", minimum, maximum });
+		}
+		case "choice": {
+			if (schema.values.length === 0) {
+				throw new Error(`${description} needs at least one choice value`);
+			}
+			const values = schema.values.map((value) =>
+				requireNonEmpty(value, `${description} choice value`),
+			);
+			if (new Set(values).size !== values.length) {
+				throw new Error(`${description} contains duplicate choice values`);
+			}
+			return deepFreeze({ kind: "choice", values: Object.freeze([...values]) });
+		}
+		default: {
+			const _exhaustive: never = schema;
+			return _exhaustive;
+		}
+	}
+};
+
+const compileScopeQuestionSchema = (
+	{ schema, description }: Readonly<{ schema: ScopeQuestionAnswerSchema; description: string; }>,
+): ScopeQuestionAnswerSchema => {
+	switch (schema.kind) {
+		case "boolean":
+			return deepFreeze({ kind: "boolean" });
+		case "exact-money":
+			return compileScopeFactSchema({ schema, description });
+		case "whole-number":
+			return compileScopeFactSchema({ schema, description });
+		case "choice":
+			return compileScopeFactSchema({ schema, description });
+		default: {
+			const _exhaustive: never = schema;
+			return _exhaustive;
+		}
+	}
+};
+
+const scopeSchemasAreCompatible = (
+	{ factSchema, questionSchema }: Readonly<{ factSchema: ScopeFactSchema; questionSchema: ScopeQuestionAnswerSchema; }>,
+): boolean => {
+	if (factSchema.kind !== questionSchema.kind) {
+		return false;
+	}
+	if (factSchema.kind === "boolean") {
+		return true;
+	}
+	if (factSchema.kind === "choice" && questionSchema.kind === "choice") {
+		return questionSchema.values.every((value) => factSchema.values.includes(value));
+	}
+	if (factSchema.kind === "exact-money" && questionSchema.kind === "exact-money") {
+		const minimumCompatible =
+			compareExactMoney(
+				exactMoneyFromWholeRupees(questionSchema.minimumWholeRupees),
+				exactMoneyFromWholeRupees(factSchema.minimumWholeRupees),
+			) >= 0;
+		const maximumCompatible =
+			factSchema.maximumWholeRupees === null ||
+			(questionSchema.maximumWholeRupees !== null &&
+				questionSchema.maximumWholeRupees <= factSchema.maximumWholeRupees);
+		return minimumCompatible && maximumCompatible;
+	}
+	if (factSchema.kind === "whole-number" && questionSchema.kind === "whole-number") {
+		return (
+			questionSchema.minimum >= factSchema.minimum &&
+			(factSchema.maximum === null ||
+				(questionSchema.maximum !== null && questionSchema.maximum <= factSchema.maximum))
+		);
+	}
+	return false;
+};
+
+const compileAnalysisScope = ({
+	record,
+	rulesById,
+	sourcesById,
+}: Readonly<{
+	record: RulePackManifestAnalysisScopeRecord;
+	rulesById: ReadonlyMap<string, CompiledRule>;
+	sourcesById: ReadonlyMap<string, OfficialSource>;
+}>): AnalysisScopeCatalog => {
+	const facts = record.facts.map((fact) => ({
+		key: parseFactKey(fact.key),
+		label: requireNonEmpty(fact.label, `scope fact label for "${fact.key}"`),
+		schema: compileScopeFactSchema({ schema: fact.schema, description: `scope fact "${fact.key}"` }),
+	}));
+	const factsByKey = new Map(facts.map((fact) => [fact.key, fact]));
+	if (factsByKey.size !== facts.length) {
+		throw new Error("Duplicate full analysis-scope fact identifier");
+	}
+
+	const rules = record.rules.map((rule) => {
+		const id = parseRuleId(rule.id);
+		const factKey = parseFactKey(rule.factKey);
+		const supportedRule = rulesById.get(id);
+		if (supportedRule === undefined) {
+			throw new Error(
+				`Unknown rule reference: scope rule "${id}" is absent from supportedRules`,
+			);
+		}
+		if (!factsByKey.has(factKey)) {
+			throw new Error(
+				`Unknown fact reference: scope rule "${id}" refers to undeclared fact "${rule.factKey}"`,
+			);
+		}
+		const sourceId = parseSourceId(rule.sourceId);
+		const source = sourcesById.get(sourceId);
+		if (source === undefined) {
+			throw new Error(
+				`Unknown source reference: scope rule "${id}" cites undeclared source "${rule.sourceId}"`,
+			);
+		}
+		const citation = requireNonEmpty(rule.citation, `citation for scope rule "${id}"`);
+		const sourceLocation = requireNonEmpty(
+			rule.sourceLocation,
+			`source location for scope rule "${id}"`,
+		);
+		if (
+			citation !== supportedRule.citation.citation ||
+			sourceId !== supportedRule.sourceId ||
+			sourceLocation !== supportedRule.sourceLocation
+		) {
+			throw new Error(
+				`Scope rule "${id}" citation differs from its supportedRules citation or source location`,
+			);
+		}
+		const fact = factsByKey.get(factKey);
+		if (fact === undefined) {
+			throw new Error(`Unknown fact reference: scope rule "${id}"`);
+		}
+		const factSchemaKind = fact.schema.kind;
+		const conditionSchemaKind =
+			rule.condition.kind === "must-be-true" || rule.condition.kind === "must-be-false"
+				? "boolean"
+				: rule.condition.kind === "at-most-exact-money"
+					? "exact-money"
+					: "whole-number";
+		if (factSchemaKind !== conditionSchemaKind) {
+			throw new Error(
+				`Scope rule "${id}" condition ${conditionSchemaKind} is incompatible with fact "${rule.factKey}" schema ${factSchemaKind}`,
+			);
+		}
+		let condition: ScopeRuleCondition;
+		switch (rule.condition.kind) {
+			case "must-be-true":
+			case "must-be-false":
+				condition = { kind: rule.condition.kind };
+				break;
+			case "at-most-exact-money":
+				{
+					const limit = parseExactMoney(rule.condition.limit);
+					if (
+						fact.schema.kind !== "exact-money" ||
+						(fact.schema.maximumWholeRupees !== null &&
+							compareExactMoney(
+								limit,
+								exactMoneyFromWholeRupees(fact.schema.maximumWholeRupees),
+							) > 0) ||
+						compareExactMoney(
+							limit,
+							exactMoneyFromWholeRupees(fact.schema.minimumWholeRupees),
+						) < 0
+					) {
+						throw new Error(
+							`Scope rule "${id}" condition limit is incompatible with fact "${rule.factKey}" schema`,
+						);
+					}
+				condition = {
+					kind: "at-most-exact-money",
+					limit,
+				};
+				}
+				break;
+			case "at-most-whole-number":
+				{
+					const limit = requireNonNegativeWholeRupees(
+						rule.condition.limit,
+						`Scope rule "${id}" limit`,
+					);
+					if (
+						fact.schema.kind !== "whole-number" ||
+						limit < fact.schema.minimum ||
+						(fact.schema.maximum !== null && limit > fact.schema.maximum)
+					) {
+						throw new Error(
+							`Scope rule "${id}" condition limit is incompatible with fact "${rule.factKey}" schema`,
+						);
+					}
+				condition = {
+					kind: "at-most-whole-number",
+					limit,
+				};
+				}
+				break;
+			default: {
+				const _exhaustive: never = rule.condition;
+				return _exhaustive;
+			}
+		}
+		return deepFreeze({
+			id,
+			factKey,
+			condition,
+			citation: deepFreeze({
+				id,
+				citation,
+					sourceId: source.id,
+					sourceUrl: source.url,
+					sourceLocation,
+			}),
+			supportedTitle: requireNonEmpty(rule.supportedTitle, `supported title for scope rule "${id}"`),
+			supportedExplanation: requireNonEmpty(rule.supportedExplanation, `supported explanation for scope rule "${id}"`),
+			unsupportedTitle: requireNonEmpty(rule.unsupportedTitle, `unsupported title for scope rule "${id}"`),
+			unsupportedExplanation: requireNonEmpty(rule.unsupportedExplanation, `unsupported explanation for scope rule "${id}"`),
+			unknownExplanation: requireNonEmpty(rule.unknownExplanation, `unknown explanation for scope rule "${id}"`),
+			blockedExplanation: requireNonEmpty(rule.blockedExplanation, `blocked explanation for scope rule "${id}"`),
+			recoveryAction: requireNonEmpty(rule.recoveryAction, `recovery action for scope rule "${id}"`),
+		});
+	});
+	const rulesByScopeId = new Map<string, (typeof rules)[number]>();
+	for (const rule of rules) {
+		if (rulesByScopeId.has(rule.id)) {
+			throw new Error(`Duplicate full analysis-scope rule identifier: ${rule.id}`);
+		}
+		rulesByScopeId.set(rule.id, rule);
+	}
+
+	const questions = record.questions.map((question) => {
+		const id = parseQuestionId(question.id);
+		const factKey = parseFactKey(question.factKey);
+		const ruleId =
+			question.requiresRuleId === undefined
+				? undefined
+				: parseRuleId(question.requiresRuleId);
+		const rule = ruleId === undefined ? undefined : rulesByScopeId.get(ruleId);
+		if (question.requiresRuleId !== undefined && rule === undefined) {
+			throw new Error(
+				`Unknown rule reference: scope question "${id}" requires undeclared scope rule "${question.requiresRuleId}"`,
+			);
+		}
+		if (rule !== undefined && rule.factKey !== factKey) {
+			throw new Error(
+				`Scope question "${id}" supplies ${question.factKey}, but rule "${question.requiresRuleId}" evaluates ${rule.factKey}`,
+			);
+		}
+		const fact = factsByKey.get(factKey);
+		if (fact === undefined) {
+			throw new Error(
+				`Scope question "${id}" refers to undeclared fact "${question.factKey}"`,
+			);
+		}
+		const answerSchema = compileScopeQuestionSchema(
+			{ schema: question.answerSchema, description: `scope question "${id}" answer schema` },
+		);
+		if (!scopeSchemasAreCompatible({ factSchema: fact.schema, questionSchema: answerSchema })) {
+			throw new Error(
+				`Scope question "${id}" answer schema ${question.answerSchema.kind} is incompatible with fact "${question.factKey}" schema ${fact.schema.kind}`,
+			);
+		}
+		return deepFreeze({
+			id,
+			prompt: requireNonEmpty(question.prompt, `scope question prompt for "${id}"`),
+			helpText: requireNonEmpty(question.helpText, `scope question help text for "${id}"`),
+			factKey,
+			...(ruleId === undefined ? {} : { requiresRuleId: ruleId }),
+			whyRequired: requireNonEmpty(question.whyRequired, `scope question rationale for "${id}"`),
+			answerSchema,
+			...(rule === undefined
+				? {}
+				: {
+						sourceReference: deepFreeze({
+							sourceId: rule.citation.sourceId,
+							location: rule.citation.sourceLocation,
+						}),
+					}),
+		});
+	});
+	const seenQuestionIds = new Set<string>();
+	for (const question of questions) {
+		if (seenQuestionIds.has(question.id)) {
+			throw new Error(`Duplicate full analysis-scope question identifier: ${question.id}`);
+		}
+		seenQuestionIds.add(question.id);
+	}
+
+	const documentExpectations = record.documentExpectations.map((expectation) => {
+		const id = requireNonEmpty(expectation.id, "scope document expectation ID");
+		const documentKinds = expectation.documentKinds.map((kind) => parseDocumentKind(kind));
+		const factKeys = expectation.factKeys.map((factKey) => {
+			const parsed = parseFactKey(factKey);
+			if (!factsByKey.has(parsed)) {
+				throw new Error(
+					`Unknown fact reference: scope document expectation "${id}" refers to "${factKey}"`,
+				);
+			}
+			return parsed;
+		});
+		return deepFreeze({
+			id,
+			label: requireNonEmpty(expectation.label, `scope document expectation label for "${id}"`),
+			documentKinds: deepFreeze([...documentKinds]),
+			factKeys: deepFreeze([...factKeys]),
+			parserSupport: expectation.parserSupport,
+			purpose: requireNonEmpty(expectation.purpose, `scope document expectation purpose for "${id}"`),
+		});
+	});
+	const documentExpectationIds = new Set<string>();
+	for (const expectation of documentExpectations) {
+		if (documentExpectationIds.has(expectation.id)) {
+			throw new Error(
+				`Duplicate full analysis-scope document expectation identifier: ${expectation.id}`,
+			);
+		}
+		documentExpectationIds.add(expectation.id);
+	}
+	return deepFreeze({
+		facts: deepFreeze(facts),
+		rules: deepFreeze(rules),
+		questions: deepFreeze(questions),
+		documentExpectations: deepFreeze(documentExpectations),
+		educationalLimitations: deepFreeze(
+			record.educationalLimitations.map((limitation) =>
+				requireNonEmpty(limitation, "scope educational limitation"),
+			),
+		),
+	});
+};
+
 export type CompileRulePackInput = Readonly<{
 	manifest: RulePackManifest;
 }>;
@@ -641,6 +1028,15 @@ export const compileRulePack = async ({
 		compiledTaxConstants = deepFreeze({ newRegime });
 	}
 
+	const compiledAnalysisScope =
+		manifest.analysisScope === undefined
+			? undefined
+			: compileAnalysisScope({
+					record: manifest.analysisScope,
+				rulesById,
+				sourcesById,
+			});
+
 	const sourceManifestSha256 = parseSha256Digest(
 		await sha256Hex(canonicalJson(officialSources)),
 	);
@@ -659,6 +1055,9 @@ export const compileRulePack = async ({
 		...(compiledQuestions === undefined
 			? {}
 			: { missingFactQuestions: compiledQuestions }),
+		...(compiledAnalysisScope === undefined
+			? {}
+			: { analysisScope: compiledAnalysisScope }),
 		taxConstants: compiledTaxConstants,
 	};
 
@@ -682,6 +1081,9 @@ export const compileRulePack = async ({
 		...(compiledQuestions === undefined
 			? {}
 			: { missingFactQuestions: compiledQuestions }),
+		...(compiledAnalysisScope === undefined
+			? {}
+			: { analysisScope: compiledAnalysisScope }),
 		...(compiledTaxConstants === undefined
 			? {}
 			: { taxConstants: compiledTaxConstants }),

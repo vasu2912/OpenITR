@@ -31,21 +31,21 @@ export const activeAnalysisRelease: AnalysisRelease = Object.freeze({
 	taxAnalysisModule: Object.freeze({
 		id: parseTaxAnalysisModuleId("itr1-ay2026-27"),
 		compiledModuleSha256: parseSha256Digest(
-			"cf2f844af75f56f576b6719160e4a3581a178208c6fff7002988ac08f79943bb",
+			"67440e2c105be37bc4fdbc40d6ab71574bf351014cecf16526fa2dc2cec273ee",
 		),
 	}),
 	rulePack: Object.freeze({
-		id: parseRulePackId("itr1-ay2026-27.2026-08-26"),
+		id: parseRulePackId("itr1-ay2026-27.2026-09-03"),
 		sourceManifestSha256: parseSha256Digest(
-			"63df0accc6b324bb71463cc554ae02d434822c89c509fab20d9b2c0f99fce6cc",
+			"80631c1cfc0dc33dd0b0c8b1b6f8d712df7397a586c4598eb1dee3dfd90e7577",
 		),
 		compiledPackSha256: parseSha256Digest(
-			"bea40cf3cd87f32b7d5631cc4fb828b76911d24749a62e51c9ea760986cd59fc",
+			"bfce0b5493519c599a52ddb01187a266fc72f91afc5b97ff4173814abcdeff13",
 		),
 	}),
 	form: parseTaxFormId("ITR-1"),
 	financialYear: parseFinancialYear("2025-26"),
 	assessmentYear: parseAssessmentYear("2026-27"),
-	rulePackRevision: "2026-08-26",
+	rulePackRevision: "2026-09-03",
 	engineContractVersion: "1",
 });

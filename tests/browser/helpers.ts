@@ -74,6 +74,22 @@ export const answerScopeCheck = async (
 	await page.getByRole("button", { name: "Check scope" }).click();
 };
 
+export const expectInitialScopeAnswer = async ({
+	page,
+	answer,
+}: Readonly<{ page: Page; answer: "Yes" | "No" }>): Promise<void> => {
+	await expect(
+		page.getByRole("heading", { name: "Complete ITR-1 analysis scope" }),
+	).toBeVisible();
+	await expect(page.getByText("More scope facts are needed")).toBeVisible();
+	const individual = page.locator('[data-scope-question="scope-individual"]');
+	if (answer === "Yes") {
+		await expect(individual).toContainText("Recorded answer: Yes");
+	} else {
+		await expect(individual.getByRole("combobox")).toHaveValue("");
+	}
+};
+
 export const expectScopeResult = (
 	page: Page,
 	resultTitle:
@@ -132,6 +148,53 @@ export const expectNoStoredSessionData = async (
 export const openDocumentIntake = async (page: Page): Promise<void> => {
 	await openScopeQuestion(page);
 	await answerScopeCheck(page, "Yes");
+	for (const [questionId, value] of Object.entries({
+		"scope-individual": "yes",
+		"scope-resident-other-than-rnor": "yes",
+		"scope-total-income": "900000",
+		"scope-house-property-count": "0",
+		"scope-section112a-ltcg": "0",
+		"scope-other-capital-gains": "no",
+		"scope-agriculture": "0",
+		"scope-business-profession": "no",
+		"scope-lottery": "no",
+		"scope-racehorse": "no",
+		"scope-115bbda": "no",
+		"scope-115bbe": "no",
+		"scope-online-games": "no",
+		"scope-vda": "no",
+		"scope-other-special-rate": "no",
+		"scope-company-director": "no",
+		"scope-unlisted-equity": "no",
+		"scope-foreign-assets": "no",
+		"scope-foreign-signing": "no",
+		"scope-foreign-income": "no",
+		"scope-194n": "no",
+		"scope-deferred-esop": "no",
+		"scope-brought-forward-losses": "no",
+		"scope-carry-forward-losses": "no",
+		"scope-other-source-loss": "no",
+		"scope-section5a": "no",
+		"scope-foreign-tax-relief": "no",
+		"scope-other-source-deductions": "no",
+		"scope-other-person-tds": "no",
+		// Composition questions are answered explicitly for estimate scenarios.
+		// Bank interest remains unresolved until evidence or an amount answer supplies it.
+		"scope-salary-pension": "yes",
+		"scope-other-sources": "no",
+	})) {
+		const row = page.locator(`[data-scope-question="${questionId}"]`);
+		const input = row.locator(`#${questionId}-answer`);
+		if ((await input.count()) === 0) {
+			continue;
+		}
+		if ((await input.evaluate((element) => element.tagName)) === "SELECT") {
+			await input.selectOption(value);
+		} else {
+			await input.fill(value);
+		}
+		await row.getByRole("button", { name: "Record scope answer" }).click();
+	}
 	await expect(
 		page.getByRole("heading", { name: "Select source documents" }),
 	).toBeVisible();
