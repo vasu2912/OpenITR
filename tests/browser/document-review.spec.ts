@@ -132,6 +132,63 @@ test.describe("Form 16 salary observation review", () => {
 		await expect(expanded).toContainText("37,500");
 	});
 
+	test("reviews and recomputes multiple employer and pension sources independently", async ({
+		page,
+	}) => {
+		await openDocumentIntake(page);
+		await selectSourceFiles(page, [
+			{
+				name: "synthetic-employer-form16.pdf",
+				mimeType: "application/pdf",
+				buffer: bufferOf(createForm16SalaryPdfFixture()),
+			},
+			{
+				name: "synthetic-pension-form16.pdf",
+				mimeType: "application/pdf",
+				buffer: bufferOf(
+					createForm16SalaryPdfFixture({
+						deductorTan: "SYNTP5678N",
+						amounts: {
+							section17_1: "3,00,000",
+							exemptAllowancesSection10: "0",
+							taxableSalary: "3,00,000",
+						},
+					}),
+				),
+			},
+		]);
+
+		const review = page.locator(".openitr-review-card");
+		await expect(
+			review.getByRole("heading", { name: "synthetic-employer-form16.pdf" }),
+		).toBeVisible({ timeout: 30_000 });
+		await expect(
+			review.getByRole("heading", { name: "synthetic-pension-form16.pdf" }),
+		).toBeVisible();
+
+		const computation = page.locator(".openitr-computation-card");
+		const sources = computation.locator(".openitr-salary-source");
+		await expect(sources).toHaveCount(2);
+		await expect(sources.filter({ hasText: "TAN SYNTO1234E" })).toContainText(
+			"Taxable salary contribution₹ 10,50,000",
+		);
+		await expect(sources.filter({ hasText: "TAN SYNTP5678N" })).toContainText(
+			"Taxable salary contribution₹ 3,00,000",
+		);
+		await expect(computation.locator(".openitr-result-details")).toContainText(
+			"₹ 15,00,000",
+		);
+
+		await page
+			.locator('[data-candidate="synthetic-pension-form16.pdf"]')
+			.getByRole("button", { name: "Remove" })
+			.click();
+		await expect(sources).toHaveCount(1);
+		await expect(computation.locator(".openitr-result-details")).toContainText(
+			"₹ 12,00,000",
+		);
+	});
+
 	test("selection triggers no request carrying document data", async ({
 		page,
 	}) => {

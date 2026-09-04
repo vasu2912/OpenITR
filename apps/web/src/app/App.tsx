@@ -458,8 +458,11 @@ const ScopeInteraction = ({
 						resolutions={factResolutions}
 						session={session}
 					/>
-					<SalaryReviewView extractions={extractions} />
-					<SalaryComputationView computation={salaryComputation} />
+					<SalaryReviewView documents={documents} extractions={extractions} />
+					<SalaryComputationView
+						computation={salaryComputation}
+						documents={documents}
+					/>
 					{pendingRecomputation.kind === "pending" ? (
 						<Alert
 							aria-live="polite"

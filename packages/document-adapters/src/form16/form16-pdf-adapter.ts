@@ -40,6 +40,19 @@ export const FORM16_PDF_MANIFEST: DocumentAdapterManifest = Object.freeze({
 const normalizeWhitespace = (text: string): string =>
 	text.replace(/\s+/g, " ").trim();
 
+const deductorTanOf = (
+	pages: readonly (readonly PdfLineGeometry[])[],
+): string | undefined => {
+	const marker = "Permanent Account Number of Deductor (TAN):";
+	const matches = pages
+		.flat()
+		.map((line) => normalizeWhitespace(line.text))
+		.filter((line) => line.startsWith(marker))
+		.map((line) => line.slice(marker.length).trim().toUpperCase())
+		.filter((value) => /^[A-Z0-9]{10}$/.test(value));
+	return matches.length === 1 ? matches[0] : undefined;
+};
+
 // Inspection reports a bare PDF as no-match; extraction reports it as an
 // unknown-format rejection.
 const INSPECTION_REJECTIONS = {
@@ -125,6 +138,7 @@ const extractSalaryObservations = (
 
 	const observations: SalaryObservation[] = [];
 	const issues: DocumentReviewIssue[] = [];
+	const deductorTan = deductorTanOf(pages);
 
 	for (const field of FORM16_SALARY_FIELD_DEFINITIONS) {
 		const label = normalizeWhitespace(field.label);
@@ -177,10 +191,14 @@ const extractSalaryObservations = (
 				width: line.width,
 				height: line.height,
 			},
-			ruleCitation: {
-				ruleId: field.ruleId,
-				description: field.description,
-			},
+				ruleCitation: {
+					ruleId: field.ruleId,
+					description: field.description,
+				},
+			record:
+				deductorTan === undefined
+					? { kind: "unidentified-document" }
+					: { kind: "form16", deductorTan },
 		});
 	}
 

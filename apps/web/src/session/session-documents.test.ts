@@ -1312,6 +1312,7 @@ const fakeObservation = (
 	transformationSteps: [],
 	evidence: { kind: "pdf-page-region", page: 1, x: 0, y: 0, width: 1, height: 1 },
 	ruleCitation: { ruleId: parseRuleId("FORM16-PARTA-TAXABLE-SALARY"), description: "d" },
+	record: { kind: "unidentified-document" },
 });
 
 const fakeBankInterestObservation = (
@@ -1376,6 +1377,177 @@ describe("new-regime salary computation exposure", () => {
 		expect(computation.rulePackRevision).toBe(
 			itr1Ay202627RulePack.identity.revision,
 		);
+
+		session.stop();
+	});
+
+	test("combines employer and pension Form 16 sources and preserves the unaffected source trace after removal", async () => {
+		const session = createEligibleSession();
+		session.send(
+			selectCommand([
+				{
+					displayName: "synthetic-employer-form16.pdf",
+					bytes: createForm16SalaryPdfFixture({
+						deductorTan: "SYNTO1234E",
+					}),
+				},
+				{
+					displayName: "synthetic-pension-form16.pdf",
+					bytes: createForm16SalaryPdfFixture({
+						deductorTan: "SYNTP5678N",
+						amounts: {
+							section17_1: "3,00,000",
+							exemptAllowancesSection10: "0",
+							taxableSalary: "3,00,000",
+						},
+					}),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(
+			() =>
+				extractionRecords(session).length === 2 &&
+				extractionRecords(session).every((record) => record.status === "done"),
+		);
+
+		const documents = intakeDocuments(session);
+		const employerDocumentId = documents.find(
+			(document) => document.displayName === "synthetic-employer-form16.pdf",
+		)?.documentId;
+		const pensionDocumentId = documents.find(
+			(document) => document.displayName === "synthetic-pension-form16.pdf",
+		)?.documentId;
+		if (employerDocumentId === undefined || pensionDocumentId === undefined) {
+			throw new Error("expected both salary source identities");
+		}
+		const combined = salaryComputationOf(session);
+		expect(combined?.kind).toBe("computed");
+		if (combined?.kind !== "computed") {
+			throw new Error("expected a combined salary scenario");
+		}
+		expect(combined.scenario).toBe(
+			"multiple-source-new-regime-salary-fy-2025-26",
+		);
+		expect(combined.summary.salaryTotal).toBe("1500000");
+		expect(combined.summary.taxableIncome).toBe("1275000");
+		const employerSource = combined.sources.find(
+			(source) => source.documentId === employerDocumentId,
+		);
+		const employerNode = combined.nodes.find((node) =>
+			String(node.nodeId).endsWith(String(employerDocumentId)),
+		);
+
+		session.send({
+			kind: "remove-source-document",
+			documentId: pensionDocumentId,
+		});
+		await waitFor(() => salaryComputationOf(session)?.kind === "computed");
+		const employerOnly = salaryComputationOf(session);
+		if (employerOnly?.kind !== "computed") {
+			throw new Error("expected the remaining employer scenario");
+		}
+		expect(employerOnly.sources).toEqual([employerSource]);
+		expect(
+			employerOnly.nodes.find((node) =>
+				String(node.nodeId).endsWith(String(employerDocumentId)),
+			),
+		).toEqual(employerNode);
+		expect(employerOnly.summary.salaryTotal).toBe("1200000");
+
+		session.stop();
+	});
+
+	test("collapses agreeing Form 16 re-exports by deductor TAN", async () => {
+		const session = createEligibleSession();
+		session.send(
+			selectCommand([
+				{
+					displayName: "employer-original.pdf",
+					bytes: createForm16SalaryPdfFixture(),
+				},
+				{
+					displayName: "employer-reexport.pdf",
+					bytes: createForm16SalaryPdfFixture({
+						additionalTextLine: "Synthetic re-export copy",
+					}),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(
+			() =>
+				extractionRecords(session).length === 2 &&
+				extractionRecords(session).every((record) => record.status === "done"),
+		);
+
+		const snapshot = session.getSnapshot();
+		if (snapshot.kind !== "document-intake") {
+			throw new Error("expected document intake");
+		}
+		expect(snapshot.factConflicts).toEqual([]);
+		const computation = salaryComputationOf(session);
+		expect(computation?.kind).toBe("computed");
+		if (computation?.kind !== "computed") {
+			throw new Error("expected a reconciled salary scenario");
+		}
+		expect(computation.sources).toHaveLength(1);
+		expect(computation.sources[0]?.sourceId).toBe("form16:SYNTO1234E");
+		expect(computation.sources[0]?.sourceDocumentIds).toHaveLength(2);
+		expect(computation.summary.salaryTotal).toBe("1200000");
+
+		session.stop();
+	});
+
+	test("routes conflicting Form 16 re-exports through common reconciliation", async () => {
+		const session = createEligibleSession();
+		session.send(
+			selectCommand([
+				{
+					displayName: "employer-original.pdf",
+					bytes: createForm16SalaryPdfFixture(),
+				},
+				{
+					displayName: "employer-conflict.pdf",
+					bytes: createForm16SalaryPdfFixture({
+						amounts: {
+							section17_1: "13,00,000",
+							exemptAllowancesSection10: "1,50,000",
+							taxableSalary: "11,50,000",
+						},
+					}),
+				},
+			]),
+		);
+		await waitUntilSettled(session);
+		await waitFor(
+			() =>
+				extractionRecords(session).length === 2 &&
+				extractionRecords(session).every((record) => record.status === "done"),
+		);
+
+		const snapshot = session.getSnapshot();
+		if (snapshot.kind !== "document-intake") {
+			throw new Error("expected document intake");
+		}
+		expect(snapshot.factConflicts.map((conflict) => String(conflict.factKey))).toEqual([
+			"salary.section-17-1",
+			"salary.taxable-total",
+		]);
+		for (const conflict of snapshot.factConflicts) {
+			expect(conflict.attestationPermitted).toBe(false);
+			expect(conflict.affectedResults).toEqual([
+				{
+					resultId: "new-regime-salary-computation",
+					label: "New-regime salary computation",
+				},
+				{
+					resultId: "refund-or-payable-estimate",
+					label: "Estimated refund or amount payable",
+				},
+			]);
+		}
+		expect(salaryComputationOf(session)?.kind).toBe("blocked");
 
 		session.stop();
 	});

@@ -66,6 +66,10 @@ describe("Form 16 Part A salary extraction", () => {
 		expect(section17?.sourceDocumentId).toBe(identity);
 		expect(section17?.adapterId).toBe("form16-pdf");
 		expect(section17?.adapterVersion).toBe("1");
+		expect(section17?.record).toEqual({
+			kind: "form16",
+			deductorTan: "SYNTO1234E",
+		});
 		expect(section17?.ruleCitation.ruleId).toBe(
 			"FORM16-PARTA-SALARY-SECTION-17-1",
 		);
@@ -165,6 +169,26 @@ describe("Form 16 Part A salary extraction", () => {
 		// A structured clone is exactly what a worker boundary does to the
 		// outcome; determinism must survive it.
 		expect(structuredClone(first)).toEqual(second);
+	});
+
+	test("does not treat a malformed deductor TAN as a canonical source identity", async () => {
+		const testing = await import("../testing");
+		const bytes = testing.createForm16SalaryPdfFixture({
+			deductorTan: "NOT-A-TAN",
+		});
+		const outcome = await extractForm16({
+			identity: await identityOf(bytes),
+			displayName: "malformed-tan.pdf",
+			bytes,
+		});
+
+		expect(outcome.kind).toBe("extracted");
+		if (outcome.kind === "extracted") {
+			expect(outcome.observations).not.toHaveLength(0);
+			expect(outcome.observations.every((observation) =>
+				observation.record.kind === "unidentified-document",
+			)).toBe(true);
+		}
 	});
 
 	test("ignores a misleading filename and MIME type", async () => {

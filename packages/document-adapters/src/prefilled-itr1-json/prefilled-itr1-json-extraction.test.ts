@@ -68,6 +68,7 @@ describe("prefilled ITR-1 JSON salary extraction", () => {
 				kind: "json-pointer",
 				pointer: "/salaryInformation/exemptAllowancesSection10",
 			},
+			record: { kind: "prefilled-aggregate" },
 		});
 		expect(section17_1).toMatchObject({
 			factKey: "salary.section-17-1",

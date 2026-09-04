@@ -79,6 +79,15 @@ export type ExtractionRuleCitation = Readonly<{
 	description: string;
 }>;
 
+// The identity of the salary source represented by an observation. A Form 16
+// identifies one employer or pension payer by the printed deductor TAN. The
+// prefilled ITR-1 salary section is an aggregate across sources, not another
+// employer, so it carries a distinct identity kind.
+export type SalarySourceRecord =
+	| Readonly<{ kind: "form16"; deductorTan: string }>
+	| Readonly<{ kind: "prefilled-aggregate" }>
+	| Readonly<{ kind: "unidentified-document" }>;
+
 export type SalaryObservation = Readonly<{
 	observationId: string;
 	factKey: FactKey;
@@ -90,6 +99,7 @@ export type SalaryObservation = Readonly<{
 	transformationSteps: readonly ObservationTransformationStep[];
 	evidence: PdfEvidenceLocator | JsonPointerEvidenceLocator;
 	ruleCitation: ExtractionRuleCitation;
+	record: SalarySourceRecord;
 }>;
 
 // The source-record details of one AIS bank-interest record: the printed

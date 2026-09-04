@@ -74,6 +74,7 @@ const salaryObservation = ({
 		ruleId: parseRuleId("FORM16-PARTA-SALARY-TAXABLE-TOTAL"),
 		description: "Form 16 Part A field definition",
 	},
+	record: { kind: "unidentified-document" },
 });
 
 const bankInterestObservation = ({

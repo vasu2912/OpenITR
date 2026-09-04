@@ -199,6 +199,13 @@ export const FORM16_SALARY_FIXTURE_SENTINEL_AMOUNT = "12,00,000";
 export type Form16SalaryFixtureOptions = Readonly<{
 	omitLabel?: string;
 	duplicateLabel?: string;
+	deductorTan?: string;
+	additionalTextLine?: string;
+	amounts?: Readonly<{
+		section17_1: string;
+		exemptAllowancesSection10: string;
+		taxableSalary: string;
+	}>;
 }>;
 
 // Machine-generated synthetic Form 16 Part A salary detail page. One content
@@ -207,10 +214,21 @@ export type Form16SalaryFixtureOptions = Readonly<{
 export const createForm16SalaryPdfFixture = (
 	options: Form16SalaryFixtureOptions = {},
 ): Uint8Array<ArrayBuffer> => {
+	const amounts = options.amounts ?? {
+		section17_1:
+			FORM16_SALARY_ROW_AMOUNTS[
+				"Salary as per provisions contained in section 17(1)"
+			],
+		exemptAllowancesSection10:
+			FORM16_SALARY_ROW_AMOUNTS[
+				"Less: Allowance to the extent exempt u/s 10"
+			],
+		taxableSalary: FORM16_SALARY_ROW_AMOUNTS["Taxable salary"],
+	};
 	const rows: readonly string[] = [
-		`Salary as per provisions contained in section 17(1): Rs ${FORM16_SALARY_ROW_AMOUNTS["Salary as per provisions contained in section 17(1)"]}`,
-		`Less: Allowance to the extent exempt u/s 10: Rs ${FORM16_SALARY_ROW_AMOUNTS["Less: Allowance to the extent exempt u/s 10"]}`,
-		`Taxable salary: Rs ${FORM16_SALARY_ROW_AMOUNTS["Taxable salary"]}`,
+		`Salary as per provisions contained in section 17(1): Rs ${amounts.section17_1}`,
+		`Less: Allowance to the extent exempt u/s 10: Rs ${amounts.exemptAllowancesSection10}`,
+		`Taxable salary: Rs ${amounts.taxableSalary}`,
 	];
 	const filteredRows = rows.filter(
 		(row) => options.omitLabel === undefined || !row.startsWith(options.omitLabel),
@@ -229,8 +247,11 @@ export const createForm16SalaryPdfFixture = (
 					"PART A",
 					"Certificate under section 203 of the Income-tax Act, 1961",
 					"Assessment Year 2026-27",
-					"Permanent Account Number of Deductor (TAN): SYNTO1234E",
+					`Permanent Account Number of Deductor (TAN): ${options.deductorTan ?? "SYNTO1234E"}`,
 					"Name and address of the Employee: OpenITR Synthetic Employee",
+					...(options.additionalTextLine === undefined
+						? []
+						: [options.additionalTextLine]),
 					...filteredRows,
 					...duplicatedRows,
 				],
