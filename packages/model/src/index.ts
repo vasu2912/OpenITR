@@ -100,11 +100,26 @@ export type ScopeCheckResult =
 // needed, and every result the answer can change. The question carries no
 // value: an unanswered question stays unknown until the taxpayer answers it
 // or accepted evidence supplies the fact instead.
-export type FactAnswerSchema = Readonly<{
-	kind: "exact-money";
-	minimumWholeRupees: number;
-	maximumWholeRupees: number | null;
-}>;
+export type FactAnswerSchema =
+	| Readonly<{
+			kind: "exact-money";
+			minimumWholeRupees: number;
+			maximumWholeRupees: number | null;
+	  }>
+	| Readonly<{ kind: "boolean" }>;
+
+export type FactQuestionVisibility =
+	| Readonly<{ kind: "always" }>
+	| Readonly<{
+			kind: "fact-boolean-equals";
+			factKey: FactKey;
+			value: boolean;
+	  }>
+	| Readonly<{
+			kind: "fact-money-greater-than";
+			factKey: FactKey;
+			wholeRupees: number;
+	  }>;
 
 export type FactQuestion = Readonly<{
 	id: QuestionId;
@@ -118,6 +133,7 @@ export type FactQuestion = Readonly<{
 		label: string;
 	}>;
 	answerSchema: FactAnswerSchema;
+	visibility?: FactQuestionVisibility;
 	sourceReference: RuleSourceReference;
 }>;
 
@@ -238,11 +254,25 @@ export type RulePackManifestFactQuestionRecord = Readonly<{
 		resultId: string;
 		label: string;
 	}>;
-	answerSchema: Readonly<{
-		kind: "exact-money";
-		minimumWholeRupees: number;
-		maximumWholeRupees: number | null;
-	}>;
+	answerSchema:
+		| Readonly<{
+				kind: "exact-money";
+				minimumWholeRupees: number;
+				maximumWholeRupees: number | null;
+		  }>
+		| Readonly<{ kind: "boolean" }>;
+	visibility?:
+		| Readonly<{ kind: "always" }>
+		| Readonly<{
+				kind: "fact-boolean-equals";
+				factKey: string;
+				value: boolean;
+		  }>
+		| Readonly<{
+				kind: "fact-money-greater-than";
+				factKey: string;
+				wholeRupees: number;
+		  }>;
 }>;
 
 export type RulePackManifest = Readonly<{

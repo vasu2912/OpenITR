@@ -18,6 +18,7 @@ import {
 } from "@openitr/model";
 import type {
 	CompiledNewRegimeTaxConstants,
+	CompiledSelfOccupiedHousePropertyTaxConstants,
 	CompiledRulePack,
 	EligibilityAnswerValue,
 	EligibilityQuestion,
@@ -296,6 +297,7 @@ const compileMissingFactQuestions = ({
 }>): readonly FactQuestion[] => {
 	const seenQuestionIds = new Set<string>();
 	const seenSuppliedFactKeys = new Set<string>();
+	const answerSchemasByFact = new Map<string, FactAnswerSchema>();
 	const questions: FactQuestion[] = [];
 	for (const record of records) {
 		const id = parseQuestionId(record.id);
@@ -350,11 +352,55 @@ const compileMissingFactQuestions = ({
 				});
 				break;
 			}
+			case "boolean":
+				answerSchema = deepFreeze({ kind: "boolean" });
+				break;
 			default: {
 				const _exhaustive: never = schemaKind;
 				return _exhaustive;
 			}
 		}
+		let visibility: FactQuestion["visibility"];
+		const authoredVisibility = record.visibility;
+		if (authoredVisibility !== undefined) {
+			switch (authoredVisibility.kind) {
+				case "always":
+					visibility = deepFreeze({ kind: "always" });
+					break;
+				case "fact-boolean-equals": {
+					const factKey = parseFactKey(authoredVisibility.factKey);
+					if (answerSchemasByFact.get(factKey)?.kind !== "boolean") {
+						throw new Error(
+							`Visibility for missing-fact question "${id}" must refer to an earlier boolean question fact: "${factKey}"`,
+						);
+					}
+					visibility = deepFreeze({
+						kind: "fact-boolean-equals",
+						factKey,
+						value: authoredVisibility.value,
+					});
+					break;
+				}
+				case "fact-money-greater-than": {
+					const factKey = parseFactKey(authoredVisibility.factKey);
+					if (answerSchemasByFact.get(factKey)?.kind !== "exact-money") {
+						throw new Error(
+							`Visibility for missing-fact question "${id}" must refer to an earlier money question fact: "${factKey}"`,
+						);
+					}
+					visibility = deepFreeze({
+						kind: "fact-money-greater-than",
+						factKey,
+						wholeRupees: requireNonNegativeWholeRupees(
+							authoredVisibility.wholeRupees,
+							`Visibility threshold for missing-fact question "${id}"`,
+						),
+					});
+					break;
+				}
+			}
+		}
+		answerSchemasByFact.set(suppliesFact, answerSchema);
 
 		questions.push(
 			deepFreeze({
@@ -384,6 +430,7 @@ const compileMissingFactQuestions = ({
 					),
 				}),
 				answerSchema,
+				...(visibility === undefined ? {} : { visibility }),
 				sourceReference: deepFreeze({
 					sourceId: requiredRule.sourceId,
 					location: requiredRule.sourceLocation,
@@ -1025,7 +1072,48 @@ export const compileRulePack = async ({
 				"The tax rounding base",
 			),
 		};
-		compiledTaxConstants = deepFreeze({ newRegime });
+		const authoredHouseProperty =
+			authoredTaxConstants.selfOccupiedHouseProperty;
+		let selfOccupiedHouseProperty:
+			| CompiledSelfOccupiedHousePropertyTaxConstants
+			| undefined;
+		if (authoredHouseProperty !== undefined) {
+			const enhancedInterestLimitWholeRupees = requirePositiveWholeRupees(
+				authoredHouseProperty.enhancedInterestLimitWholeRupees,
+				"The enhanced self-occupied interest limit",
+			);
+			const basicInterestLimitWholeRupees = requirePositiveWholeRupees(
+				authoredHouseProperty.basicInterestLimitWholeRupees,
+				"The basic self-occupied interest limit",
+			);
+			if (basicInterestLimitWholeRupees > enhancedInterestLimitWholeRupees) {
+				throw new Error(
+					"The basic self-occupied interest limit must not exceed the enhanced limit",
+				);
+			}
+			selfOccupiedHouseProperty = {
+				enhancedInterestLimitWholeRupees,
+				basicInterestLimitWholeRupees,
+				annualValueRuleId: resolveConstantRule(
+					authoredHouseProperty.annualValueRuleId,
+					"The self-occupied annual-value rule",
+				),
+				oldRegimeInterestRuleId: resolveConstantRule(
+					authoredHouseProperty.oldRegimeInterestRuleId,
+					"The old-regime self-occupied interest rule",
+				),
+				newRegimeInterestRuleId: resolveConstantRule(
+					authoredHouseProperty.newRegimeInterestRuleId,
+					"The new-regime self-occupied interest rule",
+				),
+			};
+		}
+		compiledTaxConstants = deepFreeze({
+			newRegime,
+			...(selfOccupiedHouseProperty === undefined
+				? {}
+				: { selfOccupiedHouseProperty }),
+		});
 	}
 
 	const compiledAnalysisScope =

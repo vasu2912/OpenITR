@@ -22,6 +22,7 @@ import { describe, expect, test } from "vitest";
 import {
 	deriveMissingFactQuestions,
 	evaluateFactAnswerAttempt,
+	removeFactAnswerAndDependents,
 } from "./index";
 import type { AcceptedQuestionFact } from "./index";
 
@@ -59,6 +60,7 @@ const savingsQuestion: FactQuestion = {
 		minimumWholeRupees: 0,
 		maximumWholeRupees: 10000000,
 	},
+	visibility: { kind: "always" },
 	sourceReference: {
 		sourceId: parseSourceId("income-tax-act-1961"),
 		location: "Section 56(2)(i)",
@@ -70,6 +72,31 @@ const depositsQuestion: FactQuestion = {
 	id: parseQuestionId("bank-interest-deposits-total"),
 	prompt: "How much interest on deposits did you receive in FY 2025-26?",
 	suppliesFact: parseFactKey("bank-interest.deposits"),
+};
+
+const ownershipQuestion: FactQuestion = {
+	...savingsQuestion,
+	id: parseQuestionId("house-property-owned"),
+	prompt: "Did you own the property?",
+	suppliesFact: parseFactKey("house-property.self-occupied.owned-by-taxpayer"),
+	affectedResult: {
+		resultId: "self-occupied-house-property",
+		label: "Self-occupied house-property analysis",
+	},
+	answerSchema: { kind: "boolean" },
+	visibility: { kind: "always" },
+};
+
+const occupancyQuestion: FactQuestion = {
+	...ownershipQuestion,
+	id: parseQuestionId("house-property-self-occupied"),
+	prompt: "Was the property self-occupied throughout the year?",
+	suppliesFact: parseFactKey("house-property.self-occupied.used-throughout-year"),
+	visibility: {
+		kind: "fact-boolean-equals",
+		factKey: ownershipQuestion.suppliesFact,
+		value: true,
+	},
 };
 
 const syntheticRulePack = (options?: {
@@ -186,6 +213,41 @@ const derivationInput = (overrides?: {
 };
 
 describe("deriveMissingFactQuestions", () => {
+	test("reveals a dependent boolean question only after its required answer", () => {
+		const rulePack = syntheticRulePack({
+			questions: [ownershipQuestion, occupancyQuestion],
+		});
+		const initial = deriveMissingFactQuestions(
+			derivationInput({
+				rulePack,
+				applicableResultIds: ["self-occupied-house-property"],
+			}),
+		);
+		expect(initial.questions.map((question) => question.id)).toEqual([
+			"house-property-owned",
+		]);
+
+		const ownership = evaluateFactAnswerAttempt({
+			...derivationInput({
+				rulePack,
+				applicableResultIds: ["self-occupied-house-property"],
+			}),
+			questionId: "house-property-owned",
+			rawValue: "yes",
+			answeredAt: FIXED_ANSWERED_AT,
+		});
+		if (ownership.kind !== "accepted") throw new Error("Expected acceptance");
+		const next = deriveMissingFactQuestions(
+			derivationInput({
+				rulePack,
+				applicableResultIds: ["self-occupied-house-property"],
+				answers: [ownership.answer],
+			}),
+		);
+		expect(next.questions.map((question) => question.id)).toEqual([
+			"house-property-self-occupied",
+		]);
+	});
 	test("asks a permitted question while no evidence or answer supplies its fact, naming why and what it can affect", () => {
 		const questionnaire = deriveMissingFactQuestions(
 			derivationInput({ rulePack: syntheticRulePack({ questions: [savingsQuestion] }) }),
@@ -327,6 +389,26 @@ describe("deriveMissingFactQuestions", () => {
 });
 
 describe("evaluateFactAnswerAttempt", () => {
+	test("accepts yes and no as canonical boolean attested facts", () => {
+		const rulePack = syntheticRulePack({ questions: [ownershipQuestion] });
+		for (const [rawValue, expected] of [
+			["yes", true],
+			["no", false],
+		] as const) {
+			const attempt = evaluateFactAnswerAttempt({
+				...derivationInput({
+					rulePack,
+					applicableResultIds: ["self-occupied-house-property"],
+				}),
+				questionId: "house-property-owned",
+				rawValue,
+				answeredAt: FIXED_ANSWERED_AT,
+			});
+			expect(attempt.kind === "accepted" ? attempt.answer.value : undefined).toBe(
+				expected,
+			);
+		}
+	});
 	test("accepts an in-range answer as a user-attested fact with time and question revision", () => {
 		const attempt = evaluateFactAnswerAttempt({
 			...derivationInput(),
@@ -508,5 +590,47 @@ describe("evaluateFactAnswerAttempt", () => {
 			throw new Error(`Expected acceptance, got: ${attempt.kind}`);
 		}
 		expect(attempt.answer.value).toBe("4850.25");
+	});
+
+	test("removes an answer and every answer whose visibility depends on it", () => {
+		const rulePack = syntheticRulePack({
+			questions: [ownershipQuestion, occupancyQuestion, savingsQuestion],
+		});
+		const ownership = evaluateFactAnswerAttempt({
+			...derivationInput({
+				rulePack,
+				applicableResultIds: ["self-occupied-house-property"],
+			}),
+			questionId: ownershipQuestion.id,
+			rawValue: "yes",
+			answeredAt: FIXED_ANSWERED_AT,
+		});
+		if (ownership.kind !== "accepted") throw new Error("Expected ownership");
+		const occupancy = evaluateFactAnswerAttempt({
+			...derivationInput({
+				rulePack,
+				applicableResultIds: ["self-occupied-house-property"],
+				answers: [ownership.answer],
+			}),
+			questionId: occupancyQuestion.id,
+			rawValue: "yes",
+			answeredAt: FIXED_ANSWERED_AT,
+		});
+		if (occupancy.kind !== "accepted") throw new Error("Expected occupancy");
+		const savings = evaluateFactAnswerAttempt({
+			...derivationInput({ rulePack, answers: [ownership.answer, occupancy.answer] }),
+			questionId: savingsQuestion.id,
+			rawValue: "100",
+			answeredAt: FIXED_ANSWERED_AT,
+		});
+		if (savings.kind !== "accepted") throw new Error("Expected savings");
+
+		expect(
+			removeFactAnswerAndDependents({
+				rulePack,
+				answers: [ownership.answer, occupancy.answer, savings.answer],
+				answerId: ownership.answer.answerId,
+			}).map((answer) => answer.questionId),
+		).toEqual([savingsQuestion.id]);
 	});
 });

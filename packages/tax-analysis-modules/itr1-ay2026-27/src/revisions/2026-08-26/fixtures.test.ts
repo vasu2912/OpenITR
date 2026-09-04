@@ -108,6 +108,7 @@ describe("cited contribution example: revision 2026-08-26", () => {
 			"itr1-ay2026-27.2026-08-24b",
 			"itr1-ay2026-27.2026-08-26",
 			"itr1-ay2026-27.2026-09-03",
+			"itr1-ay2026-27.2026-09-04",
 		]);
 
 		const oldest = await registry.select(

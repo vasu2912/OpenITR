@@ -28,6 +28,11 @@ const validationMessage = (
 	question: ApplicableFactQuestion,
 	rawValue: string,
 ): string | undefined => {
+	if (question.answerSchema.kind === "boolean") {
+		return rawValue === "yes" || rawValue === "no"
+			? undefined
+			: "Select Yes or No.";
+	}
 	const value = rawValue.trim();
 	if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(value)) {
 		return "Enter a non-negative amount using digits and an optional decimal point.";
@@ -113,23 +118,43 @@ const MissingFactQuestionForm = ({
 					</div>
 				</dl>
 				<div className="openitr-missing-fact-answer-row">
-					<span aria-hidden="true" className="openitr-rupee-prefix">
-						₹
-					</span>
-					<input
+					{question.answerSchema.kind === "exact-money" ? (
+						<>
+							<span aria-hidden="true" className="openitr-rupee-prefix">
+								₹
+							</span>
+							<input
+								aria-describedby={`${helpId} ${rationaleId} ${affectedId}${error === undefined ? "" : ` ${errorId}`}`}
+								aria-invalid={error !== undefined}
+								className="openitr-missing-fact-input"
+								id={inputId}
+								inputMode="decimal"
+								onChange={(event) => {
+									setValue(event.target.value);
+									setError(undefined);
+								}}
+								placeholder="0.00"
+								type="text"
+								value={value}
+							/>
+						</>
+					) : (
+						<select
 						aria-describedby={`${helpId} ${rationaleId} ${affectedId}${error === undefined ? "" : ` ${errorId}`}`}
 						aria-invalid={error !== undefined}
 						className="openitr-missing-fact-input"
 						id={inputId}
-						inputMode="decimal"
 						onChange={(event) => {
 							setValue(event.target.value);
 							setError(undefined);
 						}}
-						placeholder="0.00"
-						type="text"
 						value={value}
-					/>
+						>
+							<option value="">Select an answer</option>
+							<option value="yes">Yes</option>
+							<option value="no">No</option>
+						</select>
+					)}
 					<Button type="submit" variant="primary">
 						Record answer
 					</Button>
@@ -183,7 +208,7 @@ export const MissingFactQuestionsView = ({
 						title={`${questionnaire.questions.length} missing ${questionnaire.questions.length === 1 ? "fact" : "facts"} can be answered`}
 						variant="warning"
 					>
-						These questions come from the pinned rule pack. Leave an amount
+						These questions come from the pinned rule pack. Leave an answer
 						blank until you can attest it; OpenITR will keep it unknown.
 					</Alert>
 				)}
@@ -202,7 +227,7 @@ export const MissingFactQuestionsView = ({
 						<ul>
 							{answers.map((answer) => (
 								<li key={answer.answerId}>
-									<code>{String(answer.factKey)}</code>: ₹ {answer.value}
+									<code>{String(answer.factKey)}</code>: {typeof answer.value === "boolean" ? (answer.value ? "Yes" : "No") : `₹ ${answer.value}`}
 									<Button
 										onClick={() =>
 											session.send({

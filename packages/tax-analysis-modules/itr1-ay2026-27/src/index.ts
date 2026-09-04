@@ -20,6 +20,11 @@ export {
 } from "./revisions/2026-09-03/rule-pack";
 export { itr1Ay202627RulePackManifest20260903 } from "./revisions/2026-09-03/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260904,
+	itr1Ay202627RulePack20260904,
+} from "./revisions/2026-09-04/rule-pack";
+export { itr1Ay202627RulePackManifest20260904 } from "./revisions/2026-09-04/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -50,6 +55,16 @@ export {
 	computeRefundOrAmountPayableEstimate,
 	estimateRefundOrAmountPayableFromSalaryScenario,
 } from "./computations/estimate-refund-or-payable";
+export {
+	computeSelfOccupiedHouseProperty,
+	SELF_OCCUPIED_HOUSE_PROPERTY_FACT_KEYS,
+} from "./computations/self-occupied-house-property";
+export type {
+	HousePropertyComputationIssue,
+	HousePropertyTraceNode,
+	SelfOccupiedHousePropertyComputation,
+	SelfOccupiedHousePropertyFact,
+} from "./computations/self-occupied-house-property";
 export type {
 	AcceptedBankInterestDocumentFacts,
 	AcceptedNonSalaryIncomeDocumentFacts,
