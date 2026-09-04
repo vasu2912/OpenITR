@@ -516,6 +516,27 @@ body,
 	color: var(--pf-t--global--text--color--subtle);
 }
 
+.openitr-property-summary,
+.openitr-property-list {
+	margin-top: var(--pf-t--global--spacer--lg);
+}
+
+.openitr-property-list {
+	display: grid;
+	gap: var(--pf-t--global--spacer--xl);
+}
+
+.openitr-property-item {
+	border-top: var(--pf-t--global--border--width--regular) solid var(--pf-t--global--border--color--default);
+	min-width: 0;
+	padding-top: var(--pf-t--global--spacer--md);
+}
+
+.openitr-property-item h3,
+.openitr-property-regime h4 {
+	margin: 0;
+}
+
 .openitr-property-regimes {
 	display: grid;
 	gap: var(--pf-t--global--spacer--md);

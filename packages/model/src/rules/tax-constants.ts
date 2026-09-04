@@ -39,6 +39,7 @@ export type NewRegimeTaxConstantRecord = Readonly<{
 export type RulePackManifestTaxConstants = Readonly<{
 	newRegime: NewRegimeTaxConstantRecord;
 	selfOccupiedHouseProperty?: SelfOccupiedHousePropertyTaxConstantRecord;
+	houseProperty?: HousePropertyTaxConstantRecord;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -47,6 +48,19 @@ export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
 	annualValueRuleId: string;
 	oldRegimeInterestRuleId: string;
 	newRegimeInterestRuleId: string;
+}>;
+
+export type HousePropertyTaxConstantRecord = Readonly<{
+	selfOccupiedEnhancedInterestLimitWholeRupees: number;
+	selfOccupiedBasicInterestLimitWholeRupees: number;
+	letOutStandardDeductionPercent: number;
+	selfOccupiedAnnualValueRuleId: string;
+	selfOccupiedOldRegimeInterestRuleId: string;
+	selfOccupiedNewRegimeInterestRuleId: string;
+	letOutGrossAnnualValueRuleId: string;
+	letOutMunicipalTaxRuleId: string;
+	letOutStandardDeductionRuleId: string;
+	letOutInterestRuleId: string;
 }>;
 
 // The compiled form resolves every authored rule identifier to a validated
@@ -73,6 +87,7 @@ export type CompiledNewRegimeTaxConstants = Readonly<{
 export type CompiledTaxConstants = Readonly<{
 	newRegime: CompiledNewRegimeTaxConstants;
 	selfOccupiedHouseProperty?: CompiledSelfOccupiedHousePropertyTaxConstants;
+	houseProperty?: CompiledHousePropertyTaxConstants;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
@@ -81,4 +96,17 @@ export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
 	annualValueRuleId: RuleId;
 	oldRegimeInterestRuleId: RuleId;
 	newRegimeInterestRuleId: RuleId;
+}>;
+
+export type CompiledHousePropertyTaxConstants = Readonly<{
+	selfOccupiedEnhancedInterestLimitWholeRupees: number;
+	selfOccupiedBasicInterestLimitWholeRupees: number;
+	letOutStandardDeductionPercent: number;
+	selfOccupiedAnnualValueRuleId: RuleId;
+	selfOccupiedOldRegimeInterestRuleId: RuleId;
+	selfOccupiedNewRegimeInterestRuleId: RuleId;
+	letOutGrossAnnualValueRuleId: RuleId;
+	letOutMunicipalTaxRuleId: RuleId;
+	letOutStandardDeductionRuleId: RuleId;
+	letOutInterestRuleId: RuleId;
 }>;

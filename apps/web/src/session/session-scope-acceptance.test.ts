@@ -5,7 +5,7 @@ import {
 	createPrefilledItr1JsonFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
-import { itr1Ay202627RulePack20260904 as pack } from "@openitr/itr1-ay2026-27";
+import { itr1Ay202627RulePack20260905 as pack } from "@openitr/itr1-ay2026-27";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
@@ -175,40 +175,37 @@ describe("complete scope through the public session workflow", () => {
 			issue: { code: "FACT_HOUSE_PROPERTY_OWNERSHIP_MISSING" },
 		});
 		expect(snapshot.questionnaire.questions.map((question) => question.id)).toContain(
-			"house-property-owned-by-taxpayer",
+			"house-property-1-owned-by-taxpayer",
 		);
 
 		for (const [questionId, value] of [
-			["house-property-owned-by-taxpayer", "yes"],
-			["house-property-self-occupied-throughout-year", "yes"],
-			["house-property-interest-on-borrowed-capital", "250000"],
-			["house-property-loan-for-acquisition-or-construction", "yes"],
-			["house-property-loan-on-or-after-1999-04-01", "yes"],
-			["house-property-completed-within-five-years", "yes"],
-			["house-property-interest-certificate-available", "yes"],
+			["house-property-1-owned-by-taxpayer", "yes"],
+			["house-property-1-self-occupied", "yes"],
+			["house-property-1-interest", "250000"],
+			["house-property-1-acquisition-or-construction", "yes"],
+			["house-property-1-loan-date", "yes"],
+			["house-property-1-completion-period", "yes"],
+			["house-property-1-interest-certificate", "yes"],
 		] as const) {
 			answerBankAmount({ session, questionId, value });
 		}
 		snapshot = documentsOf(session);
 		expect(snapshot.housePropertyComputation).toMatchObject({
 			kind: "computed",
-			oldRegime: {
+			properties: [{
 				annualValue: "0",
 				interestDeduction: "200000",
-				taxableIncomeEffect: "-200000",
-			},
-			newRegime: {
-				annualValue: "0",
-				interestDeduction: "0",
-				taxableIncomeEffect: "0",
-			},
+				income: { kind: "loss", amount: "200000" },
+				newRegimeInterestDeduction: "0",
+				newRegimeIncome: { kind: "income", amount: "0" },
+			}],
 		});
 		if (snapshot.housePropertyComputation?.kind === "computed") {
-			expect(snapshot.housePropertyComputation.oldRegime.trace.map((node) => node.ruleId)).toEqual([
+			expect(snapshot.housePropertyComputation.properties[0]?.trace.map((node) => node.ruleId)).toEqual([
 				"ITR1-SELF-OCCUPIED-ANNUAL-VALUE-SECTION-23",
 				"ITR1-OR-SELF-OCCUPIED-INTEREST-SECTION-24B",
 			]);
-			expect(snapshot.housePropertyComputation.newRegime.trace[1]?.ruleId).toBe(
+			expect(snapshot.housePropertyComputation.properties[0]?.newRegimeTrace[1]?.ruleId).toBe(
 				"ITR1-NR-SELF-OCCUPIED-INTEREST-DISALLOWED-115BAC",
 			);
 		}
@@ -216,28 +213,44 @@ describe("complete scope through the public session workflow", () => {
 		expect(snapshot.factAnswers.every((fact) => fact.origin.rulePackId === pack.identity.id)).toBe(true);
 	});
 
-	test("scopes a non-self-occupied answer and removes its dependent answers on change", async () => {
+	test("calculates two let-out properties and removes only one property's dependent answers", async () => {
 		const session = start();
-		completeScope({ session, overrides: { "scope-house-property-count": "1" } });
+		completeScope({ session, overrides: { "scope-house-property-count": "2" } });
 		await selectSalaryAndCredits(session);
-		answerBankAmount({ session, questionId: "house-property-owned-by-taxpayer", value: "yes" });
-		answerBankAmount({ session, questionId: "house-property-self-occupied-throughout-year", value: "no" });
+		for (const propertyNumber of [1, 2] as const) {
+			for (const [suffix, value] of [
+				["owned-by-taxpayer", "yes"],
+				["self-occupied", "no"],
+				["interest", propertyNumber === 1 ? "50000" : "30000"],
+				["expected-rent", "240000"],
+				["actual-rent", propertyNumber === 1 ? "300000" : "180000"],
+				["vacancy-reduced-rent", propertyNumber === 1 ? "no" : "yes"],
+				["municipal-taxes", propertyNumber === 1 ? "20000" : "10000"],
+			] as const) {
+				answerBankAmount({ session, questionId: `house-property-${propertyNumber}-${suffix}`, value });
+			}
+		}
 		let snapshot = documentsOf(session);
 		expect(snapshot.housePropertyComputation).toMatchObject({
-			kind: "unsupported",
-			issue: { code: "RULE_HOUSE_PROPERTY_NOT_SELF_OCCUPIED" },
+			kind: "computed",
+			properties: [
+				{ propertyNumber: 1, income: { kind: "income", amount: "146000" } },
+				{ propertyNumber: 2, income: { kind: "income", amount: "89000" } },
+			],
+			combined: { kind: "income", amount: "235000" },
 		});
 		const owner = snapshot.factAnswers.find(
-			(answer) => answer.questionId === "house-property-owned-by-taxpayer",
+			(answer) => answer.questionId === "house-property-1-owned-by-taxpayer",
 		);
 		if (owner === undefined) throw new Error("Expected owner answer");
 		session.send({ kind: "remove-missing-fact-answer", answerId: owner.answerId });
 		snapshot = documentsOf(session);
 		expect(snapshot.factAnswers.some((answer) =>
-			answer.questionId === "house-property-self-occupied-throughout-year",
+			answer.questionId.startsWith("house-property-1-") && answer.questionId !== "house-property-1-owned-by-taxpayer",
 		)).toBe(false);
+		expect(snapshot.factAnswers.filter((answer) => answer.questionId.startsWith("house-property-2-"))).toHaveLength(7);
 		expect(snapshot.questionnaire.questions.map((question) => question.id)).toContain(
-			"house-property-owned-by-taxpayer",
+			"house-property-1-owned-by-taxpayer",
 		);
 	});
 
