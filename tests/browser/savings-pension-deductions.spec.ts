@@ -115,7 +115,7 @@ test.describe("savings and pension-contribution deductions", () => {
 			.click();
 		await expect(card).toContainText("ITR1-NR-CHAPTER-VIA-EXCLUSIONS");
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
-			"Question revision 2026-09-09",
+			"Question revision 2026-09-10",
 		);
 	});
 

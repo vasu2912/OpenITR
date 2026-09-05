@@ -44,6 +44,7 @@ import { EstimateView } from "../views/estimate-view";
 import { FactConflictsView } from "../views/fact-conflicts";
 import { MissingFactQuestionsView } from "../views/missing-fact-questions";
 import { HousePropertyComputationView } from "../views/house-property-computation";
+import { HealthDisabilityDeductionsView } from "../views/health-disability-deductions";
 import { OtherSourcesComputationView } from "../views/other-sources-computation";
 import { SavingsPensionDeductionsView } from "../views/savings-pension-deductions";
 import { Section112aCapitalGainView } from "../views/section112a-capital-gain";
@@ -461,6 +462,9 @@ const ScopeInteraction = ({
 					/>
 					<SavingsPensionDeductionsView
 						computation={intake?.savingsPensionDeductionComputation}
+					/>
+					<HealthDisabilityDeductionsView
+						computation={intake?.healthDisabilityDeductionComputation}
 					/>
 					{intake?.pendingRecomputation.kind === "pending" ? (
 						<Alert

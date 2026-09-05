@@ -93,7 +93,7 @@ test.describe("limited section 112A capital-gain analysis", () => {
 			"capital-gains.section112a-sale-consideration",
 		);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
-			"Question revision 2026-09-09",
+			"Question revision 2026-09-10",
 		);
 	});
 
