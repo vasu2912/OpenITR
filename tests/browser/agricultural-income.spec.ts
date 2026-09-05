@@ -79,7 +79,7 @@ test.describe("agricultural-income explanation", () => {
 			"scope.agriculture-income",
 		);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
-			"Question revision 2026-09-09",
+			"Question revision 2026-09-10",
 		);
 	});
 

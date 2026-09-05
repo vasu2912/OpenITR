@@ -19,6 +19,7 @@ import {
 import type {
 	CompiledHousePropertyTaxConstants,
 	CompiledAgriculturalIncomeTaxConstants,
+	CompiledHealthDisabilityDeductionTaxConstants,
 	CompiledNewRegimeTaxConstants,
 	CompiledOtherSourcesTaxConstants,
 	CompiledSavingsPensionDeductionTaxConstants,
@@ -1272,6 +1273,41 @@ export const compileRulePack = async ({
 				proofRuleId: rule(authoredSavingsPension.proofRuleId, "The supporting-detail rule"),
 			};
 		}
+		const authoredHealthDisability = authoredTaxConstants.healthDisabilityDeductions;
+		let healthDisabilityDeductions:
+			| CompiledHealthDisabilityDeductionTaxConstants
+			| undefined;
+		if (authoredHealthDisability !== undefined) {
+			const money = (value: number, description: string): number =>
+				requirePositiveWholeRupees(value, description);
+			const rule = (id: string, description: string): RuleId =>
+				resolveConstantRule(id, description);
+			healthDisabilityDeductions = {
+				healthRegularGroupLimitWholeRupees: money(authoredHealthDisability.healthRegularGroupLimitWholeRupees, "The regular section 80D group limit"),
+				healthSeniorGroupLimitWholeRupees: money(authoredHealthDisability.healthSeniorGroupLimitWholeRupees, "The senior-citizen section 80D group limit"),
+				healthPreventiveSharedLimitWholeRupees: money(authoredHealthDisability.healthPreventiveSharedLimitWholeRupees, "The shared section 80D preventive-checkup limit"),
+				healthOverallLimitWholeRupees: money(authoredHealthDisability.healthOverallLimitWholeRupees, "The overall section 80D limit"),
+				dependentDisabilityAmountWholeRupees: money(authoredHealthDisability.dependentDisabilityAmountWholeRupees, "The section 80DD disability amount"),
+				dependentSevereDisabilityAmountWholeRupees: money(authoredHealthDisability.dependentSevereDisabilityAmountWholeRupees, "The section 80DD severe-disability amount"),
+				specifiedDiseaseLimitWholeRupees: money(authoredHealthDisability.specifiedDiseaseLimitWholeRupees, "The section 80DDB limit"),
+				specifiedDiseaseSeniorLimitWholeRupees: money(authoredHealthDisability.specifiedDiseaseSeniorLimitWholeRupees, "The senior-citizen section 80DDB limit"),
+				taxpayerDisabilityAmountWholeRupees: money(authoredHealthDisability.taxpayerDisabilityAmountWholeRupees, "The section 80U disability amount"),
+				taxpayerSevereDisabilityAmountWholeRupees: money(authoredHealthDisability.taxpayerSevereDisabilityAmountWholeRupees, "The section 80U severe-disability amount"),
+				healthGroupLimitsRuleId: rule(authoredHealthDisability.healthGroupLimitsRuleId, "The section 80D group-limit rule"),
+				healthPreventiveLimitRuleId: rule(authoredHealthDisability.healthPreventiveLimitRuleId, "The section 80D preventive-checkup rule"),
+				healthDetailsRuleId: rule(authoredHealthDisability.healthDetailsRuleId, "The section 80D details rule"),
+				healthNewRegimeExclusionRuleId: rule(authoredHealthDisability.healthNewRegimeExclusionRuleId, "The new-regime section 80D exclusion rule"),
+				dependentDisabilityRuleId: rule(authoredHealthDisability.dependentDisabilityRuleId, "The section 80DD fixed-deduction rule"),
+				dependentDisabilityDetailsRuleId: rule(authoredHealthDisability.dependentDisabilityDetailsRuleId, "The section 80DD details rule"),
+				dependentDisabilityNewRegimeExclusionRuleId: rule(authoredHealthDisability.dependentDisabilityNewRegimeExclusionRuleId, "The new-regime section 80DD exclusion rule"),
+				specifiedDiseaseRuleId: rule(authoredHealthDisability.specifiedDiseaseRuleId, "The section 80DDB limit rule"),
+				specifiedDiseaseDetailsRuleId: rule(authoredHealthDisability.specifiedDiseaseDetailsRuleId, "The section 80DDB details rule"),
+				specifiedDiseaseNewRegimeExclusionRuleId: rule(authoredHealthDisability.specifiedDiseaseNewRegimeExclusionRuleId, "The new-regime section 80DDB exclusion rule"),
+				taxpayerDisabilityRuleId: rule(authoredHealthDisability.taxpayerDisabilityRuleId, "The section 80U fixed-deduction rule"),
+				taxpayerDisabilityDetailsRuleId: rule(authoredHealthDisability.taxpayerDisabilityDetailsRuleId, "The section 80U details rule"),
+				taxpayerDisabilityNewRegimeExclusionRuleId: rule(authoredHealthDisability.taxpayerDisabilityNewRegimeExclusionRuleId, "The new-regime section 80U exclusion rule"),
+			};
+		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
 			...(selfOccupiedHouseProperty === undefined
@@ -1286,6 +1322,9 @@ export const compileRulePack = async ({
 			...(savingsPensionDeductions === undefined
 				? {}
 				: { savingsPensionDeductions }),
+			...(healthDisabilityDeductions === undefined
+				? {}
+				: { healthDisabilityDeductions }),
 		});
 	}
 

@@ -44,6 +44,7 @@ export type RulePackManifestTaxConstants = Readonly<{
 	section112aCapitalGain?: Section112aCapitalGainTaxConstantRecord;
 	agriculturalIncome?: AgriculturalIncomeTaxConstantRecord;
 	savingsPensionDeductions?: SavingsPensionDeductionTaxConstantRecord;
+	healthDisabilityDeductions?: HealthDisabilityDeductionTaxConstantRecord;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -116,6 +117,32 @@ export type SavingsPensionDeductionTaxConstantRecord = Readonly<{
 	proofRuleId: string;
 }>;
 
+export type HealthDisabilityDeductionTaxConstantRecord = Readonly<{
+	healthRegularGroupLimitWholeRupees: number;
+	healthSeniorGroupLimitWholeRupees: number;
+	healthPreventiveSharedLimitWholeRupees: number;
+	healthOverallLimitWholeRupees: number;
+	dependentDisabilityAmountWholeRupees: number;
+	dependentSevereDisabilityAmountWholeRupees: number;
+	specifiedDiseaseLimitWholeRupees: number;
+	specifiedDiseaseSeniorLimitWholeRupees: number;
+	taxpayerDisabilityAmountWholeRupees: number;
+	taxpayerSevereDisabilityAmountWholeRupees: number;
+	healthGroupLimitsRuleId: string;
+	healthPreventiveLimitRuleId: string;
+	healthDetailsRuleId: string;
+	healthNewRegimeExclusionRuleId: string;
+	dependentDisabilityRuleId: string;
+	dependentDisabilityDetailsRuleId: string;
+	dependentDisabilityNewRegimeExclusionRuleId: string;
+	specifiedDiseaseRuleId: string;
+	specifiedDiseaseDetailsRuleId: string;
+	specifiedDiseaseNewRegimeExclusionRuleId: string;
+	taxpayerDisabilityRuleId: string;
+	taxpayerDisabilityDetailsRuleId: string;
+	taxpayerDisabilityNewRegimeExclusionRuleId: string;
+}>;
+
 // The compiled form resolves every authored rule identifier to a validated
 // RuleId before publication.
 export type CompiledNewRegimeTaxConstants = Readonly<{
@@ -145,6 +172,7 @@ export type CompiledTaxConstants = Readonly<{
 	section112aCapitalGain?: CompiledSection112aCapitalGainTaxConstants;
 	agriculturalIncome?: CompiledAgriculturalIncomeTaxConstants;
 	savingsPensionDeductions?: CompiledSavingsPensionDeductionTaxConstants;
+	healthDisabilityDeductions?: CompiledHealthDisabilityDeductionTaxConstants;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
@@ -215,4 +243,30 @@ export type CompiledSavingsPensionDeductionTaxConstants = Readonly<{
 	newRegimeEmployerLimitRuleId: RuleId;
 	newRegimeExclusionRuleId: RuleId;
 	proofRuleId: RuleId;
+}>;
+
+export type CompiledHealthDisabilityDeductionTaxConstants = Readonly<{
+	healthRegularGroupLimitWholeRupees: number;
+	healthSeniorGroupLimitWholeRupees: number;
+	healthPreventiveSharedLimitWholeRupees: number;
+	healthOverallLimitWholeRupees: number;
+	dependentDisabilityAmountWholeRupees: number;
+	dependentSevereDisabilityAmountWholeRupees: number;
+	specifiedDiseaseLimitWholeRupees: number;
+	specifiedDiseaseSeniorLimitWholeRupees: number;
+	taxpayerDisabilityAmountWholeRupees: number;
+	taxpayerSevereDisabilityAmountWholeRupees: number;
+	healthGroupLimitsRuleId: RuleId;
+	healthPreventiveLimitRuleId: RuleId;
+	healthDetailsRuleId: RuleId;
+	healthNewRegimeExclusionRuleId: RuleId;
+	dependentDisabilityRuleId: RuleId;
+	dependentDisabilityDetailsRuleId: RuleId;
+	dependentDisabilityNewRegimeExclusionRuleId: RuleId;
+	specifiedDiseaseRuleId: RuleId;
+	specifiedDiseaseDetailsRuleId: RuleId;
+	specifiedDiseaseNewRegimeExclusionRuleId: RuleId;
+	taxpayerDisabilityRuleId: RuleId;
+	taxpayerDisabilityDetailsRuleId: RuleId;
+	taxpayerDisabilityNewRegimeExclusionRuleId: RuleId;
 }>;
