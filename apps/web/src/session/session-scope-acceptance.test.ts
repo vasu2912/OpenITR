@@ -6,7 +6,7 @@ import {
 	createPrefilledItr1JsonFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
-import { itr1Ay202627RulePack20260906 as pack } from "@openitr/itr1-ay2026-27";
+import { itr1Ay202627RulePack20260907 as pack } from "@openitr/itr1-ay2026-27";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
@@ -152,10 +152,7 @@ describe("complete scope through the public session workflow", () => {
 		expect(documentsOf(session).estimateComputation).toBeUndefined();
 	});
 
-	test.each([
-		["scope-section112a-ltcg", "1"],
-		["scope-agriculture", "1"],
-	])("does not present a complete estimate for unimplemented %s income", async (questionId, value) => {
+	test.each([["scope-agriculture", "1"]])("does not present a complete estimate for unimplemented %s income", async (questionId, value) => {
 		const session = start();
 		completeScope({ session, overrides: { [questionId]: value } });
 		await selectSalaryAndCredits(session);
@@ -164,6 +161,73 @@ describe("complete scope through the public session workflow", () => {
 		await expect.poll(() => documentsOf(session).pendingRecomputation.kind).toBe("idle");
 		expect(scopeOf(session).kind).toBe("supported");
 		expect(documentsOf(session).estimateComputation?.kind).not.toBe("computed");
+	});
+
+	test("collects only unresolved section 112A facts and derives the cited result", async () => {
+		const session = start();
+		completeScope({
+			session,
+			overrides: { "scope-section112a-ltcg": "125000" },
+		});
+		await selectSalaryAndCredits(session);
+
+		let snapshot = documentsOf(session);
+		expect(snapshot.section112aCapitalGainComputation).toMatchObject({
+			kind: "blocked",
+			issue: { code: "FACT_SECTION112A_ASSET_CLASSIFICATION_MISSING" },
+		});
+		expect(
+			snapshot.questionnaire.questions
+				.filter(
+					(question) =>
+						question.affectedResult.resultId === "section112a-capital-gain",
+				)
+				.map((question) => question.id),
+		).toEqual(["section112a-eligible-asset"]);
+
+		for (const [questionId, value] of [
+			["section112a-eligible-asset", "yes"],
+			["section112a-long-term", "yes"],
+			["section112a-stt-conditions", "yes"],
+			["section112a-sale-consideration", "525000"],
+			["section112a-cost-of-acquisition", "400000"],
+		] as const) {
+			answerBankAmount({ session, questionId, value });
+		}
+
+		snapshot = documentsOf(session);
+		expect(snapshot.section112aCapitalGainComputation).toMatchObject({
+			kind: "computed",
+			saleConsideration: "525000",
+			costOfAcquisition: "400000",
+			gain: "125000",
+			taxableGain: "0",
+			tax: "0",
+		});
+		expect(
+			snapshot.factAnswers
+				.filter((answer) => answer.questionId.startsWith("section112a-"))
+				.every((answer) => answer.origin.rulePackId === pack.identity.id),
+		).toBe(true);
+	});
+
+	test("blocks section 112A gain above the ITR-1 limit before document intake", () => {
+		const session = start();
+		completeScope({
+			session,
+			overrides: { "scope-section112a-ltcg": "125001" },
+		});
+
+		expect(scopeOf(session)).toMatchObject({
+			kind: "unsupported",
+			decisions: expect.arrayContaining([
+				expect.objectContaining({
+					factKey: "scope.section112a-ltcg",
+					kind: "unsupported",
+				}),
+			]),
+		});
+		expect(session.getSnapshot().kind).toBe("scope-check-complete");
 	});
 
 	test("analyzes one self-occupied property with a cited old/new-regime trace", async () => {

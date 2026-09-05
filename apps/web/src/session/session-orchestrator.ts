@@ -1,5 +1,6 @@
 import {
 	computeSourceDocumentIdentity,
+	compareExactMoney,
 	createExtractionRejectionOutcome,
 	createInspectionFailedOutcome,
 	exactMoneyFromWholeRupees,
@@ -30,6 +31,7 @@ import type {
 import {
 	computeHouseProperties,
 	computeOtherSources,
+	computeSection112aCapitalGain,
 	computeNewRegimeSalaryScenario,
 	deriveItr1AnalysisScopeFacts,
 	knownScopeFact,
@@ -44,6 +46,8 @@ import type {
 	NewRegimeSalaryComputation,
 	OtherSourceFact,
 	OtherSourcesComputation,
+	Section112aCapitalGainComputation,
+	Section112aCapitalGainFact,
 } from "@openitr/itr1-ay2026-27";
 import {
 	computeRefundOrAmountPayableEstimate,
@@ -159,6 +163,9 @@ export type DocumentIntakeSnapshot = Readonly<{
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 	housePropertyComputation: HousePropertyComputation | undefined;
 	otherSourcesComputation: OtherSourcesComputation | undefined;
+	section112aCapitalGainComputation:
+		| Section112aCapitalGainComputation
+		| undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
@@ -204,6 +211,9 @@ type SessionContext = Readonly<{
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 	housePropertyComputation: HousePropertyComputation | undefined;
 	otherSourcesComputation: OtherSourcesComputation | undefined;
+	section112aCapitalGainComputation:
+		| Section112aCapitalGainComputation
+		| undefined;
 	recomputationGeneration: number;
 	pendingRecomputation: PendingRecomputationState;
 }>;
@@ -309,6 +319,11 @@ const OTHER_SOURCES_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	label: "Income from other sources analysis",
 });
 
+const SECTION112A_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "section112a-capital-gain",
+	label: "Section 112A capital-gain analysis",
+});
+
 const housePropertyResultId = (propertyNumber: 1 | 2): string =>
 	`house-property-${propertyNumber}`;
 
@@ -391,6 +406,52 @@ const computeOtherSourcesScenario = ({
 		rulePack,
 		applicable: true,
 		facts: [...observedFacts, ...answerFacts],
+	});
+};
+
+const section112aReportedGainOf = (
+	facts: readonly ScopeFact[],
+): Section112aCapitalGainFact | undefined => {
+	const fact = facts.find(
+		(candidate) =>
+			candidate.factKey === parseFactKey("scope.section112a-ltcg"),
+	);
+	return fact?.state === "known" && fact.value.kind === "exact-money"
+		? { factKey: fact.factKey, value: fact.value.value }
+		: undefined;
+};
+
+const section112aApplies = (facts: readonly ScopeFact[]): boolean => {
+	const reportedGain = section112aReportedGainOf(facts);
+	return (
+		reportedGain !== undefined &&
+		typeof reportedGain.value === "string" &&
+		compareExactMoney(reportedGain.value, exactMoneyFromWholeRupees(0)) > 0
+	);
+};
+
+const computeSection112aScenario = ({
+	rulePack,
+	analysisScopeFacts,
+	answers,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	analysisScopeFacts: readonly ScopeFact[];
+	answers: readonly AttestedAnswerFact[];
+}>): Section112aCapitalGainComputation | undefined => {
+	const reportedGain = section112aReportedGainOf(analysisScopeFacts);
+	if (reportedGain === undefined || !section112aApplies(analysisScopeFacts)) {
+		return undefined;
+	}
+	const answerFacts = answers.flatMap(
+		(answer): readonly Section112aCapitalGainFact[] =>
+			answer.factKey.startsWith("capital-gains.section112a-")
+				? [{ factKey: answer.factKey, value: answer.value }]
+				: [],
+	);
+	return computeSection112aCapitalGain({
+		rulePack,
+		facts: [reportedGain, ...answerFacts],
 	});
 };
 
@@ -936,6 +997,9 @@ const deriveSessionReview = (
 		...(input.documentsStageEntered === true && otherSourcesApply(input.analysisScopeFacts)
 			? [OTHER_SOURCES_AFFECTED_RESULT.resultId]
 			: []),
+		...(input.documentsStageEntered === true && section112aApplies(input.analysisScopeFacts)
+			? [SECTION112A_AFFECTED_RESULT.resultId]
+			: []),
 	];
 	const questionnaire =
 		scopeCheck.kind === "complete"
@@ -984,6 +1048,9 @@ const deriveSessionComputations = (
 	estimateComputation: RefundOrAmountPayableEstimate | undefined;
 	housePropertyComputation: HousePropertyComputation | undefined;
 	otherSourcesComputation: OtherSourcesComputation | undefined;
+	section112aCapitalGainComputation:
+		| Section112aCapitalGainComputation
+		| undefined;
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
 	const derived = deriveSessionReviewAndSalary(input);
@@ -1014,11 +1081,17 @@ const deriveSessionComputations = (
 		answers,
 		reconciliation: derived.reconciliation,
 	});
+	const section112aCapitalGainComputation = computeSection112aScenario({
+		rulePack,
+		analysisScopeFacts,
+		answers,
+	});
 	return {
 		...derived,
 		estimateComputation,
 		housePropertyComputation,
 		otherSourcesComputation,
+		section112aCapitalGainComputation,
 	};
 };
 
@@ -1073,6 +1146,7 @@ const deriveDecisionComputations = ({
 	| "estimateComputation"
 	| "housePropertyComputation"
 	| "otherSourcesComputation"
+	| "section112aCapitalGainComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1110,6 +1184,11 @@ const deriveDecisionComputations = ({
 		answers,
 		reconciliation: review.reconciliation,
 	});
+	const section112aCapitalGainComputation = computeSection112aScenario({
+		rulePack: context.rulePack,
+		analysisScopeFacts,
+		answers,
+	});
 	if (!affectsEstimate) {
 		return {
 			answerDecisions,
@@ -1121,6 +1200,7 @@ const deriveDecisionComputations = ({
 			estimateComputation: context.estimateComputation,
 			housePropertyComputation,
 			otherSourcesComputation,
+			section112aCapitalGainComputation,
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
 		};
@@ -1150,6 +1230,7 @@ const deriveDecisionComputations = ({
 				}),
 		housePropertyComputation,
 		otherSourcesComputation,
+		section112aCapitalGainComputation,
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
 			? pendingRecomputationFor({ generation, affectedResultIds })
@@ -1411,6 +1492,7 @@ const createSessionMachine = ({
 			estimateComputation: undefined,
 			housePropertyComputation: undefined,
 			otherSourcesComputation: undefined,
+			section112aCapitalGainComputation: undefined,
 			recomputationGeneration: 0,
 			pendingRecomputation: { kind: "idle" },
 		},
@@ -1879,6 +1961,8 @@ const toSessionSnapshot = (
 			estimateComputation: context.estimateComputation,
 			housePropertyComputation: context.housePropertyComputation,
 			otherSourcesComputation: context.otherSourcesComputation,
+			section112aCapitalGainComputation:
+				context.section112aCapitalGainComputation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"
 					? { kind: "pending" }

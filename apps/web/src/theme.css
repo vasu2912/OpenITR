@@ -519,7 +519,8 @@ body,
 .openitr-property-summary,
 .openitr-property-list,
 .openitr-other-sources-summary,
-.openitr-other-sources-categories {
+.openitr-other-sources-categories,
+.openitr-section112a-summary {
 	margin-top: var(--pf-t--global--spacer--lg);
 }
 

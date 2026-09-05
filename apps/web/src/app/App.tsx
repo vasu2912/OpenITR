@@ -44,6 +44,7 @@ import { FactConflictsView } from "../views/fact-conflicts";
 import { MissingFactQuestionsView } from "../views/missing-fact-questions";
 import { HousePropertyComputationView } from "../views/house-property-computation";
 import { OtherSourcesComputationView } from "../views/other-sources-computation";
+import { Section112aCapitalGainView } from "../views/section112a-capital-gain";
 import { ScopeAnalysisView } from "../views/scope-analysis";
 import { SalaryComputationView } from "../views/salary-computation";
 import { SalaryReviewView } from "../views/salary-review";
@@ -335,6 +336,10 @@ const ScopeInteraction = ({
 		snapshot.kind === "document-intake"
 			? snapshot.otherSourcesComputation
 			: undefined;
+	const section112aCapitalGainComputation =
+		snapshot.kind === "document-intake"
+			? snapshot.section112aCapitalGainComputation
+			: undefined;
 	const pendingRecomputation =
 		snapshot.kind === "document-intake"
 			? snapshot.pendingRecomputation
@@ -475,6 +480,9 @@ const ScopeInteraction = ({
 					/>
 					<HousePropertyComputationView computation={housePropertyComputation} />
 					<OtherSourcesComputationView computation={otherSourcesComputation} />
+					<Section112aCapitalGainView
+						computation={section112aCapitalGainComputation}
+					/>
 					{pendingRecomputation.kind === "pending" ? (
 						<Alert
 							aria-live="polite"

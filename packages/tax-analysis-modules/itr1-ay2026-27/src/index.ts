@@ -35,6 +35,11 @@ export {
 } from "./revisions/2026-09-06/rule-pack";
 export { itr1Ay202627RulePackManifest20260906 } from "./revisions/2026-09-06/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260907,
+	itr1Ay202627RulePack20260907,
+} from "./revisions/2026-09-07/rule-pack";
+export { itr1Ay202627RulePackManifest20260907 } from "./revisions/2026-09-07/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -91,6 +96,13 @@ export type {
 	OtherSourcesIssue,
 	OtherSourcesTraceNode,
 } from "./computations/other-sources";
+export { computeSection112aCapitalGain } from "./computations/section112a-capital-gain";
+export type {
+	Section112aCapitalGainComputation,
+	Section112aCapitalGainFact,
+	Section112aCapitalGainIssue,
+	Section112aCapitalGainTraceNode,
+} from "./computations/section112a-capital-gain";
 export type {
 	AcceptedBankInterestDocumentFacts,
 	AcceptedNonSalaryIncomeDocumentFacts,

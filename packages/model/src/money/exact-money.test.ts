@@ -7,6 +7,7 @@ import {
 	exactMoneyFromWholeRupees,
 	maxExactMoney,
 	minExactMoney,
+	multiplyByBasisPoints,
 	multiplyByWholePercent,
 	parseExactMoney,
 	roundToNearestMultipleOf,
@@ -112,6 +113,16 @@ describe("exact money arithmetic", () => {
 		expect(() => multiplyByWholePercent(m("100"), -1)).toThrow();
 		expect(() => multiplyByWholePercent(m("100"), 101)).toThrow();
 		expect(() => multiplyByWholePercent(m("100"), 4.5)).toThrow();
+	});
+
+	test("multiplies by a fractional statutory percentage exactly", () => {
+		expect(multiplyByBasisPoints(m("17"), 1250)).toBe("2.125");
+	});
+
+	test.each([-1, 10001, 12.5])("rejects an invalid basis-point rate %s", (rate) => {
+		expect(() => multiplyByBasisPoints(m("100"), rate)).toThrow(
+			"Invalid basis-point rate",
+		);
 	});
 
 	test("divides by a whole number and returns an exact whole-rupee result", () => {
