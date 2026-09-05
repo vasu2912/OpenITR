@@ -20,6 +20,7 @@ import type {
 	CompiledHousePropertyTaxConstants,
 	CompiledNewRegimeTaxConstants,
 	CompiledOtherSourcesTaxConstants,
+	CompiledSection112aCapitalGainTaxConstants,
 	CompiledSelfOccupiedHousePropertyTaxConstants,
 	CompiledRulePack,
 	EligibilityAnswerValue,
@@ -136,6 +137,15 @@ const requireWholePercentage = (value: number, description: string): number => {
 	if (!Number.isSafeInteger(value) || value < 0 || value > 100) {
 		throw new Error(
 			`${description} must be a whole percentage between 0 and 100: ${value}`,
+		);
+	}
+	return value;
+};
+
+const requireBasisPointRate = (value: number, description: string): number => {
+	if (!Number.isSafeInteger(value) || value < 0 || value > 10_000) {
+		throw new Error(
+			`${description} must be a whole basis-point rate between 0 and 10000: ${value}`,
 		);
 	}
 	return value;
@@ -1159,6 +1169,42 @@ export const compileRulePack = async ({
 				totalRuleId: resolveConstantRule(authoredOtherSources.totalRuleId, "The other-source total rule"),
 			};
 		}
+		const authoredSection112a = authoredTaxConstants.section112aCapitalGain;
+		let section112aCapitalGain:
+			| CompiledSection112aCapitalGainTaxConstants
+			| undefined;
+		if (authoredSection112a !== undefined) {
+			const itr1GainLimitWholeRupees = requirePositiveWholeRupees(
+				authoredSection112a.itr1GainLimitWholeRupees,
+				"The ITR-1 section 112A gain limit",
+			);
+			const taxFreeThresholdWholeRupees = requirePositiveWholeRupees(
+				authoredSection112a.taxFreeThresholdWholeRupees,
+				"The section 112A tax-free threshold",
+			);
+			if (taxFreeThresholdWholeRupees !== itr1GainLimitWholeRupees) {
+				throw new Error(
+					"The ITR-1 section 112A limit must equal the section 112A tax-free threshold",
+				);
+			}
+			section112aCapitalGain = {
+				itr1GainLimitWholeRupees,
+				taxFreeThresholdWholeRupees,
+				taxRateBasisPoints: requireBasisPointRate(
+					authoredSection112a.taxRateBasisPoints,
+					"The section 112A tax rate",
+				),
+				taxRoundingBaseWholeRupees: requirePositiveWholeRupees(
+					authoredSection112a.taxRoundingBaseWholeRupees,
+					"The section 112A tax rounding base",
+				),
+				classificationRuleId: resolveConstantRule(authoredSection112a.classificationRuleId, "The section 112A classification rule"),
+				gainRuleId: resolveConstantRule(authoredSection112a.gainRuleId, "The section 112A gain rule"),
+				itr1LimitRuleId: resolveConstantRule(authoredSection112a.itr1LimitRuleId, "The ITR-1 section 112A limit rule"),
+				taxRuleId: resolveConstantRule(authoredSection112a.taxRuleId, "The section 112A tax rule"),
+				taxRoundingRuleId: resolveConstantRule(authoredSection112a.taxRoundingRuleId, "The section 112A tax rounding rule"),
+			};
+		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
 			...(selfOccupiedHouseProperty === undefined
@@ -1166,6 +1212,9 @@ export const compileRulePack = async ({
 				: { selfOccupiedHouseProperty }),
 			...(houseProperty === undefined ? {} : { houseProperty }),
 			...(otherSources === undefined ? {} : { otherSources }),
+			...(section112aCapitalGain === undefined
+				? {}
+				: { section112aCapitalGain }),
 		});
 	}
 

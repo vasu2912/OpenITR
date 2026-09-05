@@ -41,6 +41,7 @@ export type RulePackManifestTaxConstants = Readonly<{
 	selfOccupiedHouseProperty?: SelfOccupiedHousePropertyTaxConstantRecord;
 	houseProperty?: HousePropertyTaxConstantRecord;
 	otherSources?: OtherSourcesTaxConstantRecord;
+	section112aCapitalGain?: Section112aCapitalGainTaxConstantRecord;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -76,6 +77,18 @@ export type OtherSourcesTaxConstantRecord = Readonly<{
 	totalRuleId: string;
 }>;
 
+export type Section112aCapitalGainTaxConstantRecord = Readonly<{
+	itr1GainLimitWholeRupees: number;
+	taxFreeThresholdWholeRupees: number;
+	taxRateBasisPoints: number;
+	taxRoundingBaseWholeRupees: number;
+	classificationRuleId: string;
+	gainRuleId: string;
+	itr1LimitRuleId: string;
+	taxRuleId: string;
+	taxRoundingRuleId: string;
+}>;
+
 // The compiled form resolves every authored rule identifier to a validated
 // RuleId before publication.
 export type CompiledNewRegimeTaxConstants = Readonly<{
@@ -102,6 +115,7 @@ export type CompiledTaxConstants = Readonly<{
 	selfOccupiedHouseProperty?: CompiledSelfOccupiedHousePropertyTaxConstants;
 	houseProperty?: CompiledHousePropertyTaxConstants;
 	otherSources?: CompiledOtherSourcesTaxConstants;
+	section112aCapitalGain?: CompiledSection112aCapitalGainTaxConstants;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
@@ -135,4 +149,16 @@ export type CompiledOtherSourcesTaxConstants = Readonly<{
 	oldRegimeFamilyPensionDeductionRuleId: RuleId;
 	newRegimeFamilyPensionDeductionRuleId: RuleId;
 	totalRuleId: RuleId;
+}>;
+
+export type CompiledSection112aCapitalGainTaxConstants = Readonly<{
+	itr1GainLimitWholeRupees: number;
+	taxFreeThresholdWholeRupees: number;
+	taxRateBasisPoints: number;
+	taxRoundingBaseWholeRupees: number;
+	classificationRuleId: RuleId;
+	gainRuleId: RuleId;
+	itr1LimitRuleId: RuleId;
+	taxRuleId: RuleId;
+	taxRoundingRuleId: RuleId;
 }>;

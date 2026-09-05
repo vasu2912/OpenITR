@@ -93,6 +93,22 @@ export const multiplyByWholePercent = (
 	);
 };
 
+export const multiplyByBasisPoints = (
+	amount: ExactMoney,
+	basisPoints: number,
+): ExactMoney => {
+	if (
+		!Number.isSafeInteger(basisPoints) ||
+		basisPoints < 0 ||
+		basisPoints > 10_000
+	) {
+		throw new Error(`Invalid basis-point rate: ${basisPoints}`);
+	}
+	return canonical(
+		asExactDecimal(amount).times(basisPoints).dividedBy(10_000),
+	);
+};
+
 // Some statutory fractions feed whole-rupee form fields. Divide with the
 // isolated decimal engine, then round once so no recurring approximation
 // escapes as an ExactMoney value.
