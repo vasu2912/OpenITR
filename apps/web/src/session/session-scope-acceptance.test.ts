@@ -6,7 +6,7 @@ import {
 	createPrefilledItr1JsonFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
-import { itr1Ay202627RulePack20260907 as pack } from "@openitr/itr1-ay2026-27";
+import { itr1Ay202627RulePack20260908 as pack } from "@openitr/itr1-ay2026-27";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
@@ -152,15 +152,84 @@ describe("complete scope through the public session workflow", () => {
 		expect(documentsOf(session).estimateComputation).toBeUndefined();
 	});
 
-	test.each([["scope-agriculture", "1"]])("does not present a complete estimate for unimplemented %s income", async (questionId, value) => {
+	test("asks for an agricultural-income amount only after an affirmative presence answer", async () => {
 		const session = start();
-		completeScope({ session, overrides: { [questionId]: value } });
+		completeScope({ session });
 		await selectSalaryAndCredits(session);
-		answerBankAmount({ session, questionId: "bank-interest-savings-account-total", value: "0" });
-		answerBankAmount({ session, questionId: "bank-interest-deposits-total", value: "0" });
-		await expect.poll(() => documentsOf(session).pendingRecomputation.kind).toBe("idle");
-		expect(scopeOf(session).kind).toBe("supported");
-		expect(documentsOf(session).estimateComputation?.kind).not.toBe("computed");
+		expect(
+			documentsOf(session).questionnaire.questions.some(
+				(question) => question.id === "agricultural-income-amount",
+			),
+		).toBe(false);
+		expect(documentsOf(session).agriculturalIncomeComputation).toBeUndefined();
+
+		answer({
+			session,
+			questionId: "scope-agriculture-present",
+			value: "yes",
+		});
+		expect(
+			documentsOf(session).questionnaire.questions.map(
+				(question) => question.id,
+			),
+		).toContain("agricultural-income-amount");
+		expect(documentsOf(session).agriculturalIncomeComputation).toMatchObject({
+			kind: "blocked",
+			issue: { code: "FACT_AGRICULTURAL_INCOME_MISSING" },
+		});
+	});
+
+	test("records and explains an in-scope agricultural-income amount", async () => {
+		const session = start();
+		completeScope({ session });
+		answer({
+			session,
+			questionId: "scope-agriculture-present",
+			value: "yes",
+		});
+		await selectSalaryAndCredits(session);
+		answerBankAmount({
+			session,
+			questionId: "agricultural-income-amount",
+			value: "5000",
+		});
+
+		const snapshot = documentsOf(session);
+		expect(snapshot.agriculturalIncomeComputation).toMatchObject({
+			kind: "computed",
+			exemptIncome: "5000",
+			includedInTaxableIncome: "0",
+		});
+		expect(
+			snapshot.factAnswers.find(
+				(candidate) => candidate.questionId === "agricultural-income-amount",
+			),
+		).toMatchObject({
+			value: "5000",
+			origin: { kind: "attested-answer", rulePackId: pack.identity.id },
+		});
+	});
+
+	test("stops the estimate when agricultural income exceeds the pinned limit", async () => {
+		const session = start();
+		completeScope({ session });
+		answer({
+			session,
+			questionId: "scope-agriculture-present",
+			value: "yes",
+		});
+		await selectSalaryAndCredits(session);
+		answerBankAmount({
+			session,
+			questionId: "agricultural-income-amount",
+			value: "5001",
+		});
+
+		expect(documentsOf(session).agriculturalIncomeComputation).toMatchObject({
+			kind: "unsupported",
+			issue: { code: "RULE_AGRICULTURAL_INCOME_ITR1_LIMIT_EXCEEDED" },
+		});
+		expect(documentsOf(session).estimateComputation).toBeUndefined();
 	});
 
 	test("collects only unresolved section 112A facts and derives the cited result", async () => {

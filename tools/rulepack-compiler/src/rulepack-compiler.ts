@@ -18,6 +18,7 @@ import {
 } from "@openitr/model";
 import type {
 	CompiledHousePropertyTaxConstants,
+	CompiledAgriculturalIncomeTaxConstants,
 	CompiledNewRegimeTaxConstants,
 	CompiledOtherSourcesTaxConstants,
 	CompiledSection112aCapitalGainTaxConstants,
@@ -1205,6 +1206,24 @@ export const compileRulePack = async ({
 				taxRoundingRuleId: resolveConstantRule(authoredSection112a.taxRoundingRuleId, "The section 112A tax rounding rule"),
 			};
 		}
+		const authoredAgriculturalIncome = authoredTaxConstants.agriculturalIncome;
+		let agriculturalIncome: CompiledAgriculturalIncomeTaxConstants | undefined;
+		if (authoredAgriculturalIncome !== undefined) {
+			agriculturalIncome = {
+				itr1LimitWholeRupees: requirePositiveWholeRupees(
+					authoredAgriculturalIncome.itr1LimitWholeRupees,
+					"The ITR-1 agricultural-income limit",
+				),
+				exemptReportingRuleId: resolveConstantRule(
+					authoredAgriculturalIncome.exemptReportingRuleId,
+					"The agricultural-income exempt-reporting rule",
+				),
+				itr1LimitRuleId: resolveConstantRule(
+					authoredAgriculturalIncome.itr1LimitRuleId,
+					"The ITR-1 agricultural-income limit rule",
+				),
+			};
+		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
 			...(selfOccupiedHouseProperty === undefined
@@ -1215,6 +1234,7 @@ export const compileRulePack = async ({
 			...(section112aCapitalGain === undefined
 				? {}
 				: { section112aCapitalGain }),
+			...(agriculturalIncome === undefined ? {} : { agriculturalIncome }),
 		});
 	}
 

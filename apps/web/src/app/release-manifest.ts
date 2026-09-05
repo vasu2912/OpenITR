@@ -31,21 +31,21 @@ export const activeAnalysisRelease: AnalysisRelease = Object.freeze({
 	taxAnalysisModule: Object.freeze({
 		id: parseTaxAnalysisModuleId("itr1-ay2026-27"),
 		compiledModuleSha256: parseSha256Digest(
-			"23a68b0969a216c5df6739a5540fed518e3e1e47fe24cc5454ffa10191c3d035",
+			"b01ed8ebbd4cf193e7f1c3735d12e6785cfe1e67dadcd0034f772149441f3811",
 		),
 	}),
 	rulePack: Object.freeze({
-		id: parseRulePackId("itr1-ay2026-27.2026-09-07"),
+		id: parseRulePackId("itr1-ay2026-27.2026-09-08"),
 		sourceManifestSha256: parseSha256Digest(
 			"80631c1cfc0dc33dd0b0c8b1b6f8d712df7397a586c4598eb1dee3dfd90e7577",
 		),
 		compiledPackSha256: parseSha256Digest(
-			"bcc7b47ef760e67d1f42a33f6ff6355740d695424422141ad87aba53337e5e44",
+			"1ca023ec5076075770d32c326b30f9088d179afde5981642fbe3c1930eed2c9c",
 		),
 	}),
 	form: parseTaxFormId("ITR-1"),
 	financialYear: parseFinancialYear("2025-26"),
 	assessmentYear: parseAssessmentYear("2026-27"),
-	rulePackRevision: "2026-09-07",
+	rulePackRevision: "2026-09-08",
 	engineContractVersion: "1",
 });

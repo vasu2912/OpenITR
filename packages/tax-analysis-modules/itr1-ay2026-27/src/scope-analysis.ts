@@ -32,7 +32,6 @@ const LEGACY_DEPOSIT_INTEREST_FACT = parseFactKey("bank-interest.deposits");
 const SCOPE_BANK_INTEREST_FACT = parseFactKey("scope.bank-interest-income");
 const SCOPE_PROPERTY_COUNT_FACT = parseFactKey("scope.house-property-count");
 const SCOPE_SECTION_112A_FACT = parseFactKey("scope.section112a-ltcg");
-const SCOPE_AGRICULTURE_FACT = parseFactKey("scope.agriculture-income");
 const SCOPE_OTHER_SOURCES_FACT = parseFactKey(
 	"scope.allowed-other-sources-income",
 );
@@ -222,7 +221,6 @@ const estimateLimitationsOf = (
 		[
 			SCOPE_PROPERTY_COUNT_FACT,
 			SCOPE_SECTION_112A_FACT,
-			SCOPE_AGRICULTURE_FACT,
 			SCOPE_OTHER_SOURCES_FACT,
 			SCOPE_BANK_INTEREST_FACT,
 		].flatMap((factKey) => {
