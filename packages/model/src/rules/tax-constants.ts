@@ -43,6 +43,7 @@ export type RulePackManifestTaxConstants = Readonly<{
 	otherSources?: OtherSourcesTaxConstantRecord;
 	section112aCapitalGain?: Section112aCapitalGainTaxConstantRecord;
 	agriculturalIncome?: AgriculturalIncomeTaxConstantRecord;
+	savingsPensionDeductions?: SavingsPensionDeductionTaxConstantRecord;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -96,6 +97,25 @@ export type AgriculturalIncomeTaxConstantRecord = Readonly<{
 	itr1LimitRuleId: string;
 }>;
 
+export type SavingsPensionDeductionTaxConstantRecord = Readonly<{
+	sharedLimitWholeRupees: number;
+	section80ccd1EmployeeSalaryPercent: number;
+	section80ccd1OtherGrossTotalIncomePercent: number;
+	section80ccd1bLimitWholeRupees: number;
+	oldRegimeGovernmentEmployerSalaryPercent: number;
+	oldRegimeOtherEmployerSalaryPercent: number;
+	newRegimeEmployerSalaryPercent: number;
+	sharedLimitRuleId: string;
+	section80ccd1EmployeeLimitRuleId: string;
+	section80ccd1OtherLimitRuleId: string;
+	section80ccd1bLimitRuleId: string;
+	oldRegimeGovernmentEmployerLimitRuleId: string;
+	oldRegimeOtherEmployerLimitRuleId: string;
+	newRegimeEmployerLimitRuleId: string;
+	newRegimeExclusionRuleId: string;
+	proofRuleId: string;
+}>;
+
 // The compiled form resolves every authored rule identifier to a validated
 // RuleId before publication.
 export type CompiledNewRegimeTaxConstants = Readonly<{
@@ -124,6 +144,7 @@ export type CompiledTaxConstants = Readonly<{
 	otherSources?: CompiledOtherSourcesTaxConstants;
 	section112aCapitalGain?: CompiledSection112aCapitalGainTaxConstants;
 	agriculturalIncome?: CompiledAgriculturalIncomeTaxConstants;
+	savingsPensionDeductions?: CompiledSavingsPensionDeductionTaxConstants;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
@@ -175,4 +196,23 @@ export type CompiledAgriculturalIncomeTaxConstants = Readonly<{
 	itr1LimitWholeRupees: number;
 	exemptReportingRuleId: RuleId;
 	itr1LimitRuleId: RuleId;
+}>;
+
+export type CompiledSavingsPensionDeductionTaxConstants = Readonly<{
+	sharedLimitWholeRupees: number;
+	section80ccd1EmployeeSalaryPercent: number;
+	section80ccd1OtherGrossTotalIncomePercent: number;
+	section80ccd1bLimitWholeRupees: number;
+	oldRegimeGovernmentEmployerSalaryPercent: number;
+	oldRegimeOtherEmployerSalaryPercent: number;
+	newRegimeEmployerSalaryPercent: number;
+	sharedLimitRuleId: RuleId;
+	section80ccd1EmployeeLimitRuleId: RuleId;
+	section80ccd1OtherLimitRuleId: RuleId;
+	section80ccd1bLimitRuleId: RuleId;
+	oldRegimeGovernmentEmployerLimitRuleId: RuleId;
+	oldRegimeOtherEmployerLimitRuleId: RuleId;
+	newRegimeEmployerLimitRuleId: RuleId;
+	newRegimeExclusionRuleId: RuleId;
+	proofRuleId: RuleId;
 }>;
