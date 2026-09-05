@@ -39,6 +39,7 @@ import { createSessionOrchestrator } from "../session/session-orchestrator";
 import type { SessionOrchestrator } from "../session/session-orchestrator";
 import { workerInspectionFacility } from "../session/worker-inspection-facility";
 import { DocumentsIntakeView } from "../views/documents-intake";
+import { AgriculturalIncomeView } from "../views/agricultural-income";
 import { EstimateView } from "../views/estimate-view";
 import { FactConflictsView } from "../views/fact-conflicts";
 import { MissingFactQuestionsView } from "../views/missing-fact-questions";
@@ -453,6 +454,9 @@ const ScopeInteraction = ({
 					<OtherSourcesComputationView computation={intake?.otherSourcesComputation} />
 					<Section112aCapitalGainView
 						computation={intake?.section112aCapitalGainComputation}
+					/>
+					<AgriculturalIncomeView
+						computation={intake?.agriculturalIncomeComputation}
 					/>
 					{intake?.pendingRecomputation.kind === "pending" ? (
 						<Alert

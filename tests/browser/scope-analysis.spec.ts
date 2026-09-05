@@ -34,7 +34,7 @@ test.describe("full ITR-1 analysis scope", () => {
 		await form.getByRole("button", { name: "Record scope answer" }).click();
 		const recorded = page.locator('[data-scope-question="scope-total-income"]');
 		await expect(recorded).toContainText("Recorded answer: ₹ 5,000,000");
-		await expect(recorded).toContainText("Pinned revision 2026-09-07");
+		await expect(recorded).toContainText("Pinned revision 2026-09-08");
 		await recorded.getByRole("button", { name: "Change answer" }).click();
 		await expect(recorded.getByLabel(/What was your total income/)).toHaveValue("5000000");
 		await recorded.getByLabel(/What was your total income/).fill("5000000.01");

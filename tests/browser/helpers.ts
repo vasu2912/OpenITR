@@ -158,7 +158,7 @@ export const openDocumentIntake = async (
 		"scope-house-property-count": "0",
 		"scope-section112a-ltcg": "0",
 		"scope-other-capital-gains": "no",
-		"scope-agriculture": "0",
+		"scope-agriculture-present": "no",
 		"scope-business-profession": "no",
 		"scope-lottery": "no",
 		"scope-racehorse": "no",

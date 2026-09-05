@@ -30,6 +30,7 @@ import type {
 } from "@openitr/model";
 import {
 	computeHouseProperties,
+	computeAgriculturalIncome,
 	computeOtherSources,
 	computeSection112aCapitalGain,
 	computeNewRegimeSalaryScenario,
@@ -40,6 +41,8 @@ import {
 } from "@openitr/itr1-ay2026-27";
 import type {
 	AcceptedSalaryDocumentFacts,
+	AgriculturalIncomeComputation,
+	AgriculturalIncomeFact,
 	AttestedFactContribution,
 	HousePropertyComputation,
 	HousePropertyFact,
@@ -166,6 +169,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	section112aCapitalGainComputation:
 		| Section112aCapitalGainComputation
 		| undefined;
+	agriculturalIncomeComputation: AgriculturalIncomeComputation | undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
@@ -214,6 +218,7 @@ type SessionContext = Readonly<{
 	section112aCapitalGainComputation:
 		| Section112aCapitalGainComputation
 		| undefined;
+	agriculturalIncomeComputation: AgriculturalIncomeComputation | undefined;
 	recomputationGeneration: number;
 	pendingRecomputation: PendingRecomputationState;
 }>;
@@ -322,6 +327,11 @@ const OTHER_SOURCES_AFFECTED_RESULT: AffectedResult = Object.freeze({
 const SECTION112A_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	resultId: "section112a-capital-gain",
 	label: "Section 112A capital-gain analysis",
+});
+
+const AGRICULTURAL_INCOME_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "agricultural-income",
+	label: "Agricultural-income explanation",
 });
 
 const housePropertyResultId = (propertyNumber: 1 | 2): string =>
@@ -452,6 +462,88 @@ const computeSection112aScenario = ({
 	return computeSection112aCapitalGain({
 		rulePack,
 		facts: [reportedGain, ...answerFacts],
+	});
+};
+
+const AGRICULTURAL_INCOME_FACT = parseFactKey("scope.agriculture-income");
+const AGRICULTURAL_INCOME_PRESENCE_FACT = parseFactKey(
+	"scope.agriculture-income-present",
+);
+
+const agriculturalIncomePresenceOf = (facts: readonly ScopeFact[]): boolean => {
+	const fact = facts.find(
+		(candidate) => candidate.factKey === AGRICULTURAL_INCOME_PRESENCE_FACT,
+	);
+	return (
+		fact?.state === "known" &&
+		fact.value.kind === "boolean" &&
+		fact.value.value
+	);
+};
+
+const agriculturalIncomeFactsOf = ({
+	answers,
+	reconciliation,
+}: Readonly<{
+	answers: readonly AttestedAnswerFact[];
+	reconciliation: ReconciliationResult;
+}>): readonly AgriculturalIncomeFact[] => {
+	const observedFactKeys = new Set(
+		reconciliation.acceptedFacts.map((accepted) => accepted.factKey),
+	);
+	const observedFacts = reconciliation.acceptedFacts.flatMap(
+		(accepted): readonly AgriculturalIncomeFact[] =>
+			accepted.factKey === AGRICULTURAL_INCOME_FACT
+				? [{ factKey: accepted.factKey, value: accepted.value }]
+				: [],
+	);
+	const answerFacts = answers.flatMap(
+		(answer): readonly AgriculturalIncomeFact[] =>
+			answer.factKey === AGRICULTURAL_INCOME_FACT &&
+			typeof answer.value === "string" &&
+			!observedFactKeys.has(answer.factKey)
+				? [{ factKey: answer.factKey, value: answer.value }]
+				: [],
+	);
+	return [...observedFacts, ...answerFacts];
+};
+
+const agriculturalIncomeApplies = ({
+	analysisScopeFacts,
+	answers,
+	reconciliation,
+}: Readonly<{
+	analysisScopeFacts: readonly ScopeFact[];
+	answers: readonly AttestedAnswerFact[];
+	reconciliation: ReconciliationResult;
+}>): boolean =>
+	agriculturalIncomePresenceOf(analysisScopeFacts) ||
+	agriculturalIncomeFactsOf({ answers, reconciliation }).some(
+		(fact) =>
+			compareExactMoney(fact.value, exactMoneyFromWholeRupees(0)) > 0,
+	);
+
+const computeAgriculturalIncomeScenario = ({
+	rulePack,
+	analysisScopeFacts,
+	answers,
+	reconciliation,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	analysisScopeFacts: readonly ScopeFact[];
+	answers: readonly AttestedAnswerFact[];
+	reconciliation: ReconciliationResult;
+}>): AgriculturalIncomeComputation | undefined => {
+	const applicable = agriculturalIncomeApplies({
+		analysisScopeFacts,
+		answers,
+		reconciliation,
+	});
+	if (!applicable) return undefined;
+	return computeAgriculturalIncome({
+		rulePack,
+		applicable,
+		facts: agriculturalIncomeFactsOf({ answers, reconciliation }),
 	});
 };
 
@@ -1000,6 +1092,14 @@ const deriveSessionReview = (
 		...(input.documentsStageEntered === true && section112aApplies(input.analysisScopeFacts)
 			? [SECTION112A_AFFECTED_RESULT.resultId]
 			: []),
+		...(input.documentsStageEntered === true &&
+		agriculturalIncomeApplies({
+			analysisScopeFacts: input.analysisScopeFacts,
+			answers,
+			reconciliation,
+		})
+			? [AGRICULTURAL_INCOME_AFFECTED_RESULT.resultId]
+			: []),
 	];
 	const questionnaire =
 		scopeCheck.kind === "complete"
@@ -1051,6 +1151,7 @@ const deriveSessionComputations = (
 	section112aCapitalGainComputation:
 		| Section112aCapitalGainComputation
 		| undefined;
+	agriculturalIncomeComputation: AgriculturalIncomeComputation | undefined;
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
 	const derived = deriveSessionReviewAndSalary(input);
@@ -1060,16 +1161,26 @@ const deriveSessionComputations = (
 		attestedFacts: moneyAnswersOf(answers),
 		rulePackId: rulePack.identity.id,
 	});
-	const estimateComputation = computeEstimateScenario({
+	const agriculturalIncomeComputation = computeAgriculturalIncomeScenario({
 		rulePack,
-		scopeCheck,
-		extractions,
 		analysisScopeFacts,
 		answers,
 		reconciliation: derived.reconciliation,
-		questionnaire: derived.questionnaire,
-		salaryComputation: derived.salaryComputation,
 	});
+	const estimateComputation =
+		agriculturalIncomeComputation?.kind === "blocked" ||
+		agriculturalIncomeComputation?.kind === "unsupported"
+			? undefined
+			: computeEstimateScenario({
+					rulePack,
+					scopeCheck,
+					extractions,
+					analysisScopeFacts,
+					answers,
+					reconciliation: derived.reconciliation,
+					questionnaire: derived.questionnaire,
+					salaryComputation: derived.salaryComputation,
+				});
 	const housePropertyComputation = computeHousePropertyScenario({
 		rulePack,
 		analysisScopeFacts,
@@ -1092,6 +1203,7 @@ const deriveSessionComputations = (
 		housePropertyComputation,
 		otherSourcesComputation,
 		section112aCapitalGainComputation,
+		agriculturalIncomeComputation,
 	};
 };
 
@@ -1147,6 +1259,7 @@ const deriveDecisionComputations = ({
 	| "housePropertyComputation"
 	| "otherSourcesComputation"
 	| "section112aCapitalGainComputation"
+	| "agriculturalIncomeComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1170,9 +1283,9 @@ const deriveDecisionComputations = ({
 	const analysisScopeEvaluation = evaluateAnalysisScopeOf(
 		{ rulePack: context.rulePack, facts: analysisScopeFacts },
 );
-	const affectsEstimate = affectedResultIds.includes(
-		ESTIMATE_AFFECTED_RESULT.resultId,
-	);
+	const affectsEstimate =
+		affectedResultIds.includes(ESTIMATE_AFFECTED_RESULT.resultId) ||
+		affectedResultIds.includes(AGRICULTURAL_INCOME_AFFECTED_RESULT.resultId);
 	const housePropertyComputation = computeHousePropertyScenario({
 		rulePack: context.rulePack,
 		analysisScopeFacts,
@@ -1189,6 +1302,12 @@ const deriveDecisionComputations = ({
 		analysisScopeFacts,
 		answers,
 	});
+	const agriculturalIncomeComputation = computeAgriculturalIncomeScenario({
+		rulePack: context.rulePack,
+		analysisScopeFacts,
+		answers,
+		reconciliation: review.reconciliation,
+	});
 	if (!affectsEstimate) {
 		return {
 			answerDecisions,
@@ -1201,6 +1320,7 @@ const deriveDecisionComputations = ({
 			housePropertyComputation,
 			otherSourcesComputation,
 			section112aCapitalGainComputation,
+			agriculturalIncomeComputation,
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
 		};
@@ -1216,7 +1336,11 @@ const deriveDecisionComputations = ({
 		resolutionDecisions,
 		...review,
 		salaryComputation: context.salaryComputation,
-		estimateComputation: shouldDefer
+		estimateComputation:
+			agriculturalIncomeComputation?.kind === "blocked" ||
+			agriculturalIncomeComputation?.kind === "unsupported"
+				? undefined
+				: shouldDefer
 			? undefined
 			: computeEstimateScenario({
 					rulePack: context.rulePack,
@@ -1231,6 +1355,7 @@ const deriveDecisionComputations = ({
 		housePropertyComputation,
 		otherSourcesComputation,
 		section112aCapitalGainComputation,
+		agriculturalIncomeComputation,
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
 			? pendingRecomputationFor({ generation, affectedResultIds })
@@ -1248,7 +1373,11 @@ const settlePendingRecomputation = (
 		};
 	}
 	return {
-		estimateComputation: context.pendingRecomputation.affectedResultIds.includes(
+		estimateComputation:
+			context.agriculturalIncomeComputation?.kind === "blocked" ||
+			context.agriculturalIncomeComputation?.kind === "unsupported"
+				? undefined
+				: context.pendingRecomputation.affectedResultIds.includes(
 			ESTIMATE_AFFECTED_RESULT.resultId,
 		)
 			? computeEstimateScenario({
@@ -1282,6 +1411,9 @@ const deriveSourceComputations = ({
 	| "salaryComputation"
 	| "estimateComputation"
 	| "housePropertyComputation"
+	| "otherSourcesComputation"
+	| "section112aCapitalGainComputation"
+	| "agriculturalIncomeComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1314,6 +1446,23 @@ const deriveSourceComputations = ({
 				rulePack: context.rulePack,
 				analysisScopeFacts,
 				answers: input.answers,
+			}),
+			otherSourcesComputation: computeOtherSourcesScenario({
+				rulePack: context.rulePack,
+				analysisScopeFacts,
+				answers: input.answers,
+				reconciliation: derived.reconciliation,
+			}),
+			section112aCapitalGainComputation: computeSection112aScenario({
+				rulePack: context.rulePack,
+				analysisScopeFacts,
+				answers: input.answers,
+			}),
+			agriculturalIncomeComputation: computeAgriculturalIncomeScenario({
+				rulePack: context.rulePack,
+				analysisScopeFacts,
+				answers: input.answers,
+				reconciliation: derived.reconciliation,
 			}),
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
@@ -1493,6 +1642,7 @@ const createSessionMachine = ({
 			housePropertyComputation: undefined,
 			otherSourcesComputation: undefined,
 			section112aCapitalGainComputation: undefined,
+			agriculturalIncomeComputation: undefined,
 			recomputationGeneration: 0,
 			pendingRecomputation: { kind: "idle" },
 		},
@@ -1963,6 +2113,8 @@ const toSessionSnapshot = (
 			otherSourcesComputation: context.otherSourcesComputation,
 			section112aCapitalGainComputation:
 				context.section112aCapitalGainComputation,
+			agriculturalIncomeComputation:
+				context.agriculturalIncomeComputation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"
 					? { kind: "pending" }

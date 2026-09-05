@@ -40,6 +40,11 @@ export {
 } from "./revisions/2026-09-07/rule-pack";
 export { itr1Ay202627RulePackManifest20260907 } from "./revisions/2026-09-07/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260908,
+	itr1Ay202627RulePack20260908,
+} from "./revisions/2026-09-08/rule-pack";
+export { itr1Ay202627RulePackManifest20260908 } from "./revisions/2026-09-08/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -103,6 +108,16 @@ export type {
 	Section112aCapitalGainIssue,
 	Section112aCapitalGainTraceNode,
 } from "./computations/section112a-capital-gain";
+export {
+	AGRICULTURAL_INCOME_FACT_KEY,
+	computeAgriculturalIncome,
+} from "./computations/agricultural-income";
+export type {
+	AgriculturalIncomeComputation,
+	AgriculturalIncomeFact,
+	AgriculturalIncomeIssue,
+	AgriculturalIncomeTraceNode,
+} from "./computations/agricultural-income";
 export type {
 	AcceptedBankInterestDocumentFacts,
 	AcceptedNonSalaryIncomeDocumentFacts,

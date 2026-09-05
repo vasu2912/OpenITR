@@ -42,6 +42,7 @@ export type RulePackManifestTaxConstants = Readonly<{
 	houseProperty?: HousePropertyTaxConstantRecord;
 	otherSources?: OtherSourcesTaxConstantRecord;
 	section112aCapitalGain?: Section112aCapitalGainTaxConstantRecord;
+	agriculturalIncome?: AgriculturalIncomeTaxConstantRecord;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -89,6 +90,12 @@ export type Section112aCapitalGainTaxConstantRecord = Readonly<{
 	taxRoundingRuleId: string;
 }>;
 
+export type AgriculturalIncomeTaxConstantRecord = Readonly<{
+	itr1LimitWholeRupees: number;
+	exemptReportingRuleId: string;
+	itr1LimitRuleId: string;
+}>;
+
 // The compiled form resolves every authored rule identifier to a validated
 // RuleId before publication.
 export type CompiledNewRegimeTaxConstants = Readonly<{
@@ -116,6 +123,7 @@ export type CompiledTaxConstants = Readonly<{
 	houseProperty?: CompiledHousePropertyTaxConstants;
 	otherSources?: CompiledOtherSourcesTaxConstants;
 	section112aCapitalGain?: CompiledSection112aCapitalGainTaxConstants;
+	agriculturalIncome?: CompiledAgriculturalIncomeTaxConstants;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
@@ -161,4 +169,10 @@ export type CompiledSection112aCapitalGainTaxConstants = Readonly<{
 	itr1LimitRuleId: RuleId;
 	taxRuleId: RuleId;
 	taxRoundingRuleId: RuleId;
+}>;
+
+export type CompiledAgriculturalIncomeTaxConstants = Readonly<{
+	itr1LimitWholeRupees: number;
+	exemptReportingRuleId: RuleId;
+	itr1LimitRuleId: RuleId;
 }>;

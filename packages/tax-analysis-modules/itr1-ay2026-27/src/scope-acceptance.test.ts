@@ -255,9 +255,11 @@ describe("complete scope acceptance against the released pack", () => {
 		expect(result.calculationLimitations).toEqual(expect.arrayContaining([
 			expect.objectContaining({ factKey: "scope.house-property-count" }),
 			expect.objectContaining({ factKey: "scope.section112a-ltcg" }),
-			expect.objectContaining({ factKey: "scope.agriculture-income" }),
 			expect.objectContaining({ factKey: "scope.allowed-other-sources-income" }),
 		]));
+		expect(result.calculationLimitations).not.toContainEqual(
+			expect.objectContaining({ factKey: "scope.agriculture-income" }),
+		);
 		for (const limitation of result.calculationLimitations) {
 			expect(limitation.explanation).toContain(String(limitation.factKey));
 		}
