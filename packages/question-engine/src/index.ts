@@ -21,21 +21,7 @@ export type AcceptedQuestionFact = Readonly<{
 // everything a view needs to render it: what to ask, why the rule requires
 // the fact, and which result the answer can change. A question here carries
 // no value: until the taxpayer answers, the fact stays unknown.
-export type ApplicableFactQuestion = Readonly<{
-	id: QuestionId;
-	prompt: string;
-	helpText: string;
-	requiresRuleId: ScopeRulePack["questions"][number]["requiresRuleId"];
-	suppliesFact: FactKey;
-	whyRequired: string;
-	affectedResult: Readonly<{
-		resultId: string;
-		label: string;
-	}>;
-	answerSchema: ScopeRulePack["questions"][number]["answerSchema"];
-	visibility?: ScopeRulePack["questions"][number]["visibility"];
-	sourceReference: ScopeRulePack["questions"][number]["sourceReference"];
-}>;
+export type ApplicableFactQuestion = ScopeRulePack["questions"][number];
 
 // The derived questionnaire result for one session state. React views render
 // this; they never decide applicability themselves.
@@ -83,13 +69,7 @@ export type QuestionnaireInput = Readonly<{
 	answers: readonly AttestedAnswerFact[];
 }>;
 
-export type FactAnswerAttemptInput = Readonly<{
-	rulePack: ScopeRulePack;
-	scopeCheck: CompletedScopeCheck;
-	acceptedFacts: readonly AcceptedQuestionFact[];
-	conflictedFacts: readonly AcceptedQuestionFact[];
-	applicableResultIds: readonly string[];
-	answers: readonly AttestedAnswerFact[];
+export type FactAnswerAttemptInput = QuestionnaireInput & Readonly<{
 	questionId: string;
 	rawValue: string;
 	answeredAt: IsoTimestamp;
@@ -190,33 +170,16 @@ export const deriveMissingFactQuestions = (
 		rulePackId: input.rulePack.identity.id,
 		rulePackRevision: input.rulePack.identity.revision,
 		questions: Object.freeze(
-			questions
-				.filter((question) =>
-					isApplicable({
-						question,
-						suppliedFactKeys,
-						answeredQuestionIds,
-						conflictedFactKeys,
-						applicableResultIds,
-						answersByFact,
-					}),
-				)
-				.map((question) =>
-					Object.freeze({
-						id: question.id,
-						prompt: question.prompt,
-						helpText: question.helpText,
-						requiresRuleId: question.requiresRuleId,
-						suppliesFact: question.suppliesFact,
-						whyRequired: question.whyRequired,
-						affectedResult: Object.freeze({ ...question.affectedResult }),
-						answerSchema: Object.freeze({ ...question.answerSchema }),
-						...(question.visibility === undefined
-							? {}
-							: { visibility: Object.freeze({ ...question.visibility }) }),
-						sourceReference: Object.freeze({ ...question.sourceReference }),
-					}),
-				),
+			questions.filter((question) =>
+				isApplicable({
+					question,
+					suppliedFactKeys,
+					answeredQuestionIds,
+					conflictedFactKeys,
+					applicableResultIds,
+					answersByFact,
+				}),
+			),
 		),
 	});
 };

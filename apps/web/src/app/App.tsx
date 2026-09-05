@@ -312,38 +312,9 @@ const ScopeInteraction = ({
 		snapshot.kind === "scope-check-complete"
 			? snapshot
 			: snapshot.completedScopeCheck;
-	const documents =
-		snapshot.kind === "document-intake" ? snapshot.documents : [];
-	const extractions =
-		snapshot.kind === "document-intake" ? snapshot.extractions : [];
-	const factConflicts =
-		snapshot.kind === "document-intake" ? snapshot.factConflicts : [];
-	const factResolutions =
-		snapshot.kind === "document-intake" ? snapshot.factResolutions : [];
-	const salaryComputation =
-		snapshot.kind === "document-intake"
-			? snapshot.salaryComputation
-			: undefined;
-	const estimateComputation =
-		snapshot.kind === "document-intake"
-			? snapshot.estimateComputation
-			: undefined;
-	const housePropertyComputation =
-		snapshot.kind === "document-intake"
-			? snapshot.housePropertyComputation
-			: undefined;
-	const otherSourcesComputation =
-		snapshot.kind === "document-intake"
-			? snapshot.otherSourcesComputation
-			: undefined;
-	const section112aCapitalGainComputation =
-		snapshot.kind === "document-intake"
-			? snapshot.section112aCapitalGainComputation
-			: undefined;
-	const pendingRecomputation =
-		snapshot.kind === "document-intake"
-			? snapshot.pendingRecomputation
-			: { kind: "idle" as const };
+	const intake = snapshot.kind === "document-intake" ? snapshot : undefined;
+	const documents = intake?.documents ?? [];
+	const extractions = intake?.extractions ?? [];
 	const analysisScope = snapshot.analysisScope;
 	const canEnterDocuments =
 		analysisScope === undefined || analysisScope.kind === "supported";
@@ -458,32 +429,32 @@ const ScopeInteraction = ({
 					</CardBody>
 				</Card>
 			)}
-			{canEnterDocuments && snapshot.kind === "document-intake" ? (
+			{canEnterDocuments && intake !== undefined ? (
 				<MissingFactQuestionsView
-					answers={snapshot.factAnswers}
-					questionnaire={snapshot.questionnaire}
+					answers={intake.factAnswers}
+					questionnaire={intake.questionnaire}
 					session={session}
 				/>
 			) : null}
 			{canEnterDocuments ? (
 				<>
 					<FactConflictsView
-						conflicts={factConflicts}
+						conflicts={intake?.factConflicts ?? []}
 						documents={documents}
-						resolutions={factResolutions}
+						resolutions={intake?.factResolutions ?? []}
 						session={session}
 					/>
 					<SalaryReviewView documents={documents} extractions={extractions} />
 					<SalaryComputationView
-						computation={salaryComputation}
+						computation={intake?.salaryComputation}
 						documents={documents}
 					/>
-					<HousePropertyComputationView computation={housePropertyComputation} />
-					<OtherSourcesComputationView computation={otherSourcesComputation} />
+					<HousePropertyComputationView computation={intake?.housePropertyComputation} />
+					<OtherSourcesComputationView computation={intake?.otherSourcesComputation} />
 					<Section112aCapitalGainView
-						computation={section112aCapitalGainComputation}
+						computation={intake?.section112aCapitalGainComputation}
 					/>
-					{pendingRecomputation.kind === "pending" ? (
+					{intake?.pendingRecomputation.kind === "pending" ? (
 						<Alert
 							aria-live="polite"
 							className="openitr-recomputation-status"
@@ -495,7 +466,7 @@ const ScopeInteraction = ({
 							applied.
 						</Alert>
 					) : null}
-					<EstimateView estimate={estimateComputation} />
+					<EstimateView estimate={intake?.estimateComputation} />
 				</>
 			) : null}
 			<ResetSessionDialog
