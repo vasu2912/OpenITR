@@ -45,6 +45,11 @@ export {
 } from "./revisions/2026-09-08/rule-pack";
 export { itr1Ay202627RulePackManifest20260908 } from "./revisions/2026-09-08/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260909,
+	itr1Ay202627RulePack20260909,
+} from "./revisions/2026-09-09/rule-pack";
+export { itr1Ay202627RulePackManifest20260909 } from "./revisions/2026-09-09/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -112,6 +117,20 @@ export {
 	AGRICULTURAL_INCOME_FACT_KEY,
 	computeAgriculturalIncome,
 } from "./computations/agricultural-income";
+export {
+	computeSavingsPensionDeductions,
+	SAVINGS_PENSION_DEDUCTION_FACT_KEYS,
+} from "./computations/savings-pension-deductions";
+export type {
+	SavingsPensionDeductionCategory,
+	SavingsPensionDeductionClaim,
+	SavingsPensionDeductionComputation,
+	SavingsPensionDeductionFact,
+	SavingsPensionDeductionIssue,
+	SavingsPensionDeductionOrigin,
+	SavingsPensionDeductionTraceNode,
+	SavingsPensionRegimeResult,
+} from "./computations/savings-pension-deductions";
 export type {
 	AgriculturalIncomeComputation,
 	AgriculturalIncomeFact,

@@ -521,8 +521,46 @@ body,
 .openitr-other-sources-summary,
 .openitr-other-sources-categories,
 .openitr-section112a-summary,
-.openitr-agricultural-income-summary {
+.openitr-agricultural-income-summary,
+.openitr-deduction-regimes {
 	margin-top: var(--pf-t--global--spacer--lg);
+}
+
+.openitr-deduction-regimes {
+	display: grid;
+	gap: var(--pf-t--global--spacer--lg);
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+}
+
+.openitr-deduction-regime {
+	border: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	padding: var(--pf-t--global--spacer--md);
+}
+
+.openitr-deduction-regime h3 {
+	margin: 0 0 var(--pf-t--global--spacer--md);
+}
+
+.openitr-deduction-claims {
+	display: grid;
+	gap: var(--pf-t--global--spacer--sm);
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+	list-style: none;
+	margin: var(--pf-t--global--spacer--sm) 0 var(--pf-t--global--spacer--lg);
+	padding: 0;
+}
+
+.openitr-deduction-claims li {
+	background: var(--pf-t--global--background--color--secondary--default);
+	display: grid;
+	gap: var(--pf-t--global--spacer--xs);
+	padding: var(--pf-t--global--spacer--md);
+}
+
+.openitr-deduction-claims small {
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .openitr-other-sources-card h3 {

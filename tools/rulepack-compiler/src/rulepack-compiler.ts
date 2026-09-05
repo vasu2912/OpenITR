@@ -21,6 +21,7 @@ import type {
 	CompiledAgriculturalIncomeTaxConstants,
 	CompiledNewRegimeTaxConstants,
 	CompiledOtherSourcesTaxConstants,
+	CompiledSavingsPensionDeductionTaxConstants,
 	CompiledSection112aCapitalGainTaxConstants,
 	CompiledSelfOccupiedHousePropertyTaxConstants,
 	CompiledRulePack,
@@ -1224,6 +1225,53 @@ export const compileRulePack = async ({
 				),
 			};
 		}
+		const authoredSavingsPension = authoredTaxConstants.savingsPensionDeductions;
+		let savingsPensionDeductions:
+			| CompiledSavingsPensionDeductionTaxConstants
+			| undefined;
+		if (authoredSavingsPension !== undefined) {
+			const rule = (id: string, description: string): RuleId =>
+				resolveConstantRule(id, description);
+			savingsPensionDeductions = {
+				sharedLimitWholeRupees: requirePositiveWholeRupees(
+					authoredSavingsPension.sharedLimitWholeRupees,
+					"The sections 80C, 80CCC, and 80CCD(1) shared limit",
+				),
+				section80ccd1EmployeeSalaryPercent: requireWholePercentage(
+					authoredSavingsPension.section80ccd1EmployeeSalaryPercent,
+					"The section 80CCD(1) employee salary percentage",
+				),
+				section80ccd1OtherGrossTotalIncomePercent: requireWholePercentage(
+					authoredSavingsPension.section80ccd1OtherGrossTotalIncomePercent,
+					"The section 80CCD(1) non-employee gross-total-income percentage",
+				),
+				section80ccd1bLimitWholeRupees: requirePositiveWholeRupees(
+					authoredSavingsPension.section80ccd1bLimitWholeRupees,
+					"The section 80CCD(1B) limit",
+				),
+				oldRegimeGovernmentEmployerSalaryPercent: requireWholePercentage(
+					authoredSavingsPension.oldRegimeGovernmentEmployerSalaryPercent,
+					"The old-regime government-employer contribution percentage",
+				),
+				oldRegimeOtherEmployerSalaryPercent: requireWholePercentage(
+					authoredSavingsPension.oldRegimeOtherEmployerSalaryPercent,
+					"The old-regime other-employer contribution percentage",
+				),
+				newRegimeEmployerSalaryPercent: requireWholePercentage(
+					authoredSavingsPension.newRegimeEmployerSalaryPercent,
+					"The new-regime employer contribution percentage",
+				),
+				sharedLimitRuleId: rule(authoredSavingsPension.sharedLimitRuleId, "The shared deduction-limit rule"),
+				section80ccd1EmployeeLimitRuleId: rule(authoredSavingsPension.section80ccd1EmployeeLimitRuleId, "The employee section 80CCD(1) limit rule"),
+				section80ccd1OtherLimitRuleId: rule(authoredSavingsPension.section80ccd1OtherLimitRuleId, "The non-employee section 80CCD(1) limit rule"),
+				section80ccd1bLimitRuleId: rule(authoredSavingsPension.section80ccd1bLimitRuleId, "The section 80CCD(1B) limit rule"),
+				oldRegimeGovernmentEmployerLimitRuleId: rule(authoredSavingsPension.oldRegimeGovernmentEmployerLimitRuleId, "The old-regime government-employer contribution rule"),
+				oldRegimeOtherEmployerLimitRuleId: rule(authoredSavingsPension.oldRegimeOtherEmployerLimitRuleId, "The old-regime other-employer contribution rule"),
+				newRegimeEmployerLimitRuleId: rule(authoredSavingsPension.newRegimeEmployerLimitRuleId, "The new-regime employer contribution rule"),
+				newRegimeExclusionRuleId: rule(authoredSavingsPension.newRegimeExclusionRuleId, "The new-regime Chapter VI-A exclusion rule"),
+				proofRuleId: rule(authoredSavingsPension.proofRuleId, "The supporting-detail rule"),
+			};
+		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
 			...(selfOccupiedHouseProperty === undefined
@@ -1235,6 +1283,9 @@ export const compileRulePack = async ({
 				? {}
 				: { section112aCapitalGain }),
 			...(agriculturalIncome === undefined ? {} : { agriculturalIncome }),
+			...(savingsPensionDeductions === undefined
+				? {}
+				: { savingsPensionDeductions }),
 		});
 	}
 

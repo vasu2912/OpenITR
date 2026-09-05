@@ -32,11 +32,13 @@ import {
 	computeHouseProperties,
 	computeAgriculturalIncome,
 	computeOtherSources,
+	computeSavingsPensionDeductions,
 	computeSection112aCapitalGain,
 	computeNewRegimeSalaryScenario,
 	deriveItr1AnalysisScopeFacts,
 	knownScopeFact,
 	parseItr1ScopeQuestionAnswer,
+	SAVINGS_PENSION_DEDUCTION_FACT_KEYS,
 	itr1EstimateIsBlockedByScopeFacts,
 } from "@openitr/itr1-ay2026-27";
 import type {
@@ -49,6 +51,8 @@ import type {
 	NewRegimeSalaryComputation,
 	OtherSourceFact,
 	OtherSourcesComputation,
+	SavingsPensionDeductionComputation,
+	SavingsPensionDeductionFact,
 	Section112aCapitalGainComputation,
 	Section112aCapitalGainFact,
 } from "@openitr/itr1-ay2026-27";
@@ -170,6 +174,9 @@ export type DocumentIntakeSnapshot = Readonly<{
 		| Section112aCapitalGainComputation
 		| undefined;
 	agriculturalIncomeComputation: AgriculturalIncomeComputation | undefined;
+	savingsPensionDeductionComputation:
+		| SavingsPensionDeductionComputation
+		| undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
@@ -219,6 +226,9 @@ type SessionContext = Readonly<{
 		| Section112aCapitalGainComputation
 		| undefined;
 	agriculturalIncomeComputation: AgriculturalIncomeComputation | undefined;
+	savingsPensionDeductionComputation:
+		| SavingsPensionDeductionComputation
+		| undefined;
 	recomputationGeneration: number;
 	pendingRecomputation: PendingRecomputationState;
 }>;
@@ -332,6 +342,11 @@ const SECTION112A_AFFECTED_RESULT: AffectedResult = Object.freeze({
 const AGRICULTURAL_INCOME_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	resultId: "agricultural-income",
 	label: "Agricultural-income explanation",
+});
+
+const SAVINGS_PENSION_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "savings-pension-deductions",
+	label: "Savings and pension-contribution deductions",
 });
 
 const housePropertyResultId = (propertyNumber: 1 | 2): string =>
@@ -544,6 +559,74 @@ const computeAgriculturalIncomeScenario = ({
 		rulePack,
 		applicable,
 		facts: agriculturalIncomeFactsOf({ answers, reconciliation }),
+	});
+};
+
+const SAVINGS_PENSION_FACT_KEY_SET = new Set<FactKey>(
+	Object.values(SAVINGS_PENSION_DEDUCTION_FACT_KEYS),
+);
+
+const computeSavingsPensionDeductionScenario = ({
+	rulePack,
+	answers,
+	reconciliation,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	answers: readonly AttestedAnswerFact[];
+	reconciliation: ReconciliationResult;
+}>): SavingsPensionDeductionComputation | undefined => {
+	if (rulePack.taxConstants?.savingsPensionDeductions === undefined) {
+		return undefined;
+	}
+	const observedFactKeys = new Set(
+		reconciliation.acceptedFacts.map((accepted) => accepted.factKey),
+	);
+	const observedFacts = reconciliation.acceptedFacts.flatMap(
+		(accepted): readonly SavingsPensionDeductionFact[] => {
+			if (!SAVINGS_PENSION_FACT_KEY_SET.has(accepted.factKey)) return [];
+			return [
+				{
+					factKey: accepted.factKey,
+					value: accepted.value,
+					origin:
+						accepted.origin.kind === "resolved-attested"
+							? {
+									kind: "attested-answer",
+									answerId: accepted.origin.resolutionId,
+								}
+							: {
+									kind: "accepted-evidence",
+									sourceDocumentIds: [
+										...new Set(
+											accepted.agreeingCandidates.map((candidate) =>
+												String(candidate.sourceDocumentId),
+											),
+										),
+									],
+								},
+				},
+			];
+		},
+	);
+	const answerFacts = answers.flatMap(
+		(answer): readonly SavingsPensionDeductionFact[] =>
+			SAVINGS_PENSION_FACT_KEY_SET.has(answer.factKey) &&
+			!observedFactKeys.has(answer.factKey)
+				? [
+						{
+							factKey: answer.factKey,
+							value: answer.value,
+							origin: {
+								kind: "attested-answer",
+								answerId: answer.answerId,
+							},
+						},
+					]
+				: [],
+	);
+	return computeSavingsPensionDeductions({
+		rulePack,
+		facts: [...observedFacts, ...answerFacts],
 	});
 };
 
@@ -1086,6 +1169,10 @@ const deriveSessionReview = (
 		...(input.documentsStageEntered === true && propertyCount >= 2
 			? [housePropertyResultId(2)]
 			: []),
+		...(input.documentsStageEntered === true &&
+		input.rulePack.taxConstants?.savingsPensionDeductions !== undefined
+			? [SAVINGS_PENSION_DEDUCTION_AFFECTED_RESULT.resultId]
+			: []),
 		...(input.documentsStageEntered === true && otherSourcesApply(input.analysisScopeFacts)
 			? [OTHER_SOURCES_AFFECTED_RESULT.resultId]
 			: []),
@@ -1152,6 +1239,9 @@ const deriveSessionComputations = (
 		| Section112aCapitalGainComputation
 		| undefined;
 	agriculturalIncomeComputation: AgriculturalIncomeComputation | undefined;
+	savingsPensionDeductionComputation:
+		| SavingsPensionDeductionComputation
+		| undefined;
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
 	const derived = deriveSessionReviewAndSalary(input);
@@ -1167,6 +1257,12 @@ const deriveSessionComputations = (
 		answers,
 		reconciliation: derived.reconciliation,
 	});
+	const savingsPensionDeductionComputation =
+		computeSavingsPensionDeductionScenario({
+			rulePack,
+			answers,
+			reconciliation: derived.reconciliation,
+		});
 	const estimateComputation =
 		agriculturalIncomeComputation?.kind === "blocked" ||
 		agriculturalIncomeComputation?.kind === "unsupported"
@@ -1204,6 +1300,7 @@ const deriveSessionComputations = (
 		otherSourcesComputation,
 		section112aCapitalGainComputation,
 		agriculturalIncomeComputation,
+		savingsPensionDeductionComputation,
 	};
 };
 
@@ -1260,6 +1357,7 @@ const deriveDecisionComputations = ({
 	| "otherSourcesComputation"
 	| "section112aCapitalGainComputation"
 	| "agriculturalIncomeComputation"
+	| "savingsPensionDeductionComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1308,6 +1406,12 @@ const deriveDecisionComputations = ({
 		answers,
 		reconciliation: review.reconciliation,
 	});
+	const savingsPensionDeductionComputation =
+		computeSavingsPensionDeductionScenario({
+			rulePack: context.rulePack,
+			answers,
+			reconciliation: review.reconciliation,
+		});
 	if (!affectsEstimate) {
 		return {
 			answerDecisions,
@@ -1321,6 +1425,7 @@ const deriveDecisionComputations = ({
 			otherSourcesComputation,
 			section112aCapitalGainComputation,
 			agriculturalIncomeComputation,
+			savingsPensionDeductionComputation,
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
 		};
@@ -1356,6 +1461,7 @@ const deriveDecisionComputations = ({
 		otherSourcesComputation,
 		section112aCapitalGainComputation,
 		agriculturalIncomeComputation,
+		savingsPensionDeductionComputation,
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
 			? pendingRecomputationFor({ generation, affectedResultIds })
@@ -1414,6 +1520,7 @@ const deriveSourceComputations = ({
 	| "otherSourcesComputation"
 	| "section112aCapitalGainComputation"
 	| "agriculturalIncomeComputation"
+	| "savingsPensionDeductionComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1464,6 +1571,12 @@ const deriveSourceComputations = ({
 				answers: input.answers,
 				reconciliation: derived.reconciliation,
 			}),
+			savingsPensionDeductionComputation:
+				computeSavingsPensionDeductionScenario({
+					rulePack: context.rulePack,
+					answers: input.answers,
+					reconciliation: derived.reconciliation,
+				}),
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
 		};
@@ -1643,6 +1756,7 @@ const createSessionMachine = ({
 			otherSourcesComputation: undefined,
 			section112aCapitalGainComputation: undefined,
 			agriculturalIncomeComputation: undefined,
+			savingsPensionDeductionComputation: undefined,
 			recomputationGeneration: 0,
 			pendingRecomputation: { kind: "idle" },
 		},
@@ -2115,6 +2229,8 @@ const toSessionSnapshot = (
 				context.section112aCapitalGainComputation,
 			agriculturalIncomeComputation:
 				context.agriculturalIncomeComputation,
+			savingsPensionDeductionComputation:
+				context.savingsPensionDeductionComputation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"
 					? { kind: "pending" }
