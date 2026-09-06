@@ -4,6 +4,7 @@ import {
 	parseFactKey,
 	parseFinancialYear,
 	parseIssueCode,
+	parseIsoDate,
 	parseQuestionId,
 	parseRuleId,
 	parseRulePackId,
@@ -20,6 +21,7 @@ import type {
 	CompiledHousePropertyTaxConstants,
 	CompiledAgriculturalIncomeTaxConstants,
 	CompiledHealthDisabilityDeductionTaxConstants,
+	CompiledLoanInterestDeductionTaxConstants,
 	CompiledNewRegimeTaxConstants,
 	CompiledOtherSourcesTaxConstants,
 	CompiledSavingsPensionDeductionTaxConstants,
@@ -369,6 +371,9 @@ const compileMissingFactQuestions = ({
 			}
 			case "boolean":
 				answerSchema = deepFreeze({ kind: "boolean" });
+				break;
+			case "iso-date":
+				answerSchema = deepFreeze({ kind: "iso-date" });
 				break;
 			default: {
 				const _exhaustive: never = schemaKind;
@@ -1308,6 +1313,53 @@ export const compileRulePack = async ({
 				taxpayerDisabilityNewRegimeExclusionRuleId: rule(authoredHealthDisability.taxpayerDisabilityNewRegimeExclusionRuleId, "The new-regime section 80U exclusion rule"),
 			};
 		}
+		const authoredLoanInterest = authoredTaxConstants.loanInterestDeductions;
+		let loanInterestDeductions:
+			| CompiledLoanInterestDeductionTaxConstants
+			| undefined;
+		if (authoredLoanInterest !== undefined) {
+			const money = (value: number, description: string): number =>
+				requirePositiveWholeRupees(value, description);
+			const rule = (id: string, description: string): RuleId =>
+				resolveConstantRule(id, description);
+			const date = (value: string, description: string) => {
+				try {
+					return parseIsoDate(value);
+				} catch {
+					throw new Error(`${description} must be an ISO calendar date`);
+				}
+			};
+			loanInterestDeductions = {
+				section80eEarliestFirstInterestPaymentDate: date(authoredLoanInterest.section80eEarliestFirstInterestPaymentDate, "The section 80E earliest first-interest-payment date"),
+				section80eCurrentFinancialYearEndDate: date(authoredLoanInterest.section80eCurrentFinancialYearEndDate, "The section 80E current financial-year end date"),
+				section80eeSanctionStartDate: date(authoredLoanInterest.section80eeSanctionStartDate, "The section 80EE sanction start date"),
+				section80eeSanctionEndDate: date(authoredLoanInterest.section80eeSanctionEndDate, "The section 80EE sanction end date"),
+				section80eeLimitWholeRupees: money(authoredLoanInterest.section80eeLimitWholeRupees, "The section 80EE deduction limit"),
+				section80eeLoanLimitWholeRupees: money(authoredLoanInterest.section80eeLoanLimitWholeRupees, "The section 80EE loan limit"),
+				section80eePropertyValueLimitWholeRupees: money(authoredLoanInterest.section80eePropertyValueLimitWholeRupees, "The section 80EE property-value limit"),
+				section80eeaSanctionStartDate: date(authoredLoanInterest.section80eeaSanctionStartDate, "The section 80EEA sanction start date"),
+				section80eeaSanctionEndDate: date(authoredLoanInterest.section80eeaSanctionEndDate, "The section 80EEA sanction end date"),
+				section80eeaLimitWholeRupees: money(authoredLoanInterest.section80eeaLimitWholeRupees, "The section 80EEA deduction limit"),
+				section80eeaStampValueLimitWholeRupees: money(authoredLoanInterest.section80eeaStampValueLimitWholeRupees, "The section 80EEA stamp-value limit"),
+				section80eebSanctionStartDate: date(authoredLoanInterest.section80eebSanctionStartDate, "The section 80EEB sanction start date"),
+				section80eebSanctionEndDate: date(authoredLoanInterest.section80eebSanctionEndDate, "The section 80EEB sanction end date"),
+				section80eebLimitWholeRupees: money(authoredLoanInterest.section80eebLimitWholeRupees, "The section 80EEB deduction limit"),
+				section80eEligibilityRuleId: rule(authoredLoanInterest.section80eEligibilityRuleId, "The section 80E eligibility rule"),
+				section80ePeriodRuleId: rule(authoredLoanInterest.section80ePeriodRuleId, "The section 80E period rule"),
+				section80eDetailsRuleId: rule(authoredLoanInterest.section80eDetailsRuleId, "The section 80E details rule"),
+				section80eeEligibilityRuleId: rule(authoredLoanInterest.section80eeEligibilityRuleId, "The section 80EE eligibility rule"),
+				section80eeLimitRuleId: rule(authoredLoanInterest.section80eeLimitRuleId, "The section 80EE limit rule"),
+				section80eeDetailsRuleId: rule(authoredLoanInterest.section80eeDetailsRuleId, "The section 80EE details rule"),
+				section80eeaEligibilityRuleId: rule(authoredLoanInterest.section80eeaEligibilityRuleId, "The section 80EEA eligibility rule"),
+				section80eeaLimitRuleId: rule(authoredLoanInterest.section80eeaLimitRuleId, "The section 80EEA limit rule"),
+				section80eeaDetailsRuleId: rule(authoredLoanInterest.section80eeaDetailsRuleId, "The section 80EEA details rule"),
+				section80eeMutualExclusionRuleId: rule(authoredLoanInterest.section80eeMutualExclusionRuleId, "The sections 80EE and 80EEA mutual-exclusion rule"),
+				section80eebEligibilityRuleId: rule(authoredLoanInterest.section80eebEligibilityRuleId, "The section 80EEB eligibility rule"),
+				section80eebLimitRuleId: rule(authoredLoanInterest.section80eebLimitRuleId, "The section 80EEB limit rule"),
+				section80eebDetailsRuleId: rule(authoredLoanInterest.section80eebDetailsRuleId, "The section 80EEB details rule"),
+				newRegimeExclusionRuleId: rule(authoredLoanInterest.newRegimeExclusionRuleId, "The new-regime loan-interest exclusion rule"),
+			};
+		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
 			...(selfOccupiedHouseProperty === undefined
@@ -1325,6 +1377,9 @@ export const compileRulePack = async ({
 			...(healthDisabilityDeductions === undefined
 				? {}
 				: { healthDisabilityDeductions }),
+			...(loanInterestDeductions === undefined
+				? {}
+				: { loanInterestDeductions }),
 		});
 	}
 

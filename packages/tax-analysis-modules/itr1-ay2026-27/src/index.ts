@@ -55,6 +55,11 @@ export {
 } from "./revisions/2026-09-10/rule-pack";
 export { itr1Ay202627RulePackManifest20260910 } from "./revisions/2026-09-10/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260911,
+	itr1Ay202627RulePack20260911,
+} from "./revisions/2026-09-11/rule-pack";
+export { itr1Ay202627RulePackManifest20260911 } from "./revisions/2026-09-11/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -130,6 +135,19 @@ export {
 	computeHealthDisabilityDeductions,
 	HEALTH_DISABILITY_DEDUCTION_FACT_KEYS,
 } from "./computations/health-disability-deductions";
+export {
+	computeLoanInterestDeductions,
+	LOAN_INTEREST_DEDUCTION_FACT_KEYS,
+} from "./computations/loan-interest-deductions";
+export type {
+	LoanInterestDeductionCategory,
+	LoanInterestDeductionCategoryResult,
+	LoanInterestDeductionComputation,
+	LoanInterestDeductionFact,
+	LoanInterestDeductionIssue,
+	LoanInterestDeductionOrigin,
+	LoanInterestDeductionTraceNode,
+} from "./computations/loan-interest-deductions";
 export type {
 	HealthDisabilityDeductionCategory,
 	HealthDisabilityDeductionCategoryResult,

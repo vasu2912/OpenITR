@@ -6,6 +6,7 @@ import type {
 import {
 	compareExactMoney,
 	exactMoneyFromWholeRupees,
+	isIsoDate,
 	parseExactMoney,
 } from "@openitr/model";
 import {
@@ -32,6 +33,9 @@ const validationMessage = (
 		return rawValue === "yes" || rawValue === "no"
 			? undefined
 			: "Select Yes or No.";
+	}
+	if (question.answerSchema.kind === "iso-date") {
+		return isIsoDate(rawValue) ? undefined : "Enter a valid date.";
 	}
 	const value = rawValue.trim();
 	if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(value)) {
@@ -92,9 +96,7 @@ const MissingFactQuestionForm = ({
 				executionContext: { answerTime: new Date().toISOString() },
 			});
 		} catch {
-			setError(
-				"This answer could not be recorded. Review the amount and try again.",
-			);
+			setError("This answer could not be recorded. Review it and try again.");
 		}
 	};
 
@@ -138,6 +140,19 @@ const MissingFactQuestionForm = ({
 								value={value}
 							/>
 						</>
+					) : question.answerSchema.kind === "iso-date" ? (
+						<input
+							aria-describedby={`${helpId} ${rationaleId} ${affectedId}${error === undefined ? "" : ` ${errorId}`}`}
+							aria-invalid={error !== undefined}
+							className="openitr-missing-fact-input"
+							id={inputId}
+							onChange={(event) => {
+								setValue(event.target.value);
+								setError(undefined);
+							}}
+							type="date"
+							value={value}
+						/>
 					) : (
 						<select
 						aria-describedby={`${helpId} ${rationaleId} ${affectedId}${error === undefined ? "" : ` ${errorId}`}`}
@@ -227,7 +242,14 @@ export const MissingFactQuestionsView = ({
 						<ul>
 							{answers.map((answer) => (
 								<li key={answer.answerId}>
-									<code>{String(answer.factKey)}</code>: {typeof answer.value === "boolean" ? (answer.value ? "Yes" : "No") : `₹ ${answer.value}`}
+									<code>{String(answer.factKey)}</code>:{" "}
+									{typeof answer.value === "boolean"
+										? answer.value
+											? "Yes"
+											: "No"
+										: isIsoDate(answer.value)
+											? answer.value
+											: `₹ ${answer.value}`}
 									<Button
 										onClick={() =>
 											session.send({

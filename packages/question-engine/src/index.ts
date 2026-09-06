@@ -1,13 +1,16 @@
 import {
 	compareExactMoney,
 	exactMoneyFromWholeRupees,
+	isIsoDate,
 	parseExactMoney,
+	parseIsoDate,
 } from "@openitr/model";
 import type {
 	CompletedScopeCheck,
 	ExactMoney,
 	FactKey,
 	IsoTimestamp,
+	IsoDate,
 	QuestionId,
 	RulePackId,
 	ScopeRulePack,
@@ -39,7 +42,7 @@ export type AttestedAnswerFact = Readonly<{
 	questionId: QuestionId;
 	questionRevision: string;
 	factKey: FactKey;
-	value: ExactMoney | boolean;
+	value: ExactMoney | IsoDate | boolean;
 	origin: Readonly<{ kind: "attested-answer"; rulePackId: RulePackId }>;
 	answeredAt: IsoTimestamp;
 }>;
@@ -104,7 +107,7 @@ const isApplicable = (
 		answeredQuestionIds: ReadonlySet<QuestionId>;
 		conflictedFactKeys: ReadonlySet<FactKey>;
 		applicableResultIds: ReadonlySet<string>;
-		answersByFact: ReadonlyMap<FactKey, ExactMoney | boolean>;
+		answersByFact: ReadonlyMap<FactKey, ExactMoney | IsoDate | boolean>;
 	}>,
 ): boolean => {
 	const visibility = question.visibility ?? { kind: "always" as const };
@@ -120,6 +123,7 @@ const isApplicable = (
 			const value = answersByFact.get(visibility.factKey);
 			visible =
 				typeof value === "string" &&
+				!isIsoDate(value) &&
 				compareExactMoney(
 					value,
 					exactMoneyFromWholeRupees(visibility.wholeRupees),
@@ -144,7 +148,7 @@ const answerIdOf = ({
 }: Readonly<{
 	rulePackId: RulePackId;
 	questionId: QuestionId;
-	value: ExactMoney | boolean;
+	value: ExactMoney | IsoDate | boolean;
 	answeredAt: IsoTimestamp;
 }>): string =>
 	`fact-answer:${rulePackId}:${questionId}:${value}:${answeredAt}`;
@@ -222,12 +226,23 @@ export const evaluateFactAnswerAttempt = (
 		});
 	}
 
-	let value: ExactMoney | boolean;
+	let value: ExactMoney | IsoDate | boolean;
 	switch (question.answerSchema.kind) {
 		case "boolean":
 			if (input.rawValue === "yes") value = true;
 			else if (input.rawValue === "no") value = false;
 			else {
+				return Object.freeze({
+					kind: "rejected",
+					rejection: "invalid-value",
+					questionId: question.id,
+				});
+			}
+			break;
+		case "iso-date":
+			try {
+				value = parseIsoDate(input.rawValue.trim());
+			} catch {
 				return Object.freeze({
 					kind: "rejected",
 					rejection: "invalid-value",

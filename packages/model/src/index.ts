@@ -106,7 +106,8 @@ export type FactAnswerSchema =
 			minimumWholeRupees: number;
 			maximumWholeRupees: number | null;
 	  }>
-	| Readonly<{ kind: "boolean" }>;
+	| Readonly<{ kind: "boolean" }>
+	| Readonly<{ kind: "iso-date" }>;
 
 export type FactQuestionVisibility =
 	| Readonly<{ kind: "always" }>
@@ -260,7 +261,8 @@ export type RulePackManifestFactQuestionRecord = Readonly<{
 				minimumWholeRupees: number;
 				maximumWholeRupees: number | null;
 		  }>
-		| Readonly<{ kind: "boolean" }>;
+		| Readonly<{ kind: "boolean" }>
+		| Readonly<{ kind: "iso-date" }>;
 	visibility?:
 		| Readonly<{ kind: "always" }>
 		| Readonly<{

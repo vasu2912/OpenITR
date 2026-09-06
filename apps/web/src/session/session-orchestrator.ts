@@ -4,6 +4,7 @@ import {
 	createExtractionRejectionOutcome,
 	createInspectionFailedOutcome,
 	exactMoneyFromWholeRupees,
+	isIsoDate,
 	parseExactMoney,
 	parseFactKey,
 	parseIsoTimestamp,
@@ -17,6 +18,7 @@ import type {
 	DocumentExtractionRecord,
 	DocumentInspectionOutcome,
 	EligibilityAnswerValue,
+	ExactMoney,
 	FactKey,
 	InspectableSourceDocument,
 	IsoTimestamp,
@@ -31,6 +33,7 @@ import type {
 import {
 	computeHouseProperties,
 	computeHealthDisabilityDeductions,
+	computeLoanInterestDeductions,
 	computeAgriculturalIncome,
 	computeOtherSources,
 	computeSavingsPensionDeductions,
@@ -41,6 +44,7 @@ import {
 	parseItr1ScopeQuestionAnswer,
 	SAVINGS_PENSION_DEDUCTION_FACT_KEYS,
 	HEALTH_DISABILITY_DEDUCTION_FACT_KEYS,
+	LOAN_INTEREST_DEDUCTION_FACT_KEYS,
 	itr1EstimateIsBlockedByScopeFacts,
 } from "@openitr/itr1-ay2026-27";
 import type {
@@ -52,6 +56,8 @@ import type {
 	HousePropertyFact,
 	HealthDisabilityDeductionComputation,
 	HealthDisabilityDeductionFact,
+	LoanInterestDeductionComputation,
+	LoanInterestDeductionFact,
 	NewRegimeSalaryComputation,
 	OtherSourceFact,
 	OtherSourcesComputation,
@@ -184,6 +190,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	healthDisabilityDeductionComputation:
 		| HealthDisabilityDeductionComputation
 		| undefined;
+	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
@@ -239,6 +246,7 @@ type SessionContext = Readonly<{
 	healthDisabilityDeductionComputation:
 		| HealthDisabilityDeductionComputation
 		| undefined;
+	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
 	recomputationGeneration: number;
 	pendingRecomputation: PendingRecomputationState;
 }>;
@@ -364,6 +372,11 @@ const HEALTH_DISABILITY_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freez
 	label: "Health and disability deductions",
 });
 
+const LOAN_INTEREST_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "loan-interest-deductions",
+	label: "Loan-interest deductions",
+});
+
 const housePropertyResultId = (propertyNumber: 1 | 2): string =>
 	`house-property-${propertyNumber}`;
 
@@ -389,6 +402,9 @@ const computeHousePropertyScenario = ({
 	if (propertyCount === 0) return undefined;
 	const facts = answers.flatMap(
 		(answer): readonly HousePropertyFact[] => {
+			if (typeof answer.value === "string" && isIsoDate(answer.value)) {
+				return [];
+			}
 			for (const propertyNumber of [1, 2] as const) {
 				if (answer.factKey.startsWith(`house-property.${propertyNumber}.`)) {
 					return [{ propertyNumber, factKey: answer.factKey, value: answer.value }];
@@ -431,6 +447,7 @@ const computeOtherSourcesScenario = ({
 	const answerFacts = answers.flatMap(
 		(answer): readonly OtherSourceFact[] =>
 			typeof answer.value === "string" &&
+			!isIsoDate(answer.value) &&
 			OTHER_SOURCE_FACT_KEYS.has(answer.factKey) &&
 			!observedFactKeys.has(answer.factKey)
 				? [{ factKey: answer.factKey, value: answer.value }]
@@ -485,7 +502,8 @@ const computeSection112aScenario = ({
 	}
 	const answerFacts = answers.flatMap(
 		(answer): readonly Section112aCapitalGainFact[] =>
-			answer.factKey.startsWith("capital-gains.section112a-")
+			answer.factKey.startsWith("capital-gains.section112a-") &&
+			!(typeof answer.value === "string" && isIsoDate(answer.value))
 				? [{ factKey: answer.factKey, value: answer.value }]
 				: [],
 	);
@@ -531,6 +549,7 @@ const agriculturalIncomeFactsOf = ({
 		(answer): readonly AgriculturalIncomeFact[] =>
 			answer.factKey === AGRICULTURAL_INCOME_FACT &&
 			typeof answer.value === "string" &&
+			!isIsoDate(answer.value) &&
 			!observedFactKeys.has(answer.factKey)
 				? [{ factKey: answer.factKey, value: answer.value }]
 				: [],
@@ -626,6 +645,7 @@ const computeSavingsPensionDeductionScenario = ({
 	const answerFacts = answers.flatMap(
 		(answer): readonly SavingsPensionDeductionFact[] =>
 			SAVINGS_PENSION_FACT_KEY_SET.has(answer.factKey) &&
+			!(typeof answer.value === "string" && isIsoDate(answer.value)) &&
 			!observedFactKeys.has(answer.factKey)
 				? [
 						{
@@ -694,6 +714,7 @@ const computeHealthDisabilityDeductionScenario = ({
 	const answerFacts = answers.flatMap(
 		(answer): readonly HealthDisabilityDeductionFact[] =>
 			HEALTH_DISABILITY_FACT_KEY_SET.has(answer.factKey) &&
+			!(typeof answer.value === "string" && isIsoDate(answer.value)) &&
 			!observedFactKeys.has(answer.factKey)
 				? [
 						{
@@ -708,6 +729,54 @@ const computeHealthDisabilityDeductionScenario = ({
 				: [],
 	);
 	return computeHealthDisabilityDeductions({
+		rulePack,
+		facts: [...observedFacts, ...answerFacts],
+	});
+};
+
+const LOAN_INTEREST_FACT_KEY_SET = new Set<FactKey>(
+	Object.values(LOAN_INTEREST_DEDUCTION_FACT_KEYS),
+);
+
+const computeLoanInterestDeductionScenario = ({
+	rulePack,
+	answers,
+	reconciliation,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	answers: readonly AttestedAnswerFact[];
+	reconciliation: ReconciliationResult;
+}>): LoanInterestDeductionComputation | undefined => {
+	if (rulePack.taxConstants?.loanInterestDeductions === undefined) return undefined;
+	const observedFactKeys = new Set(
+		reconciliation.acceptedFacts.map((accepted) => accepted.factKey),
+	);
+	const observedFacts = reconciliation.acceptedFacts.flatMap(
+		(accepted): readonly LoanInterestDeductionFact[] =>
+			LOAN_INTEREST_FACT_KEY_SET.has(accepted.factKey)
+				? [
+						{
+							factKey: accepted.factKey,
+							value: accepted.value,
+							origin:
+								accepted.origin.kind === "resolved-attested"
+									? { kind: "attested-answer", answerId: accepted.origin.resolutionId }
+									: {
+											kind: "accepted-evidence",
+											sourceDocumentIds: [...new Set(accepted.agreeingCandidates.map((candidate) => String(candidate.sourceDocumentId)))],
+										},
+						},
+					]
+				: [],
+	);
+	const answerFacts = answers.flatMap(
+		(answer): readonly LoanInterestDeductionFact[] =>
+			LOAN_INTEREST_FACT_KEY_SET.has(answer.factKey) &&
+			!observedFactKeys.has(answer.factKey)
+				? [{ factKey: answer.factKey, value: answer.value, origin: { kind: "attested-answer", answerId: answer.answerId } }]
+				: [],
+	);
+	return computeLoanInterestDeductions({
 		rulePack,
 		facts: [...observedFacts, ...answerFacts],
 	});
@@ -1118,8 +1187,9 @@ const computeEstimateScenario = ({
 	);
 	const answerContributions = answers
 		.filter(
-			(answer): answer is AttestedAnswerFact & { value: string } =>
+			(answer): answer is AttestedAnswerFact & { value: ExactMoney } =>
 				typeof answer.value === "string" &&
+				!isIsoDate(answer.value) &&
 				!supersededAnswerFactKeys.has(answer.factKey),
 		)
 		.map(
@@ -1260,6 +1330,10 @@ const deriveSessionReview = (
 		input.rulePack.taxConstants?.healthDisabilityDeductions !== undefined
 			? [HEALTH_DISABILITY_DEDUCTION_AFFECTED_RESULT.resultId]
 			: []),
+		...(input.documentsStageEntered === true &&
+		input.rulePack.taxConstants?.loanInterestDeductions !== undefined
+			? [LOAN_INTEREST_DEDUCTION_AFFECTED_RESULT.resultId]
+			: []),
 		...(input.documentsStageEntered === true && otherSourcesApply(input.analysisScopeFacts)
 			? [OTHER_SOURCES_AFFECTED_RESULT.resultId]
 			: []),
@@ -1332,6 +1406,7 @@ const deriveSessionComputations = (
 	healthDisabilityDeductionComputation:
 		| HealthDisabilityDeductionComputation
 		| undefined;
+	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
 	const derived = deriveSessionReviewAndSalary(input);
@@ -1359,6 +1434,11 @@ const deriveSessionComputations = (
 			answers,
 			reconciliation: derived.reconciliation,
 		});
+	const loanInterestDeductionComputation = computeLoanInterestDeductionScenario({
+		rulePack,
+		answers,
+		reconciliation: derived.reconciliation,
+	});
 	const estimateComputation =
 		agriculturalIncomeComputation?.kind === "blocked" ||
 		agriculturalIncomeComputation?.kind === "unsupported"
@@ -1398,6 +1478,7 @@ const deriveSessionComputations = (
 		agriculturalIncomeComputation,
 		savingsPensionDeductionComputation,
 		healthDisabilityDeductionComputation,
+		loanInterestDeductionComputation,
 	};
 };
 
@@ -1420,10 +1501,10 @@ const answersOf = (
 
 const moneyAnswersOf = (
 	answers: readonly AttestedAnswerFact[],
-): readonly (AttestedAnswerFact & { value: string })[] =>
+): readonly (AttestedAnswerFact & { value: ExactMoney })[] =>
 	answers.filter(
-		(answer): answer is AttestedAnswerFact & { value: string } =>
-			typeof answer.value === "string",
+		(answer): answer is AttestedAnswerFact & { value: ExactMoney } =>
+			typeof answer.value === "string" && !isIsoDate(answer.value),
 	);
 
 const resolutionsOf = (
@@ -1456,6 +1537,7 @@ const deriveDecisionComputations = ({
 	| "agriculturalIncomeComputation"
 	| "savingsPensionDeductionComputation"
 	| "healthDisabilityDeductionComputation"
+	| "loanInterestDeductionComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1516,6 +1598,11 @@ const deriveDecisionComputations = ({
 			answers,
 			reconciliation: review.reconciliation,
 		});
+	const loanInterestDeductionComputation = computeLoanInterestDeductionScenario({
+		rulePack: context.rulePack,
+		answers,
+		reconciliation: review.reconciliation,
+	});
 	if (!affectsEstimate) {
 		return {
 			answerDecisions,
@@ -1531,6 +1618,7 @@ const deriveDecisionComputations = ({
 			agriculturalIncomeComputation,
 			savingsPensionDeductionComputation,
 			healthDisabilityDeductionComputation,
+			loanInterestDeductionComputation,
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
 		};
@@ -1568,6 +1656,7 @@ const deriveDecisionComputations = ({
 		agriculturalIncomeComputation,
 		savingsPensionDeductionComputation,
 		healthDisabilityDeductionComputation,
+		loanInterestDeductionComputation,
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
 			? pendingRecomputationFor({ generation, affectedResultIds })
@@ -1628,6 +1717,7 @@ const deriveSourceComputations = ({
 	| "agriculturalIncomeComputation"
 	| "savingsPensionDeductionComputation"
 	| "healthDisabilityDeductionComputation"
+	| "loanInterestDeductionComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1686,6 +1776,12 @@ const deriveSourceComputations = ({
 				}),
 			healthDisabilityDeductionComputation:
 				computeHealthDisabilityDeductionScenario({
+					rulePack: context.rulePack,
+					answers: input.answers,
+					reconciliation: derived.reconciliation,
+				}),
+			loanInterestDeductionComputation:
+				computeLoanInterestDeductionScenario({
 					rulePack: context.rulePack,
 					answers: input.answers,
 					reconciliation: derived.reconciliation,
@@ -1871,6 +1967,7 @@ const createSessionMachine = ({
 			agriculturalIncomeComputation: undefined,
 			savingsPensionDeductionComputation: undefined,
 			healthDisabilityDeductionComputation: undefined,
+			loanInterestDeductionComputation: undefined,
 			recomputationGeneration: 0,
 			pendingRecomputation: { kind: "idle" },
 		},
@@ -2347,6 +2444,8 @@ const toSessionSnapshot = (
 				context.savingsPensionDeductionComputation,
 			healthDisabilityDeductionComputation:
 				context.healthDisabilityDeductionComputation,
+			loanInterestDeductionComputation:
+				context.loanInterestDeductionComputation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"
 					? { kind: "pending" }

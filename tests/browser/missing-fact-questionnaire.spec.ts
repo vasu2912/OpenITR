@@ -31,7 +31,7 @@ test.describe("missing-fact questionnaire", () => {
 
 		const questionnaire = page.locator(".openitr-missing-facts-card");
 		await expect(
-			questionnaire.getByText("7 missing facts can be answered"),
+			questionnaire.getByText("11 missing facts can be answered"),
 		).toBeVisible({ timeout: 30_000 });
 		await questionnaire
 			.getByLabel("How much savings-account interest did you receive in FY 2025-26?")
@@ -89,7 +89,7 @@ test.describe("missing-fact questionnaire", () => {
 		await expect(
 			questionnaire.getByRole("heading", { name: "Missing facts", exact: true }),
 		).toBeVisible({ timeout: 30_000 });
-		await expect(questionnaire.getByText("7 missing facts can be answered")).toBeVisible();
+		await expect(questionnaire.getByText("11 missing facts can be answered")).toBeVisible();
 		await expect(
 			questionnaire.getByText("Why this is required", { exact: true }).first(),
 		).toBeVisible();
@@ -148,7 +148,7 @@ test.describe("missing-fact questionnaire", () => {
 			.getByRole("button", { name: "Record answer" })
 			.first()
 			.click();
-		await expect(questionnaire.getByText("6 missing facts can be answered")).toBeVisible();
+		await expect(questionnaire.getByText("10 missing facts can be answered")).toBeVisible();
 		await expect(
 			questionnaire.getByText("bank-interest.savings-account", { exact: true }),
 		).toBeVisible();
@@ -166,7 +166,7 @@ test.describe("missing-fact questionnaire", () => {
 			.locator("xpath=ancestor::form")
 			.getByRole("button", { name: "Record answer" })
 			.click();
-		await expect(questionnaire.getByText("5 missing facts can be answered")).toBeVisible();
+		await expect(questionnaire.getByText("9 missing facts can be answered")).toBeVisible();
 		const deductionsPresent = questionnaire.getByLabel(
 			"Do you want to analyze any section 80C, 80CCC, or 80CCD savings and pension contributions for FY 2025-26?",
 		);
@@ -180,6 +180,10 @@ test.describe("missing-fact questionnaire", () => {
 			"Do you want to analyze a section 80DD deduction for a dependent person with disability?",
 			"Do you want to analyze section 80DDB medical treatment for a specified disease?",
 			"Do you want to analyze section 80U for your own disability?",
+			"Do you want to analyze interest on a higher-education loan under section 80E?",
+			"Do you want to analyze additional first-home loan interest under section 80EE?",
+			"Do you want to analyze additional affordable first-home loan interest under section 80EEA?",
+			"Do you want to analyze electric-vehicle loan interest under section 80EEB?",
 		]) {
 			const category = questionnaire.getByLabel(prompt);
 			await category.selectOption("no");
