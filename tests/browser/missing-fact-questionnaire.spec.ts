@@ -31,7 +31,7 @@ test.describe("missing-fact questionnaire", () => {
 
 		const questionnaire = page.locator(".openitr-missing-facts-card");
 		await expect(
-			questionnaire.getByText("12 missing facts can be answered"),
+			questionnaire.getByText("18 missing facts can be answered"),
 		).toBeVisible({ timeout: 30_000 });
 		await questionnaire
 			.getByLabel("How much savings-account interest did you receive in FY 2025-26?")
@@ -89,7 +89,7 @@ test.describe("missing-fact questionnaire", () => {
 		await expect(
 			questionnaire.getByRole("heading", { name: "Missing facts", exact: true }),
 		).toBeVisible({ timeout: 30_000 });
-		await expect(questionnaire.getByText("12 missing facts can be answered")).toBeVisible();
+		await expect(questionnaire.getByText("18 missing facts can be answered")).toBeVisible();
 		await expect(
 			questionnaire.getByText("Why this is required", { exact: true }).first(),
 		).toBeVisible();
@@ -148,7 +148,7 @@ test.describe("missing-fact questionnaire", () => {
 			.getByRole("button", { name: "Record answer" })
 			.first()
 			.click();
-		await expect(questionnaire.getByText("11 missing facts can be answered")).toBeVisible();
+		await expect(questionnaire.getByText("17 missing facts can be answered")).toBeVisible();
 		await expect(
 			questionnaire.getByText("bank-interest.savings-account", { exact: true }),
 		).toBeVisible();
@@ -166,7 +166,7 @@ test.describe("missing-fact questionnaire", () => {
 			.locator("xpath=ancestor::form")
 			.getByRole("button", { name: "Record answer" })
 			.click();
-		await expect(questionnaire.getByText("10 missing facts can be answered")).toBeVisible();
+		await expect(questionnaire.getByText("16 missing facts can be answered")).toBeVisible();
 		const deductionsPresent = questionnaire.getByLabel(
 			"Do you want to analyze any section 80C, 80CCC, or 80CCD savings and pension contributions for FY 2025-26?",
 		);
@@ -185,6 +185,12 @@ test.describe("missing-fact questionnaire", () => {
 			"Do you want to analyze additional affordable first-home loan interest under section 80EEA?",
 			"Do you want to analyze electric-vehicle loan interest under section 80EEB?",
 			"Do you want to analyze a donation under section 80G?",
+			"Were you a resident senior citizen for FY 2025-26?",
+			"Do you want to analyze an Agniveer Corpus Fund deduction under section 80CCH?",
+			"Do you want to analyze rent paid under section 80GG?",
+			"Do you want to analyze a contribution under section 80GGA?",
+			"Do you want to analyze a political contribution under section 80GGC?",
+			"Do you need a Chapter VI-A deduction not named in this questionnaire?",
 		]) {
 			const category = questionnaire.getByLabel(prompt);
 			await category.selectOption("no");

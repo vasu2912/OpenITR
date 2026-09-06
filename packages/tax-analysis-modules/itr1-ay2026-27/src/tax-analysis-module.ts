@@ -19,6 +19,7 @@ import { itr1Ay202627RulePack20260909 } from "./revisions/2026-09-09/rule-pack";
 import { itr1Ay202627RulePack20260910 } from "./revisions/2026-09-10/rule-pack";
 import { itr1Ay202627RulePack20260911 } from "./revisions/2026-09-11/rule-pack";
 import { itr1Ay202627RulePack20260912 } from "./revisions/2026-09-12/rule-pack";
+import { itr1Ay202627RulePack20260913 } from "./revisions/2026-09-13/rule-pack";
 
 const moduleId = parseTaxAnalysisModuleId("itr1-ay2026-27");
 
@@ -26,7 +27,7 @@ export const itr1Ay202627TaxAnalysisModuleArtifact = Object.freeze({
 	identity: Object.freeze({
 		id: moduleId,
 		compiledModuleSha256: parseSha256Digest(
-			"8bd7d766deaafc71b6cfd21312aacf984cfe9e53518032b70bea2b01e3a026fa",
+			"f931b8ba58a9f0c2692eaa658932fa0c86bb9d9d646af10be6b52ad33879d4cb",
 		),
 	}),
 	rulePackRevisions: createRulePackRevisionRegistry({
@@ -87,6 +88,10 @@ export const itr1Ay202627TaxAnalysisModuleArtifact = Object.freeze({
 			Object.freeze({
 				identity: itr1Ay202627RulePack20260912.identity,
 				load: async () => itr1Ay202627RulePack20260912,
+			}),
+			Object.freeze({
+				identity: itr1Ay202627RulePack20260913.identity,
+				load: async () => itr1Ay202627RulePack20260913,
 			}),
 		],
 	}),

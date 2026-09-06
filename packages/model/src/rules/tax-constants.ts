@@ -47,6 +47,7 @@ export type RulePackManifestTaxConstants = Readonly<{
 	healthDisabilityDeductions?: HealthDisabilityDeductionTaxConstantRecord;
 	loanInterestDeductions?: LoanInterestDeductionTaxConstantRecord;
 	donationDeductions?: DonationDeductionTaxConstantRecord;
+	remainingDeductions?: RemainingDeductionTaxConstantRecord;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -189,6 +190,24 @@ export type DonationDeductionTaxConstantRecord = Readonly<{
 	newRegimeExclusionRuleId: string;
 }>;
 
+export type RemainingDeductionTaxConstantRecord = Readonly<{
+	section80ttaLimitWholeRupees: number;
+	section80ttbLimitWholeRupees: number;
+	section80cchSalaryLimitBasisPoints: number;
+	section80ggAnnualLimitWholeRupees: number;
+	section80ggRentReductionPercent: number;
+	section80ggIncomeLimitPercent: number;
+	section80ggaCashPaymentLimitWholeRupees: number;
+	section80ttaRuleId: string;
+	section80ttbRuleId: string;
+	section80cchRuleId: string;
+	section80ggRuleId: string;
+	section80ggaRuleId: string;
+	section80ggcRuleId: string;
+	newRegimeExclusionRuleId: string;
+	unsupportedOtherRuleId: string;
+}>;
+
 // The compiled form resolves every authored rule identifier to a validated
 // RuleId before publication.
 export type CompiledNewRegimeTaxConstants = Readonly<{
@@ -221,6 +240,7 @@ export type CompiledTaxConstants = Readonly<{
 	healthDisabilityDeductions?: CompiledHealthDisabilityDeductionTaxConstants;
 	loanInterestDeductions?: CompiledLoanInterestDeductionTaxConstants;
 	donationDeductions?: CompiledDonationDeductionTaxConstants;
+	remainingDeductions?: CompiledRemainingDeductionTaxConstants;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
@@ -361,4 +381,22 @@ export type CompiledDonationDeductionTaxConstants = Readonly<{
 	recipientQualificationRuleId: RuleId;
 	evidenceRuleId: RuleId;
 	newRegimeExclusionRuleId: RuleId;
+}>;
+
+export type CompiledRemainingDeductionTaxConstants = Readonly<{
+	section80ttaLimitWholeRupees: number;
+	section80ttbLimitWholeRupees: number;
+	section80cchSalaryLimitBasisPoints: number;
+	section80ggAnnualLimitWholeRupees: number;
+	section80ggRentReductionPercent: number;
+	section80ggIncomeLimitPercent: number;
+	section80ggaCashPaymentLimitWholeRupees: number;
+	section80ttaRuleId: RuleId;
+	section80ttbRuleId: RuleId;
+	section80cchRuleId: RuleId;
+	section80ggRuleId: RuleId;
+	section80ggaRuleId: RuleId;
+	section80ggcRuleId: RuleId;
+	newRegimeExclusionRuleId: RuleId;
+	unsupportedOtherRuleId: RuleId;
 }>;

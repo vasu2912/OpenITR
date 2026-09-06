@@ -65,6 +65,11 @@ export {
 } from "./revisions/2026-09-12/rule-pack";
 export { itr1Ay202627RulePackManifest20260912 } from "./revisions/2026-09-12/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260913,
+	itr1Ay202627RulePack20260913,
+} from "./revisions/2026-09-13/rule-pack";
+export { itr1Ay202627RulePackManifest20260913 } from "./revisions/2026-09-13/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -157,6 +162,19 @@ export type {
 	DonationDeductionTraceNode,
 	DonationRecipientCategory,
 } from "./computations/donation-deductions";
+export {
+	APPROVED_ITR1_DEDUCTION_CATALOG,
+	computeRemainingDeductions,
+	REMAINING_DEDUCTION_FACT_KEYS,
+} from "./computations/remaining-deductions";
+export type {
+	RemainingDeductionComputation,
+	RemainingDeductionFact,
+	RemainingDeductionIssue,
+	RemainingDeductionOrigin,
+	RemainingDeductionResult,
+	RemainingDeductionTraceNode,
+} from "./computations/remaining-deductions";
 export type {
 	LoanInterestDeductionCategory,
 	LoanInterestDeductionCategoryResult,
