@@ -60,6 +60,11 @@ export {
 } from "./revisions/2026-09-11/rule-pack";
 export { itr1Ay202627RulePackManifest20260911 } from "./revisions/2026-09-11/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260912,
+	itr1Ay202627RulePack20260912,
+} from "./revisions/2026-09-12/rule-pack";
+export { itr1Ay202627RulePackManifest20260912 } from "./revisions/2026-09-12/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -139,6 +144,19 @@ export {
 	computeLoanInterestDeductions,
 	LOAN_INTEREST_DEDUCTION_FACT_KEYS,
 } from "./computations/loan-interest-deductions";
+export {
+	computeDonationDeductions,
+	DONATION_DEDUCTION_FACT_KEYS,
+} from "./computations/donation-deductions";
+export type {
+	DonationDeductionComputation,
+	DonationDeductionFact,
+	DonationDeductionIssue,
+	DonationDeductionOrigin,
+	DonationDeductionResult,
+	DonationDeductionTraceNode,
+	DonationRecipientCategory,
+} from "./computations/donation-deductions";
 export type {
 	LoanInterestDeductionCategory,
 	LoanInterestDeductionCategoryResult,

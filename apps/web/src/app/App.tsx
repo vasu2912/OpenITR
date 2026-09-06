@@ -39,6 +39,7 @@ import { createSessionOrchestrator } from "../session/session-orchestrator";
 import type { SessionOrchestrator } from "../session/session-orchestrator";
 import { workerInspectionFacility } from "../session/worker-inspection-facility";
 import { DocumentsIntakeView } from "../views/documents-intake";
+import { DonationDeductionsView } from "../views/donation-deductions";
 import { AgriculturalIncomeView } from "../views/agricultural-income";
 import { EstimateView } from "../views/estimate-view";
 import { FactConflictsView } from "../views/fact-conflicts";
@@ -469,6 +470,9 @@ const ScopeInteraction = ({
 					/>
 					<LoanInterestDeductionsView
 						computation={intake?.loanInterestDeductionComputation}
+					/>
+					<DonationDeductionsView
+						computation={intake?.donationDeductionComputation}
 					/>
 					{intake?.pendingRecomputation.kind === "pending" ? (
 						<Alert
