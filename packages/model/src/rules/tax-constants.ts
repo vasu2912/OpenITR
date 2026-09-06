@@ -1,4 +1,4 @@
-import type { RuleId } from "../primitives";
+import type { IsoDate, RuleId } from "../primitives";
 
 // One progressive-rate band. `upperBoundWholeRupees` is the inclusive top of
 // the band; the final band of every schedule is open-ended (null).
@@ -45,6 +45,7 @@ export type RulePackManifestTaxConstants = Readonly<{
 	agriculturalIncome?: AgriculturalIncomeTaxConstantRecord;
 	savingsPensionDeductions?: SavingsPensionDeductionTaxConstantRecord;
 	healthDisabilityDeductions?: HealthDisabilityDeductionTaxConstantRecord;
+	loanInterestDeductions?: LoanInterestDeductionTaxConstantRecord;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -143,6 +144,37 @@ export type HealthDisabilityDeductionTaxConstantRecord = Readonly<{
 	taxpayerDisabilityNewRegimeExclusionRuleId: string;
 }>;
 
+export type LoanInterestDeductionTaxConstantRecord = Readonly<{
+	section80eEarliestFirstInterestPaymentDate: string;
+	section80eCurrentFinancialYearEndDate: string;
+	section80eeSanctionStartDate: string;
+	section80eeSanctionEndDate: string;
+	section80eeLimitWholeRupees: number;
+	section80eeLoanLimitWholeRupees: number;
+	section80eePropertyValueLimitWholeRupees: number;
+	section80eeaSanctionStartDate: string;
+	section80eeaSanctionEndDate: string;
+	section80eeaLimitWholeRupees: number;
+	section80eeaStampValueLimitWholeRupees: number;
+	section80eebSanctionStartDate: string;
+	section80eebSanctionEndDate: string;
+	section80eebLimitWholeRupees: number;
+	section80eEligibilityRuleId: string;
+	section80ePeriodRuleId: string;
+	section80eDetailsRuleId: string;
+	section80eeEligibilityRuleId: string;
+	section80eeLimitRuleId: string;
+	section80eeDetailsRuleId: string;
+	section80eeaEligibilityRuleId: string;
+	section80eeaLimitRuleId: string;
+	section80eeaDetailsRuleId: string;
+	section80eeMutualExclusionRuleId: string;
+	section80eebEligibilityRuleId: string;
+	section80eebLimitRuleId: string;
+	section80eebDetailsRuleId: string;
+	newRegimeExclusionRuleId: string;
+}>;
+
 // The compiled form resolves every authored rule identifier to a validated
 // RuleId before publication.
 export type CompiledNewRegimeTaxConstants = Readonly<{
@@ -173,6 +205,7 @@ export type CompiledTaxConstants = Readonly<{
 	agriculturalIncome?: CompiledAgriculturalIncomeTaxConstants;
 	savingsPensionDeductions?: CompiledSavingsPensionDeductionTaxConstants;
 	healthDisabilityDeductions?: CompiledHealthDisabilityDeductionTaxConstants;
+	loanInterestDeductions?: CompiledLoanInterestDeductionTaxConstants;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
@@ -269,4 +302,35 @@ export type CompiledHealthDisabilityDeductionTaxConstants = Readonly<{
 	taxpayerDisabilityRuleId: RuleId;
 	taxpayerDisabilityDetailsRuleId: RuleId;
 	taxpayerDisabilityNewRegimeExclusionRuleId: RuleId;
+}>;
+
+export type CompiledLoanInterestDeductionTaxConstants = Readonly<{
+	section80eEarliestFirstInterestPaymentDate: IsoDate;
+	section80eCurrentFinancialYearEndDate: IsoDate;
+	section80eeSanctionStartDate: IsoDate;
+	section80eeSanctionEndDate: IsoDate;
+	section80eeLimitWholeRupees: number;
+	section80eeLoanLimitWholeRupees: number;
+	section80eePropertyValueLimitWholeRupees: number;
+	section80eeaSanctionStartDate: IsoDate;
+	section80eeaSanctionEndDate: IsoDate;
+	section80eeaLimitWholeRupees: number;
+	section80eeaStampValueLimitWholeRupees: number;
+	section80eebSanctionStartDate: IsoDate;
+	section80eebSanctionEndDate: IsoDate;
+	section80eebLimitWholeRupees: number;
+	section80eEligibilityRuleId: RuleId;
+	section80ePeriodRuleId: RuleId;
+	section80eDetailsRuleId: RuleId;
+	section80eeEligibilityRuleId: RuleId;
+	section80eeLimitRuleId: RuleId;
+	section80eeDetailsRuleId: RuleId;
+	section80eeaEligibilityRuleId: RuleId;
+	section80eeaLimitRuleId: RuleId;
+	section80eeaDetailsRuleId: RuleId;
+	section80eeMutualExclusionRuleId: RuleId;
+	section80eebEligibilityRuleId: RuleId;
+	section80eebLimitRuleId: RuleId;
+	section80eebDetailsRuleId: RuleId;
+	newRegimeExclusionRuleId: RuleId;
 }>;

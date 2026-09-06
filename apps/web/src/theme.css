@@ -295,6 +295,10 @@ body,
 		display: none;
 	}
 
+	.openitr-sidebar {
+		display: none;
+	}
+
 	.openitr-result-details {
 		grid-template-columns: 1fr;
 	}

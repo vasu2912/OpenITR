@@ -74,6 +74,14 @@ const depositsQuestion: FactQuestion = {
 	suppliesFact: parseFactKey("bank-interest.deposits"),
 };
 
+const loanSanctionDateQuestion: FactQuestion = {
+	...savingsQuestion,
+	id: parseQuestionId("loan-sanction-date"),
+	prompt: "When was the loan sanctioned?",
+	suppliesFact: parseFactKey("deductions.loan-sanction-date"),
+	answerSchema: { kind: "iso-date" },
+};
+
 const ownershipQuestion: FactQuestion = {
 	...savingsQuestion,
 	id: parseQuestionId("house-property-owned"),
@@ -446,6 +454,33 @@ describe("evaluateFactAnswerAttempt", () => {
 			throw new Error(`Expected acceptance, got: ${attempt.kind}`);
 		}
 		expect(attempt.answer.questionRevision).toBe("2099-02-02");
+	});
+
+	test("accepts only a real calendar date for an ISO-date question", () => {
+		const rulePack = syntheticRulePack({ questions: [loanSanctionDateQuestion] });
+		const accepted = evaluateFactAnswerAttempt({
+			...derivationInput({ rulePack }),
+			questionId: "loan-sanction-date",
+			rawValue: "2019-04-01",
+			answeredAt: FIXED_ANSWERED_AT,
+		});
+		expect(accepted).toMatchObject({
+			kind: "accepted",
+			answer: { value: "2019-04-01" },
+		});
+
+		for (const rawValue of ["2019-02-29", "01-04-2019", "", "not-a-date"]) {
+			const rejected = evaluateFactAnswerAttempt({
+				...derivationInput({ rulePack }),
+				questionId: "loan-sanction-date",
+				rawValue,
+				answeredAt: FIXED_ANSWERED_AT,
+			});
+			expect(rejected).toMatchObject({
+				kind: "rejected",
+				rejection: "invalid-value",
+			});
+		}
 	});
 
 	test("rejects a value that is not a canonical non-negative amount without producing a fact", () => {

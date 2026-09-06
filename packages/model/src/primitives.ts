@@ -5,6 +5,7 @@ type BrandedString<Name extends string> = string & {
 export type FactKey = BrandedString<"FactKey">;
 export type FinancialYear = BrandedString<"FinancialYear">;
 export type IsoTimestamp = BrandedString<"IsoTimestamp">;
+export type IsoDate = BrandedString<"IsoDate">;
 export type IssueCode = BrandedString<"IssueCode">;
 export type QuestionId = BrandedString<"QuestionId">;
 export type RuleId = BrandedString<"RuleId">;
@@ -38,6 +39,10 @@ const isIsoTimestamp = (value: string): value is IsoTimestamp => {
 	const parsed = Date.parse(value);
 	return !Number.isNaN(parsed) && new Date(parsed).toISOString() === value;
 };
+
+export const isIsoDate = (value: string): value is IsoDate =>
+	/^\d{4}-\d{2}-\d{2}$/.test(value) &&
+	new Date(`${value}T00:00:00.000Z`).toISOString().slice(0, 10) === value;
 
 const isIssueCode = (value: string): value is IssueCode =>
 	/^(?:FILE|DOCUMENT|FACT|QUESTION|RULE|VALIDATION|ANALYSIS)_[A-Z0-9_]+$/.test(
@@ -86,6 +91,13 @@ export const parseFinancialYear = (value: string): FinancialYear => {
 export const parseIsoTimestamp = (value: string): IsoTimestamp => {
 	if (!isIsoTimestamp(value)) {
 		throw new Error(`Invalid ISO timestamp: ${value}`);
+	}
+	return value;
+};
+
+export const parseIsoDate = (value: string): IsoDate => {
+	if (!isIsoDate(value)) {
+		throw new Error(`Invalid ISO date: ${value}`);
 	}
 	return value;
 };
