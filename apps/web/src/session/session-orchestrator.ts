@@ -35,6 +35,7 @@ import {
 	computeHealthDisabilityDeductions,
 	computeLoanInterestDeductions,
 	computeDonationDeductions,
+	computeRemainingDeductions,
 	computeAgriculturalIncome,
 	computeOtherSources,
 	computeSavingsPensionDeductions,
@@ -47,6 +48,7 @@ import {
 	HEALTH_DISABILITY_DEDUCTION_FACT_KEYS,
 	LOAN_INTEREST_DEDUCTION_FACT_KEYS,
 	DONATION_DEDUCTION_FACT_KEYS,
+	REMAINING_DEDUCTION_FACT_KEYS,
 	itr1EstimateIsBlockedByScopeFacts,
 } from "@openitr/itr1-ay2026-27";
 import type {
@@ -62,6 +64,8 @@ import type {
 	LoanInterestDeductionFact,
 	DonationDeductionComputation,
 	DonationDeductionFact,
+	RemainingDeductionComputation,
+	RemainingDeductionFact,
 	NewRegimeSalaryComputation,
 	OtherSourceFact,
 	OtherSourcesComputation,
@@ -196,6 +200,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 		| undefined;
 	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
+	remainingDeductionComputation: RemainingDeductionComputation | undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
@@ -253,6 +258,7 @@ type SessionContext = Readonly<{
 		| undefined;
 	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
+	remainingDeductionComputation: RemainingDeductionComputation | undefined;
 	recomputationGeneration: number;
 	pendingRecomputation: PendingRecomputationState;
 }>;
@@ -386,6 +392,11 @@ const LOAN_INTEREST_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
 const DONATION_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	resultId: "donation-deductions",
 	label: "Donation deductions",
+});
+
+const REMAINING_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "remaining-deductions",
+	label: "Deposit-interest and remaining deductions",
 });
 
 const housePropertyResultId = (propertyNumber: 1 | 2): string =>
@@ -860,6 +871,52 @@ const computeDonationDeductionScenario = ({
 				: [],
 	);
 	return computeDonationDeductions({
+		rulePack,
+		facts: [...observedFacts, ...answerFacts],
+	});
+};
+
+const REMAINING_DEDUCTION_FACT_KEY_SET = new Set<FactKey>(
+	Object.values(REMAINING_DEDUCTION_FACT_KEYS),
+);
+
+const computeRemainingDeductionScenario = ({
+	rulePack,
+	answers,
+	reconciliation,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	answers: readonly AttestedAnswerFact[];
+	reconciliation: ReconciliationResult;
+}>): RemainingDeductionComputation | undefined => {
+	if (rulePack.taxConstants?.remainingDeductions === undefined) return undefined;
+	const observedFactKeys = new Set(
+		reconciliation.acceptedFacts.map((accepted) => accepted.factKey),
+	);
+	const observedFacts = reconciliation.acceptedFacts.flatMap(
+		(accepted): readonly RemainingDeductionFact[] => {
+			if (
+				!REMAINING_DEDUCTION_FACT_KEY_SET.has(accepted.factKey) ||
+				(typeof accepted.value === "string" && isIsoDate(accepted.value))
+			) return [];
+			return [{
+				factKey: accepted.factKey,
+				value: accepted.value,
+				origin: accepted.origin.kind === "resolved-attested"
+					? { kind: "attested-answer", answerId: accepted.origin.resolutionId }
+					: { kind: "accepted-evidence", sourceDocumentIds: [...new Set(accepted.agreeingCandidates.map((candidate) => String(candidate.sourceDocumentId)))] },
+			}];
+		},
+	);
+	const answerFacts = answers.flatMap(
+		(answer): readonly RemainingDeductionFact[] =>
+			REMAINING_DEDUCTION_FACT_KEY_SET.has(answer.factKey) &&
+			!(typeof answer.value === "string" && isIsoDate(answer.value)) &&
+			!observedFactKeys.has(answer.factKey)
+				? [{ factKey: answer.factKey, value: answer.value, origin: { kind: "attested-answer", answerId: answer.answerId } }]
+				: [],
+	);
+	return computeRemainingDeductions({
 		rulePack,
 		facts: [...observedFacts, ...answerFacts],
 	});
@@ -1421,6 +1478,10 @@ const deriveSessionReview = (
 		input.rulePack.taxConstants?.donationDeductions !== undefined
 			? [DONATION_DEDUCTION_AFFECTED_RESULT.resultId]
 			: []),
+		...(input.documentsStageEntered === true &&
+		input.rulePack.taxConstants?.remainingDeductions !== undefined
+			? [REMAINING_DEDUCTION_AFFECTED_RESULT.resultId]
+			: []),
 		...(input.documentsStageEntered === true && otherSourcesApply(input.analysisScopeFacts)
 			? [OTHER_SOURCES_AFFECTED_RESULT.resultId]
 			: []),
@@ -1495,6 +1556,7 @@ const deriveSessionComputations = (
 		| undefined;
 	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
+	remainingDeductionComputation: RemainingDeductionComputation | undefined;
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
 	const derived = deriveSessionReviewAndSalary(input);
@@ -1528,6 +1590,11 @@ const deriveSessionComputations = (
 		reconciliation: derived.reconciliation,
 	});
 	const donationDeductionComputation = computeDonationDeductionScenario({
+		rulePack,
+		answers,
+		reconciliation: derived.reconciliation,
+	});
+	const remainingDeductionComputation = computeRemainingDeductionScenario({
 		rulePack,
 		answers,
 		reconciliation: derived.reconciliation,
@@ -1573,6 +1640,7 @@ const deriveSessionComputations = (
 		healthDisabilityDeductionComputation,
 		loanInterestDeductionComputation,
 		donationDeductionComputation,
+		remainingDeductionComputation,
 	};
 };
 
@@ -1633,6 +1701,8 @@ const deriveDecisionComputations = ({
 	| "healthDisabilityDeductionComputation"
 	| "loanInterestDeductionComputation"
 	| "donationDeductionComputation"
+	| "remainingDeductionComputation"
+	| "remainingDeductionComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1703,6 +1773,11 @@ const deriveDecisionComputations = ({
 		answers,
 		reconciliation: review.reconciliation,
 	});
+	const remainingDeductionComputation = computeRemainingDeductionScenario({
+		rulePack: context.rulePack,
+		answers,
+		reconciliation: review.reconciliation,
+	});
 	if (!affectsEstimate) {
 		return {
 			answerDecisions,
@@ -1720,6 +1795,7 @@ const deriveDecisionComputations = ({
 			healthDisabilityDeductionComputation,
 			loanInterestDeductionComputation,
 			donationDeductionComputation,
+			remainingDeductionComputation,
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
 		};
@@ -1759,6 +1835,7 @@ const deriveDecisionComputations = ({
 		healthDisabilityDeductionComputation,
 		loanInterestDeductionComputation,
 		donationDeductionComputation,
+		remainingDeductionComputation,
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
 			? pendingRecomputationFor({ generation, affectedResultIds })
@@ -1821,6 +1898,7 @@ const deriveSourceComputations = ({
 	| "healthDisabilityDeductionComputation"
 	| "loanInterestDeductionComputation"
 	| "donationDeductionComputation"
+	| "remainingDeductionComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1891,6 +1969,12 @@ const deriveSourceComputations = ({
 				}),
 			donationDeductionComputation:
 				computeDonationDeductionScenario({
+					rulePack: context.rulePack,
+					answers: input.answers,
+					reconciliation: derived.reconciliation,
+				}),
+			remainingDeductionComputation:
+				computeRemainingDeductionScenario({
 					rulePack: context.rulePack,
 					answers: input.answers,
 					reconciliation: derived.reconciliation,
@@ -2078,6 +2162,7 @@ const createSessionMachine = ({
 			healthDisabilityDeductionComputation: undefined,
 			loanInterestDeductionComputation: undefined,
 			donationDeductionComputation: undefined,
+			remainingDeductionComputation: undefined,
 			recomputationGeneration: 0,
 			pendingRecomputation: { kind: "idle" },
 		},
@@ -2558,6 +2643,8 @@ const toSessionSnapshot = (
 				context.loanInterestDeductionComputation,
 			donationDeductionComputation:
 				context.donationDeductionComputation,
+			remainingDeductionComputation:
+				context.remainingDeductionComputation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"
 					? { kind: "pending" }

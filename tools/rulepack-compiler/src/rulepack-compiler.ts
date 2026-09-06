@@ -23,6 +23,7 @@ import type {
 	CompiledHealthDisabilityDeductionTaxConstants,
 	CompiledLoanInterestDeductionTaxConstants,
 	CompiledDonationDeductionTaxConstants,
+	CompiledRemainingDeductionTaxConstants,
 	CompiledNewRegimeTaxConstants,
 	CompiledOtherSourcesTaxConstants,
 	CompiledSavingsPensionDeductionTaxConstants,
@@ -1411,6 +1412,31 @@ export const compileRulePack = async ({
 				),
 			};
 		}
+		const authoredRemaining = authoredTaxConstants.remainingDeductions;
+		let remainingDeductions:
+			| CompiledRemainingDeductionTaxConstants
+			| undefined;
+		if (authoredRemaining !== undefined) {
+			const rule = (id: string, description: string): RuleId =>
+				resolveConstantRule(id, description);
+			remainingDeductions = {
+				section80ttaLimitWholeRupees: requirePositiveWholeRupees(authoredRemaining.section80ttaLimitWholeRupees, "The section 80TTA limit"),
+				section80ttbLimitWholeRupees: requirePositiveWholeRupees(authoredRemaining.section80ttbLimitWholeRupees, "The section 80TTB limit"),
+				section80cchSalaryLimitBasisPoints: requireBasisPointRate(authoredRemaining.section80cchSalaryLimitBasisPoints, "The section 80CCH salary limit"),
+				section80ggAnnualLimitWholeRupees: requirePositiveWholeRupees(authoredRemaining.section80ggAnnualLimitWholeRupees, "The section 80GG annual limit"),
+				section80ggRentReductionPercent: requireWholePercentage(authoredRemaining.section80ggRentReductionPercent, "The section 80GG rent reduction percentage"),
+				section80ggIncomeLimitPercent: requireWholePercentage(authoredRemaining.section80ggIncomeLimitPercent, "The section 80GG income limit percentage"),
+				section80ggaCashPaymentLimitWholeRupees: requirePositiveWholeRupees(authoredRemaining.section80ggaCashPaymentLimitWholeRupees, "The section 80GGA cash-payment limit"),
+				section80ttaRuleId: rule(authoredRemaining.section80ttaRuleId, "The section 80TTA rule"),
+				section80ttbRuleId: rule(authoredRemaining.section80ttbRuleId, "The section 80TTB rule"),
+				section80cchRuleId: rule(authoredRemaining.section80cchRuleId, "The section 80CCH rule"),
+				section80ggRuleId: rule(authoredRemaining.section80ggRuleId, "The section 80GG rule"),
+				section80ggaRuleId: rule(authoredRemaining.section80ggaRuleId, "The section 80GGA rule"),
+				section80ggcRuleId: rule(authoredRemaining.section80ggcRuleId, "The section 80GGC rule"),
+				newRegimeExclusionRuleId: rule(authoredRemaining.newRegimeExclusionRuleId, "The remaining-deduction new-regime exclusion rule"),
+				unsupportedOtherRuleId: rule(authoredRemaining.unsupportedOtherRuleId, "The unsupported other-deduction rule"),
+			};
+		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
 			...(selfOccupiedHouseProperty === undefined
@@ -1432,6 +1458,7 @@ export const compileRulePack = async ({
 				? {}
 				: { loanInterestDeductions }),
 			...(donationDeductions === undefined ? {} : { donationDeductions }),
+			...(remainingDeductions === undefined ? {} : { remainingDeductions }),
 		});
 	}
 
