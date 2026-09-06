@@ -46,6 +46,7 @@ export type RulePackManifestTaxConstants = Readonly<{
 	savingsPensionDeductions?: SavingsPensionDeductionTaxConstantRecord;
 	healthDisabilityDeductions?: HealthDisabilityDeductionTaxConstantRecord;
 	loanInterestDeductions?: LoanInterestDeductionTaxConstantRecord;
+	donationDeductions?: DonationDeductionTaxConstantRecord;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -175,6 +176,19 @@ export type LoanInterestDeductionTaxConstantRecord = Readonly<{
 	newRegimeExclusionRuleId: string;
 }>;
 
+export type DonationDeductionTaxConstantRecord = Readonly<{
+	cashPaymentLimitWholeRupees: number;
+	adjustedGrossTotalIncomeLimitPercent: number;
+	fullQualifyingPercent: number;
+	halfQualifyingPercent: number;
+	classificationRuleId: string;
+	paymentRuleId: string;
+	adjustedGrossTotalIncomeRuleId: string;
+	recipientQualificationRuleId: string;
+	evidenceRuleId: string;
+	newRegimeExclusionRuleId: string;
+}>;
+
 // The compiled form resolves every authored rule identifier to a validated
 // RuleId before publication.
 export type CompiledNewRegimeTaxConstants = Readonly<{
@@ -206,6 +220,7 @@ export type CompiledTaxConstants = Readonly<{
 	savingsPensionDeductions?: CompiledSavingsPensionDeductionTaxConstants;
 	healthDisabilityDeductions?: CompiledHealthDisabilityDeductionTaxConstants;
 	loanInterestDeductions?: CompiledLoanInterestDeductionTaxConstants;
+	donationDeductions?: CompiledDonationDeductionTaxConstants;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{
@@ -332,5 +347,18 @@ export type CompiledLoanInterestDeductionTaxConstants = Readonly<{
 	section80eebEligibilityRuleId: RuleId;
 	section80eebLimitRuleId: RuleId;
 	section80eebDetailsRuleId: RuleId;
+	newRegimeExclusionRuleId: RuleId;
+}>;
+
+export type CompiledDonationDeductionTaxConstants = Readonly<{
+	cashPaymentLimitWholeRupees: number;
+	adjustedGrossTotalIncomeLimitPercent: number;
+	fullQualifyingPercent: number;
+	halfQualifyingPercent: number;
+	classificationRuleId: RuleId;
+	paymentRuleId: RuleId;
+	adjustedGrossTotalIncomeRuleId: RuleId;
+	recipientQualificationRuleId: RuleId;
+	evidenceRuleId: RuleId;
 	newRegimeExclusionRuleId: RuleId;
 }>;

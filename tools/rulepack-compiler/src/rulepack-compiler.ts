@@ -22,6 +22,7 @@ import type {
 	CompiledAgriculturalIncomeTaxConstants,
 	CompiledHealthDisabilityDeductionTaxConstants,
 	CompiledLoanInterestDeductionTaxConstants,
+	CompiledDonationDeductionTaxConstants,
 	CompiledNewRegimeTaxConstants,
 	CompiledOtherSourcesTaxConstants,
 	CompiledSavingsPensionDeductionTaxConstants,
@@ -1360,6 +1361,56 @@ export const compileRulePack = async ({
 				newRegimeExclusionRuleId: rule(authoredLoanInterest.newRegimeExclusionRuleId, "The new-regime loan-interest exclusion rule"),
 			};
 		}
+		const authoredDonations = authoredTaxConstants.donationDeductions;
+		let donationDeductions:
+			| CompiledDonationDeductionTaxConstants
+			| undefined;
+		if (authoredDonations !== undefined) {
+			const rule = (id: string, description: string): RuleId =>
+				resolveConstantRule(id, description);
+			donationDeductions = {
+				cashPaymentLimitWholeRupees: requirePositiveWholeRupees(
+					authoredDonations.cashPaymentLimitWholeRupees,
+					"The section 80G cash-payment limit",
+				),
+				adjustedGrossTotalIncomeLimitPercent: requireWholePercentage(
+					authoredDonations.adjustedGrossTotalIncomeLimitPercent,
+					"The section 80G adjusted-gross-total-income limit percentage",
+				),
+				fullQualifyingPercent: requireWholePercentage(
+					authoredDonations.fullQualifyingPercent,
+					"The section 80G full qualifying percentage",
+				),
+				halfQualifyingPercent: requireWholePercentage(
+					authoredDonations.halfQualifyingPercent,
+					"The section 80G half qualifying percentage",
+				),
+				classificationRuleId: rule(
+					authoredDonations.classificationRuleId,
+					"The section 80G classification rule",
+				),
+				paymentRuleId: rule(
+					authoredDonations.paymentRuleId,
+					"The section 80G payment rule",
+				),
+				adjustedGrossTotalIncomeRuleId: rule(
+					authoredDonations.adjustedGrossTotalIncomeRuleId,
+					"The section 80G adjusted-gross-total-income rule",
+				),
+				recipientQualificationRuleId: rule(
+					authoredDonations.recipientQualificationRuleId,
+					"The section 80G recipient-qualification rule",
+				),
+				evidenceRuleId: rule(
+					authoredDonations.evidenceRuleId,
+					"The section 80G evidence rule",
+				),
+				newRegimeExclusionRuleId: rule(
+					authoredDonations.newRegimeExclusionRuleId,
+					"The new-regime section 80G exclusion rule",
+				),
+			};
+		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
 			...(selfOccupiedHouseProperty === undefined
@@ -1380,6 +1431,7 @@ export const compileRulePack = async ({
 			...(loanInterestDeductions === undefined
 				? {}
 				: { loanInterestDeductions }),
+			...(donationDeductions === undefined ? {} : { donationDeductions }),
 		});
 	}
 
