@@ -132,6 +132,7 @@ describe("cited contribution example: revision 2026-08-24b", () => {
 			"itr1-ay2026-27.2026-09-11",
 			"itr1-ay2026-27.2026-09-12",
 			"itr1-ay2026-27.2026-09-13",
+			"itr1-ay2026-27.2026-09-14",
 		]);
 
 		const retained = await registry.select(

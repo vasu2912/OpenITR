@@ -1,4 +1,5 @@
 import {
+	addExactMoney,
 	computeSourceDocumentIdentity,
 	compareExactMoney,
 	createExtractionRejectionOutcome,
@@ -7,6 +8,7 @@ import {
 	isIsoDate,
 	parseExactMoney,
 	parseFactKey,
+	parseIssueCode,
 	parseIsoTimestamp,
 } from "@openitr/model";
 import type {
@@ -34,6 +36,7 @@ import {
 	computeHouseProperties,
 	computeHealthDisabilityDeductions,
 	computeLoanInterestDeductions,
+	computeOldRegime,
 	computeDonationDeductions,
 	computeRemainingDeductions,
 	computeAgriculturalIncome,
@@ -62,6 +65,8 @@ import type {
 	HealthDisabilityDeductionFact,
 	LoanInterestDeductionComputation,
 	LoanInterestDeductionFact,
+	OldRegimeComputation,
+	OldRegimeComputationIssue,
 	DonationDeductionComputation,
 	DonationDeductionFact,
 	RemainingDeductionComputation,
@@ -201,6 +206,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
 	remainingDeductionComputation: RemainingDeductionComputation | undefined;
+	oldRegimeComputation: OldRegimeComputation | undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
@@ -259,6 +265,7 @@ type SessionContext = Readonly<{
 	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
 	remainingDeductionComputation: RemainingDeductionComputation | undefined;
+	oldRegimeComputation: OldRegimeComputation | undefined;
 	recomputationGeneration: number;
 	pendingRecomputation: PendingRecomputationState;
 }>;
@@ -397,6 +404,11 @@ const DONATION_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
 const REMAINING_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	resultId: "remaining-deductions",
 	label: "Deposit-interest and remaining deductions",
+});
+
+const OLD_REGIME_AFFECTED_RESULT: AffectedResult = Object.freeze({
+	resultId: "old-regime-computation",
+	label: "Old-regime computation",
 });
 
 const housePropertyResultId = (propertyNumber: 1 | 2): string =>
@@ -1482,6 +1494,10 @@ const deriveSessionReview = (
 		input.rulePack.taxConstants?.remainingDeductions !== undefined
 			? [REMAINING_DEDUCTION_AFFECTED_RESULT.resultId]
 			: []),
+		...(input.documentsStageEntered === true &&
+		input.rulePack.taxConstants?.oldRegime !== undefined
+			? [OLD_REGIME_AFFECTED_RESULT.resultId]
+			: []),
 		...(input.documentsStageEntered === true && otherSourcesApply(input.analysisScopeFacts)
 			? [OTHER_SOURCES_AFFECTED_RESULT.resultId]
 			: []),
@@ -1535,6 +1551,228 @@ const deriveSessionReviewAndSalary = (
 	};
 };
 
+const oldRegimeIssue = (issue: Readonly<{
+	code: OldRegimeComputationIssue["code"];
+	affectedFacts?: readonly FactKey[];
+	affectedFactKeys?: readonly FactKey[];
+	recoveryAction: string;
+}>): OldRegimeComputationIssue => ({
+	code: issue.code,
+	severity: "blocking",
+	affectedFacts: issue.affectedFacts ?? issue.affectedFactKeys ?? [],
+	recoveryAction: issue.recoveryAction,
+});
+
+const answerValue = (
+	answers: readonly AttestedAnswerFact[],
+	factKey: FactKey,
+): AttestedAnswerFact["value"] | undefined =>
+	answers.find((answer) => answer.factKey === factKey)?.value;
+
+const acceptedRemainingMoney = (
+	computation: Extract<RemainingDeductionComputation, { kind: "computed" }>,
+	factKey: FactKey,
+): ExactMoney => {
+	const value = computation.facts.find(
+		(fact) => fact.factKey === factKey,
+	)?.value;
+	if (typeof value !== "string") {
+		throw new Error(`Completed remaining-deduction fact is missing: ${factKey}`);
+	}
+	return value;
+};
+
+const computeOldRegimeScenario = ({
+	rulePack,
+	answers,
+	salaryComputation,
+	housePropertyComputation,
+	otherSourcesComputation,
+	section112aCapitalGainComputation,
+	agriculturalIncomeComputation,
+	savingsPensionDeductionComputation,
+	healthDisabilityDeductionComputation,
+	loanInterestDeductionComputation,
+	donationDeductionComputation,
+	remainingDeductionComputation,
+}: Readonly<{
+	rulePack: ScopeRulePack;
+	answers: readonly AttestedAnswerFact[];
+	salaryComputation: NewRegimeSalaryComputation | undefined;
+	housePropertyComputation: HousePropertyComputation | undefined;
+	otherSourcesComputation: OtherSourcesComputation | undefined;
+	section112aCapitalGainComputation:
+		| Section112aCapitalGainComputation
+		| undefined;
+	agriculturalIncomeComputation: AgriculturalIncomeComputation | undefined;
+	savingsPensionDeductionComputation:
+		| SavingsPensionDeductionComputation
+		| undefined;
+	healthDisabilityDeductionComputation:
+		| HealthDisabilityDeductionComputation
+		| undefined;
+	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
+	donationDeductionComputation: DonationDeductionComputation | undefined;
+	remainingDeductionComputation: RemainingDeductionComputation | undefined;
+}>): OldRegimeComputation | undefined => {
+	if (salaryComputation === undefined) return undefined;
+
+	const issues: OldRegimeComputationIssue[] = [];
+	if (salaryComputation.kind === "blocked") {
+		issues.push(...salaryComputation.issues.map(oldRegimeIssue));
+	}
+	if (
+		housePropertyComputation?.kind === "blocked" ||
+		housePropertyComputation?.kind === "unsupported"
+	) {
+		issues.push(oldRegimeIssue(housePropertyComputation.issue));
+	}
+	if (
+		otherSourcesComputation?.kind === "blocked" ||
+		otherSourcesComputation?.kind === "unsupported"
+	) {
+		issues.push(oldRegimeIssue(otherSourcesComputation.issue));
+	}
+	if (
+		section112aCapitalGainComputation?.kind === "blocked" ||
+		section112aCapitalGainComputation?.kind === "unsupported"
+	) {
+		issues.push(oldRegimeIssue(section112aCapitalGainComputation.issue));
+	}
+	if (
+		agriculturalIncomeComputation?.kind === "blocked" ||
+		agriculturalIncomeComputation?.kind === "unsupported"
+	) {
+		issues.push(oldRegimeIssue(agriculturalIncomeComputation.issue));
+	}
+	if (
+		savingsPensionDeductionComputation?.kind === "blocked" ||
+		savingsPensionDeductionComputation?.kind === "unsupported"
+	) {
+		issues.push(oldRegimeIssue(savingsPensionDeductionComputation.issue));
+	} else if (savingsPensionDeductionComputation?.kind === "computed") {
+		issues.push(
+			...savingsPensionDeductionComputation.issues
+				.filter((issue) => issue.severity === "blocking")
+				.map(oldRegimeIssue),
+		);
+	}
+	for (const computation of [
+		healthDisabilityDeductionComputation,
+		loanInterestDeductionComputation,
+		donationDeductionComputation,
+		remainingDeductionComputation,
+	]) {
+		if (computation !== undefined) {
+			issues.push(
+				...computation.issues
+					.filter((issue) => issue.severity === "blocking")
+					.map(oldRegimeIssue),
+			);
+		}
+	}
+
+	const seniorCitizen = answerValue(
+		answers,
+		parseFactKey("taxpayer.senior-citizen"),
+	);
+	const superSeniorCitizen = answerValue(
+		answers,
+		parseFactKey("taxpayer.super-senior-citizen"),
+	);
+	if (typeof seniorCitizen !== "boolean") {
+		issues.push({
+			code: parseIssueCode("FACT_OLD_REGIME_AGE_CATEGORY_MISSING"),
+			severity: "blocking",
+			affectedFacts: [parseFactKey("taxpayer.senior-citizen")],
+			recoveryAction: "Answer the cited resident age-category question.",
+		});
+	} else if (seniorCitizen && typeof superSeniorCitizen !== "boolean") {
+		issues.push({
+			code: parseIssueCode("FACT_SUPER_SENIOR_STATUS_MISSING"),
+			severity: "blocking",
+			affectedFacts: [parseFactKey("taxpayer.super-senior-citizen")],
+			recoveryAction: "Answer the cited age-category question.",
+		});
+	}
+
+	if (issues.length > 0) {
+		return computeOldRegime({
+			rulePack,
+			input: { kind: "blocked", issues },
+		});
+	}
+	if (
+		salaryComputation.kind !== "computed" ||
+		savingsPensionDeductionComputation?.kind !== "computed" ||
+		healthDisabilityDeductionComputation?.kind !== "computed" ||
+		loanInterestDeductionComputation?.kind !== "computed" ||
+		donationDeductionComputation?.kind !== "computed" ||
+		remainingDeductionComputation?.kind !== "computed" ||
+		typeof seniorCitizen !== "boolean"
+	) {
+		return undefined;
+	}
+
+	const bankInterest = addExactMoney(
+		acceptedRemainingMoney(
+			remainingDeductionComputation,
+			REMAINING_DEDUCTION_FACT_KEYS.savingsInterest,
+		),
+		acceptedRemainingMoney(
+			remainingDeductionComputation,
+			REMAINING_DEDUCTION_FACT_KEYS.depositInterest,
+		),
+	);
+	return computeOldRegime({
+		rulePack,
+		input: {
+			kind: "ready",
+			ageCategory: !seniorCitizen
+				? "under-60"
+				: superSeniorCitizen
+					? "80-or-older"
+					: "60-to-79",
+			amounts: {
+				salaryAfterExemptions: salaryComputation.sources.reduce(
+					(total, source) => addExactMoney(total, source.taxableSalary),
+					exactMoneyFromWholeRupees(0),
+				),
+				houseProperty:
+					housePropertyComputation?.kind === "computed"
+						? housePropertyComputation.combined
+						: { kind: "income", amount: exactMoneyFromWholeRupees(0) },
+				bankInterest,
+				otherSources:
+					otherSourcesComputation?.kind === "computed"
+						? otherSourcesComputation.oldRegime.total
+						: exactMoneyFromWholeRupees(0),
+				section112aGain:
+					section112aCapitalGainComputation?.kind === "computed"
+						? section112aCapitalGainComputation.gain
+						: exactMoneyFromWholeRupees(0),
+				section112aTax:
+					section112aCapitalGainComputation?.kind === "computed"
+						? section112aCapitalGainComputation.tax
+						: exactMoneyFromWholeRupees(0),
+				agriculturalIncome:
+					agriculturalIncomeComputation?.kind === "computed"
+						? agriculturalIncomeComputation.exemptIncome
+						: exactMoneyFromWholeRupees(0),
+				deductions: {
+					savingsAndPension:
+						savingsPensionDeductionComputation.oldRegime.totalAllowed,
+					healthAndDisability:
+						healthDisabilityDeductionComputation.oldRegimeTotal,
+					loanInterest: loanInterestDeductionComputation.oldRegimeTotal,
+					donations: donationDeductionComputation.oldRegimeTotal,
+					remaining: remainingDeductionComputation.oldRegimeTotal,
+				},
+			},
+		},
+	});
+};
+
 const deriveSessionComputations = (
 	input: SliceComputationInput,
 ): Readonly<{
@@ -1557,6 +1795,7 @@ const deriveSessionComputations = (
 	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
 	remainingDeductionComputation: RemainingDeductionComputation | undefined;
+	oldRegimeComputation: OldRegimeComputation | undefined;
 }> => {
 	const { rulePack, scopeCheck, extractions, answers } = input;
 	const derived = deriveSessionReviewAndSalary(input);
@@ -1629,6 +1868,20 @@ const deriveSessionComputations = (
 		analysisScopeFacts,
 		answers,
 	});
+	const oldRegimeComputation = computeOldRegimeScenario({
+		rulePack,
+		answers,
+		salaryComputation: derived.salaryComputation,
+		housePropertyComputation,
+		otherSourcesComputation,
+		section112aCapitalGainComputation,
+		agriculturalIncomeComputation,
+		savingsPensionDeductionComputation,
+		healthDisabilityDeductionComputation,
+		loanInterestDeductionComputation,
+		donationDeductionComputation,
+		remainingDeductionComputation,
+	});
 	return {
 		...derived,
 		estimateComputation,
@@ -1641,6 +1894,7 @@ const deriveSessionComputations = (
 		loanInterestDeductionComputation,
 		donationDeductionComputation,
 		remainingDeductionComputation,
+		oldRegimeComputation,
 	};
 };
 
@@ -1702,7 +1956,7 @@ const deriveDecisionComputations = ({
 	| "loanInterestDeductionComputation"
 	| "donationDeductionComputation"
 	| "remainingDeductionComputation"
-	| "remainingDeductionComputation"
+	| "oldRegimeComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1778,6 +2032,20 @@ const deriveDecisionComputations = ({
 		answers,
 		reconciliation: review.reconciliation,
 	});
+	const oldRegimeComputation = computeOldRegimeScenario({
+		rulePack: context.rulePack,
+		answers,
+		salaryComputation: context.salaryComputation,
+		housePropertyComputation,
+		otherSourcesComputation,
+		section112aCapitalGainComputation,
+		agriculturalIncomeComputation,
+		savingsPensionDeductionComputation,
+		healthDisabilityDeductionComputation,
+		loanInterestDeductionComputation,
+		donationDeductionComputation,
+		remainingDeductionComputation,
+	});
 	if (!affectsEstimate) {
 		return {
 			answerDecisions,
@@ -1796,6 +2064,7 @@ const deriveDecisionComputations = ({
 			loanInterestDeductionComputation,
 			donationDeductionComputation,
 			remainingDeductionComputation,
+			oldRegimeComputation,
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
 		};
@@ -1836,6 +2105,7 @@ const deriveDecisionComputations = ({
 		loanInterestDeductionComputation,
 		donationDeductionComputation,
 		remainingDeductionComputation,
+		oldRegimeComputation,
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
 			? pendingRecomputationFor({ generation, affectedResultIds })
@@ -1845,10 +2115,14 @@ const deriveDecisionComputations = ({
 
 const settlePendingRecomputation = (
 	context: SessionContext,
-): Pick<SessionContext, "estimateComputation" | "pendingRecomputation"> => {
+): Pick<
+	SessionContext,
+	"estimateComputation" | "oldRegimeComputation" | "pendingRecomputation"
+> => {
 	if (context.pendingRecomputation.kind !== "pending") {
 		return {
 			estimateComputation: context.estimateComputation,
+			oldRegimeComputation: context.oldRegimeComputation,
 			pendingRecomputation: context.pendingRecomputation,
 		};
 	}
@@ -1871,6 +2145,24 @@ const settlePendingRecomputation = (
 					analysisScopeFacts: context.analysisScopeFacts,
 				})
 			: context.estimateComputation,
+		oldRegimeComputation: computeOldRegimeScenario({
+			rulePack: context.rulePack,
+			answers: answersOf(context.answerDecisions),
+			salaryComputation: context.salaryComputation,
+			housePropertyComputation: context.housePropertyComputation,
+			otherSourcesComputation: context.otherSourcesComputation,
+			section112aCapitalGainComputation:
+				context.section112aCapitalGainComputation,
+			agriculturalIncomeComputation: context.agriculturalIncomeComputation,
+			savingsPensionDeductionComputation:
+				context.savingsPensionDeductionComputation,
+			healthDisabilityDeductionComputation:
+				context.healthDisabilityDeductionComputation,
+			loanInterestDeductionComputation:
+				context.loanInterestDeductionComputation,
+			donationDeductionComputation: context.donationDeductionComputation,
+			remainingDeductionComputation: context.remainingDeductionComputation,
+		}),
 		pendingRecomputation: { kind: "idle" },
 	};
 };
@@ -1899,6 +2191,7 @@ const deriveSourceComputations = ({
 	| "loanInterestDeductionComputation"
 	| "donationDeductionComputation"
 	| "remainingDeductionComputation"
+	| "oldRegimeComputation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -1979,6 +2272,7 @@ const deriveSourceComputations = ({
 					answers: input.answers,
 					reconciliation: derived.reconciliation,
 				}),
+			oldRegimeComputation: undefined,
 			recomputationGeneration: context.recomputationGeneration,
 			pendingRecomputation: context.pendingRecomputation,
 		};
@@ -2163,6 +2457,7 @@ const createSessionMachine = ({
 			loanInterestDeductionComputation: undefined,
 			donationDeductionComputation: undefined,
 			remainingDeductionComputation: undefined,
+			oldRegimeComputation: undefined,
 			recomputationGeneration: 0,
 			pendingRecomputation: { kind: "idle" },
 		},
@@ -2645,6 +2940,7 @@ const toSessionSnapshot = (
 				context.donationDeductionComputation,
 			remainingDeductionComputation:
 				context.remainingDeductionComputation,
+			oldRegimeComputation: context.oldRegimeComputation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"
 					? { kind: "pending" }

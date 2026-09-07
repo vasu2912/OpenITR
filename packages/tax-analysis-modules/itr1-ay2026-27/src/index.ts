@@ -70,6 +70,11 @@ export {
 } from "./revisions/2026-09-13/rule-pack";
 export { itr1Ay202627RulePackManifest20260913 } from "./revisions/2026-09-13/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260914,
+	itr1Ay202627RulePack20260914,
+} from "./revisions/2026-09-14/rule-pack";
+export { itr1Ay202627RulePackManifest20260914 } from "./revisions/2026-09-14/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -86,6 +91,16 @@ export {
 } from "./rule-pack";
 export { itr1Ay202627TaxAnalysisModuleArtifact } from "./tax-analysis-module";
 export { computeNewRegimeSalaryScenario, SALARY_FACT_KEYS } from "./computations/new-regime-salary";
+export { computeOldRegime } from "./computations/old-regime";
+export type {
+	OldRegimeAcceptedAmounts,
+	OldRegimeComputation,
+	OldRegimeComputationInput,
+	OldRegimeComputationIssue,
+	OldRegimeDeductionAmounts,
+	OldRegimeSummary,
+} from "./computations/old-regime";
+export type { OldRegimeAgeCategory } from "@openitr/model";
 export type {
 	AcceptedSalaryDocumentFacts,
 	ComputationNodeInput,

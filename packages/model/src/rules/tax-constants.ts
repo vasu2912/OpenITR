@@ -38,6 +38,7 @@ export type NewRegimeTaxConstantRecord = Readonly<{
 
 export type RulePackManifestTaxConstants = Readonly<{
 	newRegime: NewRegimeTaxConstantRecord;
+	oldRegime?: OldRegimeTaxConstantRecord;
 	selfOccupiedHouseProperty?: SelfOccupiedHousePropertyTaxConstantRecord;
 	houseProperty?: HousePropertyTaxConstantRecord;
 	otherSources?: OtherSourcesTaxConstantRecord;
@@ -48,6 +49,40 @@ export type RulePackManifestTaxConstants = Readonly<{
 	loanInterestDeductions?: LoanInterestDeductionTaxConstantRecord;
 	donationDeductions?: DonationDeductionTaxConstantRecord;
 	remainingDeductions?: RemainingDeductionTaxConstantRecord;
+}>;
+
+export type OldRegimeAgeCategory = "under-60" | "60-to-79" | "80-or-older";
+
+export type OldRegimeTaxConstantRecord = Readonly<{
+	slabBandsByAge: Readonly<
+		Record<
+			OldRegimeAgeCategory,
+			readonly [RulePackSlabBand, ...RulePackSlabBand[]]
+		>
+	>;
+	slabRuleId: string;
+	standardDeductionWholeRupees: number;
+	standardDeductionRuleId: string;
+	housePropertyLossSetoffLimitWholeRupees: number;
+	housePropertyLossSetoffRuleId: string;
+	itr1TotalIncomeLimitWholeRupees: number;
+	itr1TotalIncomeLimitRuleId: string;
+	rebateMaxTotalIncomeWholeRupees: number;
+	rebateMaxAmountWholeRupees: number;
+	rebateRuleId: string;
+	surchargeThresholdWholeRupees: number;
+	surchargeRuleId: string;
+	surchargeMarginalReliefRuleId: string;
+	cessRatePercent: number;
+	cessRuleId: string;
+	totalIncomeRoundingBaseWholeRupees: number;
+	totalIncomeRoundingRuleId: string;
+	taxRoundingBaseWholeRupees: number;
+	taxRoundingRuleId: string;
+	incomeAggregationRuleId: string;
+	deductionLimitRuleId: string;
+	section112aTaxRuleId: string;
+	agriculturalIncomeRuleId: string;
 }>;
 
 export type SelfOccupiedHousePropertyTaxConstantRecord = Readonly<{
@@ -231,6 +266,7 @@ export type CompiledNewRegimeTaxConstants = Readonly<{
 
 export type CompiledTaxConstants = Readonly<{
 	newRegime: CompiledNewRegimeTaxConstants;
+	oldRegime?: CompiledOldRegimeTaxConstants;
 	selfOccupiedHouseProperty?: CompiledSelfOccupiedHousePropertyTaxConstants;
 	houseProperty?: CompiledHousePropertyTaxConstants;
 	otherSources?: CompiledOtherSourcesTaxConstants;
@@ -241,6 +277,38 @@ export type CompiledTaxConstants = Readonly<{
 	loanInterestDeductions?: CompiledLoanInterestDeductionTaxConstants;
 	donationDeductions?: CompiledDonationDeductionTaxConstants;
 	remainingDeductions?: CompiledRemainingDeductionTaxConstants;
+}>;
+
+export type CompiledOldRegimeTaxConstants = Readonly<{
+	slabBandsByAge: Readonly<
+		Record<
+			OldRegimeAgeCategory,
+			readonly [RulePackSlabBand, ...RulePackSlabBand[]]
+		>
+	>;
+	slabRuleId: RuleId;
+	standardDeductionWholeRupees: number;
+	standardDeductionRuleId: RuleId;
+	housePropertyLossSetoffLimitWholeRupees: number;
+	housePropertyLossSetoffRuleId: RuleId;
+	itr1TotalIncomeLimitWholeRupees: number;
+	itr1TotalIncomeLimitRuleId: RuleId;
+	rebateMaxTotalIncomeWholeRupees: number;
+	rebateMaxAmountWholeRupees: number;
+	rebateRuleId: RuleId;
+	surchargeThresholdWholeRupees: number;
+	surchargeRuleId: RuleId;
+	surchargeMarginalReliefRuleId: RuleId;
+	cessRatePercent: number;
+	cessRuleId: RuleId;
+	totalIncomeRoundingBaseWholeRupees: number;
+	totalIncomeRoundingRuleId: RuleId;
+	taxRoundingBaseWholeRupees: number;
+	taxRoundingRuleId: RuleId;
+	incomeAggregationRuleId: RuleId;
+	deductionLimitRuleId: RuleId;
+	section112aTaxRuleId: RuleId;
+	agriculturalIncomeRuleId: RuleId;
 }>;
 
 export type CompiledSelfOccupiedHousePropertyTaxConstants = Readonly<{

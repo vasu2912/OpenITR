@@ -25,6 +25,7 @@ import type {
 	CompiledDonationDeductionTaxConstants,
 	CompiledRemainingDeductionTaxConstants,
 	CompiledNewRegimeTaxConstants,
+	CompiledOldRegimeTaxConstants,
 	CompiledOtherSourcesTaxConstants,
 	CompiledSavingsPensionDeductionTaxConstants,
 	CompiledSection112aCapitalGainTaxConstants,
@@ -1094,6 +1095,42 @@ export const compileRulePack = async ({
 				"The tax rounding base",
 			),
 		};
+		const authoredOldRegime = authoredTaxConstants.oldRegime;
+		let oldRegime: CompiledOldRegimeTaxConstants | undefined;
+		if (authoredOldRegime !== undefined) {
+			const rule = (id: string, description: string): RuleId =>
+				resolveConstantRule(id, description);
+			oldRegime = {
+				slabBandsByAge: Object.freeze({
+					"under-60": compileSlabBands(authoredOldRegime.slabBandsByAge["under-60"]),
+					"60-to-79": compileSlabBands(authoredOldRegime.slabBandsByAge["60-to-79"]),
+					"80-or-older": compileSlabBands(authoredOldRegime.slabBandsByAge["80-or-older"]),
+				}),
+				slabRuleId: rule(authoredOldRegime.slabRuleId, "The old-regime slab rule"),
+				standardDeductionWholeRupees: requirePositiveWholeRupees(authoredOldRegime.standardDeductionWholeRupees, "The old-regime standard deduction"),
+				standardDeductionRuleId: rule(authoredOldRegime.standardDeductionRuleId, "The old-regime standard-deduction rule"),
+				housePropertyLossSetoffLimitWholeRupees: requirePositiveWholeRupees(authoredOldRegime.housePropertyLossSetoffLimitWholeRupees, "The house-property loss set-off limit"),
+				housePropertyLossSetoffRuleId: rule(authoredOldRegime.housePropertyLossSetoffRuleId, "The house-property loss set-off rule"),
+				itr1TotalIncomeLimitWholeRupees: requirePositiveWholeRupees(authoredOldRegime.itr1TotalIncomeLimitWholeRupees, "The ITR-1 total-income limit"),
+				itr1TotalIncomeLimitRuleId: rule(authoredOldRegime.itr1TotalIncomeLimitRuleId, "The ITR-1 total-income limit rule"),
+				rebateMaxTotalIncomeWholeRupees: requirePositiveWholeRupees(authoredOldRegime.rebateMaxTotalIncomeWholeRupees, "The old-regime rebate income limit"),
+				rebateMaxAmountWholeRupees: requirePositiveWholeRupees(authoredOldRegime.rebateMaxAmountWholeRupees, "The old-regime rebate amount"),
+				rebateRuleId: rule(authoredOldRegime.rebateRuleId, "The old-regime rebate rule"),
+				surchargeThresholdWholeRupees: requirePositiveWholeRupees(authoredOldRegime.surchargeThresholdWholeRupees, "The old-regime surcharge threshold"),
+				surchargeRuleId: rule(authoredOldRegime.surchargeRuleId, "The old-regime surcharge rule"),
+				surchargeMarginalReliefRuleId: rule(authoredOldRegime.surchargeMarginalReliefRuleId, "The old-regime surcharge marginal-relief rule"),
+				cessRatePercent: requireWholePercentage(authoredOldRegime.cessRatePercent, "The old-regime cess rate"),
+				cessRuleId: rule(authoredOldRegime.cessRuleId, "The old-regime cess rule"),
+				totalIncomeRoundingBaseWholeRupees: requirePositiveWholeRupees(authoredOldRegime.totalIncomeRoundingBaseWholeRupees, "The total-income rounding base"),
+				totalIncomeRoundingRuleId: rule(authoredOldRegime.totalIncomeRoundingRuleId, "The total-income rounding rule"),
+				taxRoundingBaseWholeRupees: requirePositiveWholeRupees(authoredOldRegime.taxRoundingBaseWholeRupees, "The tax rounding base"),
+				taxRoundingRuleId: rule(authoredOldRegime.taxRoundingRuleId, "The tax rounding rule"),
+				incomeAggregationRuleId: rule(authoredOldRegime.incomeAggregationRuleId, "The old-regime income aggregation rule"),
+				deductionLimitRuleId: rule(authoredOldRegime.deductionLimitRuleId, "The Chapter VI-A deduction limit rule"),
+				section112aTaxRuleId: rule(authoredOldRegime.section112aTaxRuleId, "The section 112A tax rule"),
+				agriculturalIncomeRuleId: rule(authoredOldRegime.agriculturalIncomeRuleId, "The agricultural-income rule"),
+			};
+		}
 		const authoredHouseProperty =
 			authoredTaxConstants.selfOccupiedHouseProperty;
 		let selfOccupiedHouseProperty:
@@ -1439,6 +1476,7 @@ export const compileRulePack = async ({
 		}
 		compiledTaxConstants = deepFreeze({
 			newRegime,
+			...(oldRegime === undefined ? {} : { oldRegime }),
 			...(selfOccupiedHouseProperty === undefined
 				? {}
 				: { selfOccupiedHouseProperty }),
