@@ -97,7 +97,7 @@ test.describe("health and disability deductions", () => {
 		await card.getByText("New-regime section 80D exclusion").click();
 		await expect(card).toContainText("ITR1-NR-80D-EXCLUSION");
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
-			"Question revision 2026-09-13",
+			"Question revision 2026-09-14",
 		);
 	});
 
