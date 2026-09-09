@@ -2,6 +2,7 @@ import {
 	addExactMoney,
 	compareExactMoney,
 	exactMoneyFromWholeRupees,
+	maxExactMoney,
 	minExactMoney,
 	multiplyByWholePercent,
 	parseFactKey,
@@ -118,6 +119,10 @@ export const TOTAL_INCOME_ROUNDED_NODE_ID = parseFactKey(
 
 export type LiabilityBuilderInput = Readonly<{
 	roundedIncomeValue: ExactMoney;
+	normalRateIncomeValue?: ExactMoney;
+	normalRateIncomeNodeId?: FactKey;
+	section112aIncomeValue?: ExactMoney;
+	section112aTax?: Readonly<{ nodeId: FactKey; value: ExactMoney }>;
 	constants: CompiledNewRegimeTaxConstants;
 	residentAnswer: AttestedAnswer;
 }>;
@@ -127,6 +132,7 @@ export type NewRegimeLiabilitySummary = Readonly<{
 	rebateApplied: ExactMoney;
 	marginalReliefApplied: ExactMoney;
 	surcharge: ExactMoney;
+	surchargeMarginalReliefApplied: ExactMoney;
 	cess: ExactMoney;
 	finalTaxLiability: ExactMoney;
 }>;
@@ -175,17 +181,28 @@ const progressiveSlabTaxOn = (
 // nodes from one reviewed derivation so neither can drift from the other.
 export const buildNewRegimeLiabilityNodes = ({
 	roundedIncomeValue,
+	normalRateIncomeValue = roundedIncomeValue,
+	normalRateIncomeNodeId = TOTAL_INCOME_ROUNDED_NODE_ID,
+	section112aIncomeValue = ZERO,
+	section112aTax,
 	constants,
 	residentAnswer,
 }: LiabilityBuilderInput): NewRegimeLiabilityBuild => {
 	const nodes: ComputationNodeDraft[] = [];
 	const incomeNode = () => nodeInput(TOTAL_INCOME_ROUNDED_NODE_ID, roundedIncomeValue);
+	const normalRateIncomeNode = () =>
+		nodeInput(normalRateIncomeNodeId, normalRateIncomeValue);
+	const section112aTaxValue = section112aTax?.value ?? ZERO;
+	const section112aTaxInput =
+		section112aTax === undefined
+			? []
+			: [nodeInput(section112aTax.nodeId, section112aTax.value)];
 
 	let lowerBound = ZERO;
 	let bandIndex = 1;
 	const bandValues: { nodeId: FactKey; value: ExactMoney }[] = [];
 	for (const band of constants.slabBands) {
-		if (compareExactMoney(roundedIncomeValue, lowerBound) <= 0) {
+		if (compareExactMoney(normalRateIncomeValue, lowerBound) <= 0) {
 			break;
 		}
 		const upperBoundWholeRupees = band.upperBoundWholeRupees;
@@ -195,8 +212,8 @@ export const buildNewRegimeLiabilityNodes = ({
 				: exactMoneyFromWholeRupees(upperBoundWholeRupees);
 		const bandWidth =
 			upperBound === undefined ||
-			compareExactMoney(roundedIncomeValue, upperBound) < 0
-				? subtractExactMoney(roundedIncomeValue, lowerBound)
+			compareExactMoney(normalRateIncomeValue, upperBound) < 0
+				? subtractExactMoney(normalRateIncomeValue, lowerBound)
 				: subtractExactMoney(upperBound, lowerBound);
 		const bandTax = multiplyByWholePercent(bandWidth, band.ratePercent);
 		const bandNodeId = parseFactKey(`derived.slab-band-tax-${bandIndex}`);
@@ -205,7 +222,7 @@ export const buildNewRegimeLiabilityNodes = ({
 			ruleId: constants.slabRuleId,
 			operation: "progressive-band-tax",
 			inputs: [
-				incomeNode(),
+				normalRateIncomeNode(),
 				...(upperBoundWholeRupees === null
 					? []
 					: [constantInput("band-upper-bound", upperBoundWholeRupees)]),
@@ -233,7 +250,7 @@ export const buildNewRegimeLiabilityNodes = ({
 		operation: "sum-of-bands",
 		inputs:
 			bandValues.length === 0
-				? [incomeNode()]
+				? [normalRateIncomeNode()]
 				: bandValues.map((band) => nodeInput(band.nodeId, band.value)),
 		unroundedValue: slabTaxValue,
 		roundedValue: slabTaxValue,
@@ -255,7 +272,7 @@ export const buildNewRegimeLiabilityNodes = ({
 	);
 
 	const incomeWithinRebateLimit =
-		compareExactMoney(roundedIncomeValue, rebateLimitIncome.amount) <= 0;
+		compareExactMoney(normalRateIncomeValue, rebateLimitIncome.amount) <= 0;
 
 	const rebateValue =
 		isResident && incomeWithinRebateLimit
@@ -283,9 +300,9 @@ export const buildNewRegimeLiabilityNodes = ({
 	});
 
 	const exceedsRebateLimit =
-		compareExactMoney(roundedIncomeValue, rebateLimitIncome.amount) > 0;
+		compareExactMoney(normalRateIncomeValue, rebateLimitIncome.amount) > 0;
 	const excessOverRebateLimit = exceedsRebateLimit
-		? subtractExactMoney(roundedIncomeValue, rebateLimitIncome.amount)
+		? subtractExactMoney(normalRateIncomeValue, rebateLimitIncome.amount)
 		: ZERO;
 	const reliefCandidate =
 		compareExactMoney(slabTaxValue, excessOverRebateLimit) > 0
@@ -308,7 +325,7 @@ export const buildNewRegimeLiabilityNodes = ({
 		inputs: [
 			nodeInput(slabTaxNodeId, slabTaxValue),
 			nodeInput(rebateNodeId, rebateValue),
-			incomeNode(),
+			normalRateIncomeNode(),
 			rebateLimitIncome.input,
 			residencyInput,
 		],
@@ -317,9 +334,12 @@ export const buildNewRegimeLiabilityNodes = ({
 		...(reliefNote === undefined ? {} : { note: reliefNote }),
 	});
 
-	const taxAfterAdjustmentsValue = subtractExactMoney(
-		subtractExactMoney(slabTaxValue, rebateValue),
-		marginalReliefValue,
+	const taxAfterAdjustmentsValue = addExactMoney(
+		subtractExactMoney(
+			subtractExactMoney(slabTaxValue, rebateValue),
+			marginalReliefValue,
+		),
+		section112aTaxValue,
 	);
 
 	const activeTierIndex = constants.surchargeTiers.reduce<number>(
@@ -337,6 +357,7 @@ export const buildNewRegimeLiabilityNodes = ({
 			? undefined
 			: constants.surchargeTiers[activeTierIndex];
 	let surchargeValue = ZERO;
+	let surchargeMarginalReliefValue = ZERO;
 	let surchargeNote: string | undefined =
 		"Total income does not exceed the lowest surcharge threshold pinned by the rule pack.";
 	if (activeTier !== undefined) {
@@ -347,9 +368,18 @@ export const buildNewRegimeLiabilityNodes = ({
 		const thresholdAmount = exactMoneyFromWholeRupees(
 			activeTier.exceedsTotalIncomeWholeRupees,
 		);
-		const taxAtThreshold = progressiveSlabTaxOn(
-			thresholdAmount,
-			constants.slabBands,
+		const normalRateIncomeAtThreshold = maxExactMoney(
+			ZERO,
+			compareExactMoney(thresholdAmount, section112aIncomeValue) >= 0
+				? subtractExactMoney(thresholdAmount, section112aIncomeValue)
+				: ZERO,
+		);
+		const taxAtThreshold = addExactMoney(
+			progressiveSlabTaxOn(
+				normalRateIncomeAtThreshold,
+				constants.slabBands,
+			),
+			section112aTaxValue,
 		);
 		const surchargeAtPreviousTier =
 			previousThreshold === undefined
@@ -377,6 +407,10 @@ export const buildNewRegimeLiabilityNodes = ({
 			compareExactMoney(liabilityWithRaw, liabilityLimit) > 0
 				? subtractExactMoney(liabilityLimit, taxAfterAdjustmentsValue)
 				: rawSurcharge;
+		surchargeMarginalReliefValue = subtractExactMoney(
+			rawSurcharge,
+			surchargeValue,
+		);
 		surchargeNote = undefined;
 	}
 	const surchargeNodeId = parseFactKey("derived.surcharge");
@@ -392,6 +426,7 @@ export const buildNewRegimeLiabilityNodes = ({
 			nodeInput(slabTaxNodeId, slabTaxValue),
 			nodeInput(rebateNodeId, rebateValue),
 			nodeInput(marginalReliefNodeId, marginalReliefValue),
+			...section112aTaxInput,
 			...(activeTier === undefined
 				? []
 				: [
@@ -424,6 +459,7 @@ export const buildNewRegimeLiabilityNodes = ({
 			nodeInput(slabTaxNodeId, slabTaxValue),
 			nodeInput(rebateNodeId, rebateValue),
 			nodeInput(marginalReliefNodeId, marginalReliefValue),
+			...section112aTaxInput,
 			nodeInput(surchargeNodeId, surchargeValue),
 			constantInput("cess-rate-percent", constants.cessRatePercent),
 		],
@@ -457,6 +493,7 @@ export const buildNewRegimeLiabilityNodes = ({
 			rebateApplied: rebateValue,
 			marginalReliefApplied: marginalReliefValue,
 			surcharge: surchargeValue,
+			surchargeMarginalReliefApplied: surchargeMarginalReliefValue,
 			cess: cessValue,
 			finalTaxLiability: finalLiabilityValue,
 		}),

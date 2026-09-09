@@ -1035,6 +1035,7 @@ export const compileRulePack = async ({
 	const authoredTaxConstants = manifest.taxConstants;
 	if (authoredTaxConstants !== undefined) {
 		const authored = authoredTaxConstants.newRegime;
+		const authoredCompleteNewRegime = authored.completeComputation;
 		const newRegime: CompiledNewRegimeTaxConstants = {
 			slabBands: compileSlabBands(authored.slabBands),
 			slabRuleId: resolveConstantRule(
@@ -1094,6 +1095,33 @@ export const compileRulePack = async ({
 				authored.taxRoundingRuleId,
 				"The tax rounding base",
 			),
+			...(authoredCompleteNewRegime === undefined
+				? {}
+				: {
+						completeComputation: {
+							itr1NormalRateIncomeLimitWholeRupees:
+								requirePositiveWholeRupees(
+									authoredCompleteNewRegime.itr1NormalRateIncomeLimitWholeRupees,
+									"The ITR-1 normal-rate income limit",
+								),
+							itr1NormalRateIncomeLimitRuleId: resolveConstantRule(
+								authoredCompleteNewRegime.itr1NormalRateIncomeLimitRuleId,
+								"The ITR-1 normal-rate income limit rule",
+							),
+							incomeAggregationRuleId: resolveConstantRule(
+								authoredCompleteNewRegime.incomeAggregationRuleId,
+								"The complete new-regime income aggregation rule",
+							),
+							housePropertyLossSetoffRuleId: resolveConstantRule(
+								authoredCompleteNewRegime.housePropertyLossSetoffRuleId,
+								"The new-regime house-property loss set-off rule",
+							),
+							deductionCompositionRuleId: resolveConstantRule(
+								authoredCompleteNewRegime.deductionCompositionRuleId,
+								"The complete new-regime deduction-composition rule",
+							),
+						},
+					}),
 		};
 		const authoredOldRegime = authoredTaxConstants.oldRegime;
 		let oldRegime: CompiledOldRegimeTaxConstants | undefined;

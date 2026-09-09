@@ -48,6 +48,7 @@ import { MissingFactQuestionsView } from "../views/missing-fact-questions";
 import { HousePropertyComputationView } from "../views/house-property-computation";
 import { HealthDisabilityDeductionsView } from "../views/health-disability-deductions";
 import { LoanInterestDeductionsView } from "../views/loan-interest-deductions";
+import { NewRegimeComputationView } from "../views/new-regime-computation";
 import { OldRegimeComputationView } from "../views/old-regime-computation";
 import { OtherSourcesComputationView } from "../views/other-sources-computation";
 import { SavingsPensionDeductionsView } from "../views/savings-pension-deductions";
@@ -478,6 +479,9 @@ const ScopeInteraction = ({
 					/>
 					<RemainingDeductionsView
 						computation={intake?.remainingDeductionComputation}
+					/>
+					<NewRegimeComputationView
+						computation={intake?.newRegimeComputation}
 					/>
 					<OldRegimeComputationView
 						computation={intake?.oldRegimeComputation}
