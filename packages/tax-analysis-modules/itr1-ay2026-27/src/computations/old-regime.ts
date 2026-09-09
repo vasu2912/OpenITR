@@ -28,6 +28,7 @@ import type {
 	ComputationNodeDraft,
 	ComputationTraceNode,
 } from "./new-regime-liability";
+import type { FactSetRevision } from "./fact-set-revision";
 
 const ZERO = exactMoneyFromWholeRupees(0);
 
@@ -67,6 +68,7 @@ export type OldRegimeComputationInput =
 	  }>
 	| Readonly<{
 		kind: "ready";
+		factSetRevision: FactSetRevision;
 		ageCategory: OldRegimeAgeCategory;
 		amounts: OldRegimeAcceptedAmounts;
 	  }>;
@@ -100,6 +102,7 @@ export type OldRegimeComputation =
 	  }>
 	| Readonly<{
 		kind: "computed";
+		factSetRevision: FactSetRevision;
 		rulePackRevision: string;
 		ageCategory: OldRegimeAgeCategory;
 		nodes: readonly ComputationTraceNode[];
@@ -196,7 +199,7 @@ export const computeOldRegime = ({
 	const constants = rulePack.taxConstants?.oldRegime;
 	if (constants === undefined) return constantsIssue();
 
-	const { amounts, ageCategory } = input;
+	const { amounts, ageCategory, factSetRevision } = input;
 	const standardDeduction = minExactMoney(
 		amounts.salaryAfterExemptions,
 		exactMoneyFromWholeRupees(constants.standardDeductionWholeRupees),
@@ -618,6 +621,7 @@ export const computeOldRegime = ({
 
 	return Object.freeze({
 		kind: "computed",
+		factSetRevision,
 		rulePackRevision: rulePack.identity.revision,
 		ageCategory,
 		nodes: Object.freeze(
