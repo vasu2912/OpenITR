@@ -75,6 +75,11 @@ export {
 } from "./revisions/2026-09-14/rule-pack";
 export { itr1Ay202627RulePackManifest20260914 } from "./revisions/2026-09-14/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260915,
+	itr1Ay202627RulePack20260915,
+} from "./revisions/2026-09-15/rule-pack";
+export { itr1Ay202627RulePackManifest20260915 } from "./revisions/2026-09-15/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {
@@ -100,6 +105,17 @@ export type {
 	OldRegimeDeductionAmounts,
 	OldRegimeSummary,
 } from "./computations/old-regime";
+export { computeNewRegime } from "./computations/new-regime";
+export type {
+	NewRegimeAcceptedAmounts,
+	NewRegimeComputation,
+	NewRegimeComputationInput,
+	NewRegimeComputationIssue,
+	NewRegimeDeductionAmounts,
+	NewRegimeDeductionCategory,
+	NewRegimeDeductionComparison,
+	NewRegimeSummary,
+} from "./computations/new-regime";
 export type { OldRegimeAgeCategory } from "@openitr/model";
 export type {
 	AcceptedSalaryDocumentFacts,

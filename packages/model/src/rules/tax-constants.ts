@@ -34,6 +34,13 @@ export type NewRegimeTaxConstantRecord = Readonly<{
 	totalIncomeRoundingRuleId: string;
 	taxRoundingBaseWholeRupees: number;
 	taxRoundingRuleId: string;
+	completeComputation?: Readonly<{
+		itr1NormalRateIncomeLimitWholeRupees: number;
+		itr1NormalRateIncomeLimitRuleId: string;
+		incomeAggregationRuleId: string;
+		housePropertyLossSetoffRuleId: string;
+		deductionCompositionRuleId: string;
+	}>;
 }>;
 
 export type RulePackManifestTaxConstants = Readonly<{
@@ -262,6 +269,13 @@ export type CompiledNewRegimeTaxConstants = Readonly<{
 	totalIncomeRoundingRuleId: RuleId;
 	taxRoundingBaseWholeRupees: number;
 	taxRoundingRuleId: RuleId;
+	completeComputation?: Readonly<{
+		itr1NormalRateIncomeLimitWholeRupees: number;
+		itr1NormalRateIncomeLimitRuleId: RuleId;
+		incomeAggregationRuleId: RuleId;
+		housePropertyLossSetoffRuleId: RuleId;
+		deductionCompositionRuleId: RuleId;
+	}>;
 }>;
 
 export type CompiledTaxConstants = Readonly<{
