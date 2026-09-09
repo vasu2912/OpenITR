@@ -7,6 +7,7 @@ import { computeOldRegime } from "./old-regime";
 import type { OldRegimeAcceptedAmounts } from "./old-regime";
 
 const money = exactMoneyFromWholeRupees;
+const factSetRevision = "fact-set-1" as const;
 const amounts = (
 	overrides: Partial<OldRegimeAcceptedAmounts> = {},
 ): OldRegimeAcceptedAmounts => ({
@@ -31,7 +32,7 @@ describe("complete old-regime computation", () => {
 	it("reconciles every supported category to taxable income and liability", () => {
 		const result = computeOldRegime({
 			rulePack,
-			input: { kind: "ready", ageCategory: "under-60", amounts: amounts() },
+			input: { kind: "ready", factSetRevision, ageCategory: "under-60", amounts: amounts() },
 		});
 
 		expect(result).toMatchObject({
@@ -87,6 +88,7 @@ describe("complete old-regime computation", () => {
 			rulePack,
 			input: {
 				kind: "ready",
+				factSetRevision,
 				ageCategory: "under-60",
 				amounts: amounts({
 					salaryAfterExemptions: money(550_000),
@@ -130,6 +132,7 @@ describe("complete old-regime computation", () => {
 				rulePack,
 				input: {
 					kind: "ready",
+					factSetRevision,
 					ageCategory: "under-60",
 					amounts: amounts({
 						salaryAfterExemptions: money(totalIncome + 50_000),
@@ -167,6 +170,7 @@ describe("complete old-regime computation", () => {
 				rulePack,
 				input: {
 					kind: "ready",
+					factSetRevision,
 					ageCategory: "under-60",
 					amounts: amounts({
 						salaryAfterExemptions: money(incomeBeforeRounding + 50_000),
@@ -203,6 +207,7 @@ describe("complete old-regime computation", () => {
 			rulePack,
 			input: {
 				kind: "ready",
+				factSetRevision,
 				ageCategory,
 				amounts: amounts({
 					salaryAfterExemptions: money(450_000),
@@ -232,6 +237,7 @@ describe("complete old-regime computation", () => {
 			rulePack,
 			input: {
 				kind: "ready",
+				factSetRevision,
 				ageCategory: "under-60",
 				amounts: amounts({
 					salaryAfterExemptions: money(5_050_000),
@@ -268,6 +274,7 @@ describe("complete old-regime computation", () => {
 			rulePack,
 			input: {
 				kind: "ready",
+				factSetRevision,
 				ageCategory: "under-60",
 				amounts: amounts({
 					salaryAfterExemptions: money(5_050_010),

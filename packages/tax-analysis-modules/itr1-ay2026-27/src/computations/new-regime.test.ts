@@ -12,6 +12,7 @@ import { computeNewRegime } from "./new-regime";
 import type { NewRegimeAcceptedAmounts } from "./new-regime";
 
 const money = exactMoneyFromWholeRupees;
+const factSetRevision = "fact-set-1" as const;
 const residentAnswer = Object.freeze({
 	questionId: rulePack.question.id,
 	value: "yes" as const,
@@ -59,7 +60,7 @@ describe("complete new-regime computation", () => {
 		const result = computeNewRegime({
 			rulePack,
 			residentAnswer,
-			input: { kind: "ready", amounts: amounts() },
+			input: { kind: "ready", factSetRevision, amounts: amounts() },
 		});
 
 		expect(result).toMatchObject({
@@ -127,6 +128,7 @@ describe("complete new-regime computation", () => {
 			residentAnswer,
 			input: {
 				kind: "ready",
+				factSetRevision,
 				amounts: amounts({
 					salaryAfterExemptions: money(1_275_000),
 					houseProperty: { kind: "income", amount: money(0) },
@@ -178,6 +180,7 @@ describe("complete new-regime computation", () => {
 			residentAnswer,
 			input: {
 				kind: "ready",
+				factSetRevision,
 				amounts: amounts({
 					salaryAfterExemptions: money(5_075_000),
 					houseProperty: { kind: "income", amount: money(0) },
@@ -225,6 +228,7 @@ describe("complete new-regime computation", () => {
 			residentAnswer,
 			input: {
 				kind: "ready",
+				factSetRevision,
 				amounts: amounts({
 					salaryAfterExemptions: money(5_075_010),
 					houseProperty: { kind: "income", amount: money(0) },

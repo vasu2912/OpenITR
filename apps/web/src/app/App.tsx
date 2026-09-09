@@ -50,6 +50,7 @@ import { HealthDisabilityDeductionsView } from "../views/health-disability-deduc
 import { LoanInterestDeductionsView } from "../views/loan-interest-deductions";
 import { NewRegimeComputationView } from "../views/new-regime-computation";
 import { OldRegimeComputationView } from "../views/old-regime-computation";
+import { RegimeComparisonView } from "../views/regime-comparison";
 import { OtherSourcesComputationView } from "../views/other-sources-computation";
 import { SavingsPensionDeductionsView } from "../views/savings-pension-deductions";
 import { Section112aCapitalGainView } from "../views/section112a-capital-gain";
@@ -480,6 +481,11 @@ const ScopeInteraction = ({
 					<RemainingDeductionsView
 						computation={intake?.remainingDeductionComputation}
 					/>
+					<RegimeComparisonView
+						comparison={intake?.regimeComparison}
+						primaryRegime={intake?.primaryRegime}
+						session={session}
+					/>
 					<NewRegimeComputationView
 						computation={intake?.newRegimeComputation}
 					/>
@@ -491,11 +497,11 @@ const ScopeInteraction = ({
 							aria-live="polite"
 							className="openitr-recomputation-status"
 							isInline
-							title="Recomputing estimate"
+							title="Recomputing affected results"
 							variant="info"
 						>
 							The previous estimate is hidden while the changed decision is
-							applied.
+							applied. The regime calculations and comparison are hidden too.
 						</Alert>
 					) : null}
 					<EstimateView estimate={intake?.estimateComputation} />

@@ -28,6 +28,7 @@ import type {
 	ComputationNodeDraft,
 	ComputationTraceNode,
 } from "./new-regime-liability";
+import type { FactSetRevision } from "./fact-set-revision";
 
 const ZERO = exactMoneyFromWholeRupees(0);
 
@@ -76,6 +77,7 @@ export type NewRegimeComputationInput =
 	}>
 	| Readonly<{
 		kind: "ready";
+		factSetRevision: FactSetRevision;
 		amounts: NewRegimeAcceptedAmounts;
 	}>;
 
@@ -119,6 +121,7 @@ export type NewRegimeComputation =
 	}>
 	| Readonly<{
 		kind: "computed";
+		factSetRevision: FactSetRevision;
 		rulePackRevision: string;
 		nodes: readonly ComputationTraceNode[];
 		summary: NewRegimeSummary;
@@ -233,7 +236,7 @@ export const computeNewRegime = ({
 		};
 	}
 
-	const { amounts } = input;
+	const { amounts, factSetRevision } = input;
 	const standardDeduction = minExactMoney(
 		amounts.salaryAfterExemptions,
 		exactMoneyFromWholeRupees(constants.standardDeductionWholeRupees),
@@ -507,6 +510,7 @@ export const computeNewRegime = ({
 
 	return Object.freeze({
 		kind: "computed",
+		factSetRevision,
 		rulePackRevision: rulePack.identity.revision,
 		nodes: Object.freeze(
 			finalizeComputationNodes(

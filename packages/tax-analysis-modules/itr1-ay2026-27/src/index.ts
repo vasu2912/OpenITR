@@ -116,6 +116,18 @@ export type {
 	NewRegimeDeductionComparison,
 	NewRegimeSummary,
 } from "./computations/new-regime";
+export { factSetRevisionFor } from "./computations/fact-set-revision";
+export type { FactSetRevision } from "./computations/fact-set-revision";
+export { compareRegimes } from "./computations/regime-comparison";
+export type {
+	ComparedRegime,
+	EstimatedBalance,
+	ExactAmountDifference,
+	Regime,
+	RegimeComparison,
+	RegimeComparisonRow,
+	RegimeComparisonRowId,
+} from "./computations/regime-comparison";
 export type { OldRegimeAgeCategory } from "@openitr/model";
 export type {
 	AcceptedSalaryDocumentFacts,
