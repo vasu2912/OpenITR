@@ -244,7 +244,11 @@ const ObservationCard = ({
 	const [evidenceOpen, setEvidenceOpen] = useState(false);
 	const detailsId = `evidence-${observation.observationId}`;
 	return (
-		<article className="openitr-observation" data-fact-key={observation.factKey}>
+		<article
+			className="openitr-observation"
+			data-fact-key={observation.factKey}
+			id={`observation-${observation.observationId}`}
+		>
 			<header className="openitr-observation-header">
 				<strong>{observation.factKey}</strong>
 				<span className="openitr-observation-value">

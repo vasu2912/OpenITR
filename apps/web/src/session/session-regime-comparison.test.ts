@@ -195,4 +195,37 @@ describe("regime comparison through the public session", () => {
 				: undefined;
 		}).not.toBe(revision);
 	});
+
+	test("records final review confirmation only for the current fact revision", async () => {
+		const session = await startCompletedComparison();
+		let snapshot = session.getSnapshot();
+		if (
+			snapshot.kind !== "document-intake" ||
+			snapshot.regimeComparison?.kind !== "computed"
+		) {
+			throw new Error("Expected comparison");
+		}
+		const factSetRevision = snapshot.regimeComparison.factSetRevision;
+		session.send({ kind: "select-primary-regime", regime: "old" });
+		session.send({
+			kind: "confirm-final-review",
+			executionContext: { confirmedAt: answerTime },
+		});
+		snapshot = session.getSnapshot();
+		if (snapshot.kind !== "document-intake") throw new Error("Expected intake");
+		expect(snapshot.finalReviewConfirmation).toEqual({
+			factSetRevision,
+			confirmedAt: answerTime,
+		});
+
+		const answerId = snapshot.factAnswers.find(
+			(candidate) =>
+				candidate.questionId === "bank-interest-savings-account-total",
+		)?.answerId;
+		if (answerId === undefined) throw new Error("Expected bank-interest answer");
+		session.send({ kind: "remove-missing-fact-answer", answerId });
+		snapshot = session.getSnapshot();
+		if (snapshot.kind !== "document-intake") throw new Error("Expected intake");
+		expect(snapshot.finalReviewConfirmation).toBeUndefined();
+	});
 });

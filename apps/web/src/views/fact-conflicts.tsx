@@ -235,6 +235,7 @@ export const FactConflictsView = ({
 						<li
 							className="openitr-conflict-item"
 							data-fact-key={String(conflict.factKey)}
+							id={`conflict-${conflict.conflictId}`}
 							key={conflict.conflictId}
 						>
 							<h3 className="openitr-conflict-heading">
@@ -266,6 +267,7 @@ export const FactConflictsView = ({
 							{resolutions.map((resolution) => (
 								<div
 									data-resolution-id={resolution.resolutionId}
+									id={`resolution-${resolution.resolutionId}`}
 									key={resolution.resolutionId}
 								>
 									<dt>

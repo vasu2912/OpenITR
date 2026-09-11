@@ -222,7 +222,9 @@ test.describe("missing-fact questionnaire", () => {
 		]);
 
 		await expect(
-			page.getByText("bank-interest.savings-account", { exact: true }),
+			page
+				.locator(".openitr-review-card")
+				.getByText("bank-interest.savings-account", { exact: true }),
 		).toBeVisible({ timeout: 30_000 });
 		const questionnaire = page.locator(".openitr-missing-facts-card");
 		await expect(

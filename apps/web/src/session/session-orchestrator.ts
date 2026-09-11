@@ -109,6 +109,7 @@ import type {
 } from "@openitr/question-engine";
 import type {
 	AffectedResult,
+	AcceptedCanonicalFact,
 	CanonicalFactGroup,
 	FactResolution,
 	ReconciliationResult,
@@ -158,6 +159,10 @@ export type SessionCommand =
 			resolutionId: string;
 	  }>
 	| Readonly<{ kind: "select-primary-regime"; regime: Regime }>
+	| Readonly<{
+			kind: "confirm-final-review";
+			executionContext: Readonly<{ confirmedAt: string }>;
+	  }>
 	| Readonly<{ kind: "reset" }>;
 
 export type PendingRecomputation =
@@ -171,6 +176,11 @@ type PendingRecomputationState =
 			generation: number;
 			affectedResultIds: readonly string[];
 	  }>;
+
+export type FinalReviewConfirmation = Readonly<{
+	factSetRevision: FactSetRevision;
+	confirmedAt: IsoTimestamp;
+}>;
 
 // One facility runs both worker-backed stages for a candidate document:
 // inspection (identify or reject) and, for supported revisions, observation
@@ -194,6 +204,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	documents: readonly CandidateDocument[];
 	extractions: readonly DocumentExtractionRecord[];
 	factConflicts: readonly UnresolvedFactConflict[];
+	acceptedFacts: readonly AcceptedCanonicalFact[];
 	factResolutions: readonly FactResolution[];
 	questionnaire: MissingFactQuestionnaire;
 	factAnswers: readonly AttestedAnswerFact[];
@@ -221,6 +232,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	primaryRegime:
 		| Readonly<{ regime: Regime; factSetRevision: FactSetRevision }>
 		| undefined;
+	finalReviewConfirmation: FinalReviewConfirmation | undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
@@ -285,6 +297,7 @@ type SessionContext = Readonly<{
 	primaryRegime:
 		| Readonly<{ regime: Regime; factSetRevision: FactSetRevision }>
 		| undefined;
+	finalReviewConfirmation: FinalReviewConfirmation | undefined;
 	recomputationGeneration: number;
 	pendingRecomputation: PendingRecomputationState;
 }>;
@@ -2241,6 +2254,7 @@ const deriveDecisionComputations = ({
 	| "oldRegimeComputation"
 	| "regimeComparison"
 	| "primaryRegime"
+	| "finalReviewConfirmation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -2398,6 +2412,7 @@ const deriveDecisionComputations = ({
 					estimateComputation,
 				}),
 		primaryRegime: undefined,
+		finalReviewConfirmation: undefined,
 		recomputationGeneration: generation,
 		pendingRecomputation: shouldDefer
 			? pendingRecomputationFor({ generation, affectedResultIds })
@@ -2414,6 +2429,7 @@ const settlePendingRecomputation = (
 	| "oldRegimeComputation"
 	| "regimeComparison"
 	| "primaryRegime"
+	| "finalReviewConfirmation"
 	| "pendingRecomputation"
 > => {
 	if (context.pendingRecomputation.kind !== "pending") {
@@ -2423,6 +2439,7 @@ const settlePendingRecomputation = (
 			oldRegimeComputation: context.oldRegimeComputation,
 			regimeComparison: context.regimeComparison,
 			primaryRegime: context.primaryRegime,
+			finalReviewConfirmation: context.finalReviewConfirmation,
 			pendingRecomputation: context.pendingRecomputation,
 		};
 	}
@@ -2494,6 +2511,7 @@ const settlePendingRecomputation = (
 			estimateComputation,
 		}),
 		primaryRegime: undefined,
+		finalReviewConfirmation: undefined,
 		pendingRecomputation: { kind: "idle" },
 	};
 };
@@ -2526,6 +2544,7 @@ const deriveSourceComputations = ({
 	| "oldRegimeComputation"
 	| "regimeComparison"
 	| "primaryRegime"
+	| "finalReviewConfirmation"
 	| "recomputationGeneration"
 	| "pendingRecomputation"
 > => {
@@ -2557,6 +2576,7 @@ const deriveSourceComputations = ({
 		),
 		...derived,
 		primaryRegime: undefined,
+		finalReviewConfirmation: undefined,
 		recomputationGeneration: generation,
 		pendingRecomputation: { kind: "idle" },
 	};
@@ -2643,6 +2663,10 @@ type SessionEvent =
 			regime: Regime;
 			factSetRevision: FactSetRevision;
 		}>;
+	  }>
+	| Readonly<{
+			type: "final-review-confirmed";
+			confirmation: FinalReviewConfirmation;
 	  }>;
 
 const replaceExtractionRecord = (
@@ -2734,6 +2758,7 @@ const createSessionMachine = ({
 			oldRegimeComputation: undefined,
 			regimeComparison: undefined,
 			primaryRegime: undefined,
+			finalReviewConfirmation: undefined,
 			recomputationGeneration: 0,
 			pendingRecomputation: { kind: "idle" },
 		},
@@ -2794,6 +2819,14 @@ const createSessionMachine = ({
 			},
 			complete: {
 				on: {
+					"final-review-confirmed": {
+						actions: sessionSetup.assign({
+							finalReviewConfirmation: ({ context, event }) =>
+								event.type === "final-review-confirmed"
+									? event.confirmation
+									: context.finalReviewConfirmation,
+						}),
+					},
 					"primary-regime-selected": {
 						actions: sessionSetup.assign({
 							primaryRegime: ({ context, event }) =>
@@ -3097,6 +3130,7 @@ const createSessionMachine = ({
 									analysisScopeEvaluation,
 									...derived,
 									primaryRegime: undefined,
+									finalReviewConfirmation: undefined,
 									recomputationGeneration,
 									pendingRecomputation: { kind: "idle" as const },
 								};
@@ -3113,6 +3147,7 @@ const createSessionMachine = ({
 								oldRegimeComputation: undefined,
 								regimeComparison: undefined,
 								primaryRegime: undefined,
+								finalReviewConfirmation: undefined,
 								recomputationGeneration,
 								pendingRecomputation: { kind: "idle" as const },
 							};
@@ -3212,6 +3247,7 @@ const toSessionSnapshot = (
 			documents: context.documents,
 			extractions: context.extractions,
 			factConflicts: context.reconciliation.conflicts,
+			acceptedFacts: context.reconciliation.acceptedFacts,
 			factResolutions: resolutionsOf(context.resolutionDecisions),
 			questionnaire: context.questionnaire,
 			factAnswers: answersOf(context.answerDecisions),
@@ -3240,6 +3276,7 @@ const toSessionSnapshot = (
 			oldRegimeComputation: context.oldRegimeComputation,
 			regimeComparison: context.regimeComparison,
 			primaryRegime: context.primaryRegime,
+			finalReviewConfirmation: context.finalReviewConfirmation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"
 					? { kind: "pending" }
@@ -3527,6 +3564,30 @@ export const createSessionOrchestrator = ({
 				return;
 			}
 			switch (command.kind) {
+				case "confirm-final-review": {
+					const snapshot = getSnapshot();
+					if (
+						snapshot.kind !== "document-intake" ||
+						snapshot.regimeComparison?.kind !== "computed" ||
+						snapshot.primaryRegime?.factSetRevision !==
+							snapshot.regimeComparison.factSetRevision ||
+						snapshot.questionnaire.questions.length > 0 ||
+						snapshot.factConflicts.length > 0 ||
+						snapshot.pendingRecomputation.kind === "pending"
+					) {
+						return;
+					}
+					actor.send({
+						type: "final-review-confirmed",
+						confirmation: Object.freeze({
+							factSetRevision: snapshot.regimeComparison.factSetRevision,
+							confirmedAt: parseIsoTimestamp(
+								command.executionContext.confirmedAt,
+							),
+						}),
+					});
+					return;
+				}
 				case "select-primary-regime": {
 					const snapshot = getSnapshot();
 					if (

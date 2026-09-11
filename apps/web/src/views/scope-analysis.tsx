@@ -71,6 +71,7 @@ const ScopeQuestionForm = ({
 			<li
 				className="openitr-scope-analysis-question"
 				data-scope-question={question.id}
+				id={`scope-question-${String(question.id)}`}
 			>
 				<strong>Question:</strong> {question.prompt}
 				<br />
@@ -104,6 +105,7 @@ const ScopeQuestionForm = ({
 		<li
 			className="openitr-scope-analysis-question"
 			data-scope-question={question.id}
+			id={`scope-question-${String(question.id)}`}
 		>
 			<form onSubmit={submit}>
 				<label htmlFor={inputId}>{question.prompt}</label>
@@ -295,7 +297,7 @@ export const ScopeAnalysisView = ({
 				<h3 id="scope-decisions-heading">Scope decisions</h3>
 				<ul className="openitr-scope-analysis-decision-list">
 					{evaluation.decisions.map((decision) => (
-						<li key={decision.id}>
+						<li id={`scope-decision-${decision.id}`} key={decision.id}>
 							<strong>{decisionLabel(decision.kind)}</strong>:{" "}
 							{decision.explanation}
 							<small>
