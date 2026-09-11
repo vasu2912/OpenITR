@@ -101,7 +101,7 @@ const MissingFactQuestionForm = ({
 	};
 
 	return (
-		<li className="openitr-missing-fact-item">
+		<li className="openitr-missing-fact-item" id={`question-${question.id}`}>
 			<form onSubmit={handleSubmit}>
 				<label className="openitr-missing-fact-label" htmlFor={inputId}>
 					{question.prompt}
@@ -241,7 +241,7 @@ export const MissingFactQuestionsView = ({
 						<h3>Recorded answers</h3>
 						<ul>
 							{answers.map((answer) => (
-								<li key={answer.answerId}>
+								<li id={`answer-${answer.answerId}`} key={answer.answerId}>
 									<code>{String(answer.factKey)}</code>:{" "}
 									{typeof answer.value === "boolean"
 										? answer.value

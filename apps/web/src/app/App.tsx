@@ -44,6 +44,7 @@ import { RemainingDeductionsView } from "../views/remaining-deductions";
 import { AgriculturalIncomeView } from "../views/agricultural-income";
 import { EstimateView } from "../views/estimate-view";
 import { FactConflictsView } from "../views/fact-conflicts";
+import { FinalReviewView } from "../views/final-review";
 import { MissingFactQuestionsView } from "../views/missing-fact-questions";
 import { HousePropertyComputationView } from "../views/house-property-computation";
 import { HealthDisabilityDeductionsView } from "../views/health-disability-deductions";
@@ -492,6 +493,9 @@ const ScopeInteraction = ({
 					<OldRegimeComputationView
 						computation={intake?.oldRegimeComputation}
 					/>
+					{intake === undefined ? null : (
+						<FinalReviewView intake={intake} session={session} />
+					)}
 					{intake?.pendingRecomputation.kind === "pending" ? (
 						<Alert
 							aria-live="polite"

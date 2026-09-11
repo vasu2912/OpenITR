@@ -107,8 +107,58 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await expect(newChoice).toBeChecked();
 	await expect(oldChoice).not.toBeChecked();
 
+	const finalReview = page.locator(".openitr-final-review");
+	await expect(
+		finalReview.getByRole("heading", {
+			name: "Final fact and evidence review",
+		}),
+	).toBeVisible();
+	for (const topic of [
+		"Taxpayer profile",
+		"Salary",
+		"House property",
+		"Other income",
+		"Gains",
+		"Deductions",
+		"Taxes paid",
+	]) {
+		await expect(
+			finalReview.getByRole("heading", { name: topic, exact: true }),
+		).toBeVisible();
+	}
+	await expect(
+		finalReview.locator('[data-origin="source-observation"]').first(),
+	).toContainText("PDF page 1");
+	await expect(
+		finalReview.locator('[data-origin="user-attestation"]').first(),
+	).toContainText("User attestation");
+	await expect(
+		finalReview.locator('[data-origin="derived"]').first(),
+	).toContainText("Derived fact");
+	await expect(
+		finalReview.getByText("Downstream use", { exact: true }).first(),
+	).toBeVisible();
+
+	const sourceReturn = finalReview
+		.locator('a[href^="#observation-"]')
+		.first();
+	const sourceTarget = await sourceReturn.getAttribute("href");
+	await sourceReturn.click();
+	await expect(
+		page.locator(`[id="${sourceTarget?.slice(1) ?? "missing-target"}"]`),
+	).toBeVisible();
+	await expect(newChoice).toBeChecked();
+
+	await finalReview
+		.getByRole("button", { name: "Confirm reviewed fact set" })
+		.click();
+	await expect(
+		finalReview.getByText("Confirmed revision", { exact: false }),
+	).toBeVisible();
+
 	await page.setViewportSize({ width: 390, height: 844 });
 	await expect(comparison).toBeVisible();
+	await expect(finalReview).toBeVisible();
 	expect(
 		await page.evaluate(
 			() => document.documentElement.scrollWidth <= window.innerWidth,
@@ -119,4 +169,30 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 			(element) => element.scrollWidth <= element.clientWidth,
 		),
 	).toBe(true);
+
+	const seniorReviewFact = finalReview
+		.locator('[data-origin="user-attestation"]')
+		.filter({ hasText: "taxpayer.senior-citizen" });
+	const answerTarget = await seniorReviewFact
+		.getByRole("link", { name: "Return to source or decision" })
+		.getAttribute("href");
+	await seniorReviewFact
+		.getByRole("link", { name: "Return to source or decision" })
+		.click();
+	await page
+		.locator(`[id="${answerTarget?.slice(1) ?? "missing-answer"}"]`)
+		.getByRole("button", { name: "Change answer" })
+		.click();
+	await expect(
+		finalReview.getByText("Confirmed revision", { exact: false }),
+	).toHaveCount(0);
+	await expect(
+		finalReview.getByText("Warnings and unresolved review items"),
+	).toBeVisible();
+	await expect(
+		finalReview.getByText("Affects: Old regime", { exact: false }).first(),
+	).toBeVisible();
+	await expect(
+		finalReview.locator('[data-origin="source-observation"]').first(),
+	).toBeVisible();
 });

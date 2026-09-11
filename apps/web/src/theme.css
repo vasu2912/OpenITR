@@ -386,6 +386,81 @@ body,
 	font-weight: 700;
 }
 
+.openitr-final-review-revision,
+.openitr-final-review-confirmation p {
+	color: var(--pf-t--global--text--color--subtle);
+}
+
+.openitr-final-review-open-items {
+	margin-bottom: 0;
+}
+
+.openitr-final-review-topics {
+	display: grid;
+	gap: var(--pf-t--global--spacer--lg);
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+	margin-top: var(--pf-t--global--spacer--lg);
+}
+
+.openitr-final-review-topics > section {
+	min-width: 0;
+}
+
+.openitr-final-review-topics h3 {
+	border-bottom: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	padding-bottom: var(--pf-t--global--spacer--xs);
+}
+
+.openitr-final-review-facts {
+	display: grid;
+	gap: var(--pf-t--global--spacer--md);
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.openitr-final-review-facts > li {
+	border: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	min-width: 0;
+	padding: var(--pf-t--global--spacer--md);
+}
+
+.openitr-final-review-facts header {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--pf-t--global--spacer--sm);
+	justify-content: space-between;
+}
+
+.openitr-final-review-facts code,
+.openitr-final-review-facts dd {
+	overflow-wrap: anywhere;
+}
+
+.openitr-final-review-facts dl,
+.openitr-final-review-facts dd {
+	margin: 0;
+}
+
+.openitr-final-review-facts dl {
+	display: grid;
+	gap: var(--pf-t--global--spacer--sm);
+	margin: var(--pf-t--global--spacer--sm) 0;
+}
+
+.openitr-final-review-facts dt {
+	font-weight: 700;
+}
+
+.openitr-final-review-confirmation {
+	border-top: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	margin-top: var(--pf-t--global--spacer--lg);
+	padding-top: var(--pf-t--global--spacer--lg);
+}
+
 @media (max-width: 48rem) {
 	.openitr-regime-summaries {
 		grid-template-columns: 1fr;
