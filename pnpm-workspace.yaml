@@ -3,3 +3,6 @@ packages:
   - packages/*
   - packages/tax-analysis-modules/*
   - tools/*
+allowBuilds:
+  esbuild: true
+  workerd: true

@@ -5,10 +5,12 @@
 	"scripts": {
 		"dev": "pnpm --filter @openitr/web dev",
 		"build": "pnpm --filter @openitr/web build",
+		"deploy:cloudflare": "wrangler deploy",
 		"preview": "pnpm --filter @openitr/web build && pnpm --filter @openitr/web preview",
 		"test": "vitest run",
 		"test:browser": "playwright test",
 		"typecheck": "pnpm --recursive --if-present typecheck",
+		"upload:cloudflare": "wrangler versions upload",
 		"validate": "pnpm typecheck && pnpm test && pnpm build && pnpm test:browser"
 	},
 	"devDependencies": {
@@ -18,6 +20,7 @@
 		"@vitejs/plugin-react": "6.1.0",
 		"typescript": "7.0.2",
 		"vite": "8.2.2",
-		"vitest": "4.1.11"
+		"vitest": "4.1.11",
+		"wrangler": "4.131.1"
 	}
 }

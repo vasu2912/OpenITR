@@ -4,4 +4,5 @@ coverage/
 *.tsbuildinfo
 test-results/
 playwright-report/
-
+.dev.vars*
+.env*
