@@ -98,7 +98,7 @@ export const FinalReviewView = ({
 		intake.pendingRecomputation.kind === "idle";
 
 	return (
-		<Card className="openitr-final-review" component="section">
+		<Card className="openitr-final-review" component="section" id="final-review-heading">
 			<CardTitle>
 				<Title headingLevel="h2" size="lg">
 					Final fact and evidence review

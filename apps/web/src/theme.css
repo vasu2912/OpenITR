@@ -777,6 +777,40 @@ body,
 	padding: var(--pf-t--global--spacer--lg);
 }
 
+.openitr-analysis-readiness section {
+	margin-top: var(--pf-t--global--spacer--xl);
+}
+
+.openitr-readiness-issues,
+.openitr-available-results {
+	display: grid;
+	gap: var(--pf-t--global--spacer--md);
+	margin-bottom: 0;
+}
+
+.openitr-readiness-issues li {
+	border-left: var(--pf-t--global--border--width--strong) solid
+		var(--pf-t--global--border--color--status--danger--default);
+	padding-left: var(--pf-t--global--spacer--md);
+}
+
+.openitr-available-results {
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+	list-style: none;
+	padding: 0;
+}
+
+.openitr-available-results li {
+	border: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	padding: var(--pf-t--global--spacer--md);
+}
+
+.openitr-readiness-issues p,
+.openitr-available-results p {
+	margin: var(--pf-t--global--spacer--xs) 0 0;
+}
+
 @media (max-width: 48rem) {
 	.openitr-income-chart li {
 		grid-template-columns: 1fr max-content;

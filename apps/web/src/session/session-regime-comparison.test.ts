@@ -133,6 +133,12 @@ describe("regime comparison through the public session", () => {
 		}
 		expect(snapshot.primaryRegime).toBeUndefined();
 		expect(snapshot.analysisReport).toBeUndefined();
+		expect(snapshot.analysisReadiness).toMatchObject({
+			state: "needs-review",
+			issues: expect.arrayContaining([
+				expect.objectContaining({ kind: "primary-regime-required" }),
+			]),
+		});
 		expect(snapshot.oldRegimeComputation.factSetRevision).toBe(
 			snapshot.newRegimeComputation.factSetRevision,
 		);
@@ -165,6 +171,12 @@ describe("regime comparison through the public session", () => {
 			throw new Error("Expected a completed new-regime comparison");
 		}
 		expect(snapshot.primaryRegime?.regime).toBe("new");
+		expect(snapshot.analysisReadiness).toMatchObject({
+			state: "needs-review",
+			issues: expect.arrayContaining([
+				expect.objectContaining({ kind: "final-review-required" }),
+			]),
+		});
 		if (snapshot.analysisReport?.kind !== "computed") {
 			throw new Error("Expected a complete primary-regime analysis report");
 		}
@@ -350,6 +362,10 @@ describe("regime comparison through the public session", () => {
 			factSetRevision,
 			confirmedAt: answerTime,
 		});
+		expect(snapshot.analysisReadiness).toMatchObject({
+			state: "analysis-ready",
+			issues: [],
+		});
 
 		const answerId = snapshot.factAnswers.find(
 			(candidate) =>
@@ -360,5 +376,16 @@ describe("regime comparison through the public session", () => {
 		snapshot = session.getSnapshot();
 		if (snapshot.kind !== "document-intake") throw new Error("Expected intake");
 		expect(snapshot.finalReviewConfirmation).toBeUndefined();
+		expect(snapshot.analysisReadiness.state).toBe("blocked");
+		expect(snapshot.analysisReadiness.issues).toContainEqual(
+			expect.objectContaining({
+				kind: "missing-fact",
+				factKeys: ["bank-interest.savings-account"],
+				affectedResults: ["Estimated refund or amount payable"],
+			}),
+		);
+		expect(snapshot.analysisReadiness.availableResults).toContainEqual(
+			expect.objectContaining({ id: "salary-analysis" }),
+		);
 	});
 });

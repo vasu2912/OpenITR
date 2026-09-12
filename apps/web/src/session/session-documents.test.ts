@@ -406,6 +406,19 @@ describe("cross-source conflict resolution", () => {
 				label: "Estimated refund or amount payable",
 			},
 		]);
+		expect(snapshot.analysisReadiness).toMatchObject({
+			state: "blocked",
+			issues: expect.arrayContaining([
+				expect.objectContaining({
+					kind: "source-conflict",
+					factKeys: ["bank-interest.savings-account"],
+					affectedResults: ["Estimated refund or amount payable"],
+				}),
+			]),
+			availableResults: expect.arrayContaining([
+				expect.objectContaining({ id: "salary-analysis" }),
+			]),
+		});
 
 		// Only the disputed fact blocks the estimate; the salary scenario
 		// needs no bank-interest facts and still computes.

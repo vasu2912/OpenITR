@@ -297,6 +297,16 @@ describe("complete scope through the public session workflow", () => {
 			]),
 		});
 		expect(session.getSnapshot().kind).toBe("scope-check-complete");
+		expect(session.getSnapshot().analysisReadiness).toMatchObject({
+			state: "blocked",
+			issues: expect.arrayContaining([
+				expect.objectContaining({
+					kind: "scope-blocker",
+					factKeys: ["scope.section112a-ltcg"],
+					affectedResults: ["ITR-1 analysis scope"],
+				}),
+			]),
+		});
 	});
 
 	test("analyzes one self-occupied property with a cited old/new-regime trace", async () => {

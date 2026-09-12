@@ -224,6 +224,20 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 		page.locator(`[id="${sourceTarget?.slice(1) ?? "missing-target"}"]`),
 	).toBeVisible();
 	await expect(newChoice).toBeChecked();
+	const readiness = page.locator(".openitr-analysis-readiness");
+	await expect(
+		readiness.getByRole("heading", { name: /Needs review/ }),
+	).toBeVisible();
+	await expect(
+		readiness.getByText("final evidence review", { exact: false }),
+	).toBeVisible();
+	await expect(
+		readiness.getByRole("heading", { name: "Available partial analysis" }),
+	).toBeVisible();
+	await expect(readiness).toContainText(/does not prepare, validate, or file a tax return/);
+	await expect(
+		readiness.getByRole("button", { name: /upload|submit|file|download/i }),
+	).toHaveCount(0);
 
 	await finalReview
 		.getByRole("button", { name: "Confirm reviewed fact set" })
@@ -231,11 +245,33 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await expect(
 		finalReview.getByText("Confirmed revision", { exact: false }),
 	).toBeVisible();
+	await expect(
+		readiness.getByRole("heading", { name: /Analysis-ready/ }),
+	).toBeVisible();
+	await expect(
+		page.locator(".openitr-estimate-card").getByRole("heading", {
+			name: /Educational analysis only/,
+		}),
+	).toBeVisible();
+	await expect(
+		page.getByRole("button", {
+			name: /download.*(?:ITR|JSON)|upload.*portal|submit.*return|file.*return/i,
+		}),
+	).toHaveCount(0);
+	await expect(
+		page.getByRole("link", {
+			name: /download.*(?:ITR|JSON)|upload.*portal|submit.*return|file.*return/i,
+		}),
+	).toHaveCount(0);
+	await expect(
+		page.getByText(/Filing successful|Return submitted successfully|Portal upload complete/i),
+	).toHaveCount(0);
 
 	await page.setViewportSize({ width: 390, height: 844 });
 	await expect(comparison).toBeVisible();
 	await expect(analysis).toBeVisible();
 	await expect(finalReview).toBeVisible();
+	await expect(readiness).toBeVisible();
 	expect(
 		await page.evaluate(
 			() => document.documentElement.scrollWidth <= window.innerWidth,

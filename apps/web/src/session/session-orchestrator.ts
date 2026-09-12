@@ -100,6 +100,12 @@ import {
 } from "@openitr/fact-reconciliation";
 import { buildAnalysisReport } from "./analysis-report";
 import type { AnalysisReport } from "./analysis-report";
+import { buildAnalysisReadiness } from "./analysis-readiness";
+import type {
+	AnalysisReadiness,
+	AnalysisReadinessIssue,
+	ReadinessResultInput,
+} from "./analysis-readiness";
 import {
 	deriveMissingFactQuestions,
 	evaluateFactAnswerAttempt,
@@ -235,12 +241,13 @@ export type DocumentIntakeSnapshot = Readonly<{
 		| Readonly<{ regime: Regime; factSetRevision: FactSetRevision }>
 		| undefined;
 	analysisReport: AnalysisReport | undefined;
+	analysisReadiness: AnalysisReadiness;
 	finalReviewConfirmation: FinalReviewConfirmation | undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
 
 export type SessionOrchestratorSnapshot =
-	| ScopeCheckSessionSnapshot
+	| (ScopeCheckSessionSnapshot & Readonly<{ analysisReadiness: AnalysisReadiness }>)
 	| DocumentIntakeSnapshot;
 
 export type SessionOrchestrator = Readonly<{
@@ -3219,6 +3226,307 @@ type SessionMachine = ReturnType<typeof createSessionMachine>;
 type SessionActor = ReturnType<typeof createActor<SessionMachine>>;
 type SessionActorSnapshot = ReturnType<SessionActor["getSnapshot"]>;
 
+const readinessIssue = ({
+	id,
+	kind,
+	severity,
+	factKeys,
+	affectedResults,
+	explanation,
+	recoveryAction,
+	targetId,
+}: AnalysisReadinessIssue): AnalysisReadinessIssue =>
+	Object.freeze({
+		id,
+		kind,
+		severity,
+		factKeys: Object.freeze([...factKeys]),
+		affectedResults: Object.freeze([...affectedResults]),
+		explanation,
+		recoveryAction,
+		targetId,
+	});
+
+const scopeReadinessIssuesOf = (
+	evaluation: AnalysisScopeEvaluation | undefined,
+): readonly AnalysisReadinessIssue[] =>
+	Object.freeze(
+		(evaluation?.decisions ?? [])
+			.filter((decision) => decision.kind !== "supported")
+			.map((decision) =>
+				readinessIssue({
+					id: `scope-${decision.id}`,
+					kind: "scope-blocker",
+					severity: "blocking",
+					factKeys: [String(decision.factKey)],
+					affectedResults: ["ITR-1 analysis scope"],
+					explanation: `${decision.title}: ${decision.explanation}`,
+					recoveryAction:
+						decision.recoveryAction ??
+						"Review the unsupported or unresolved scope condition.",
+					targetId: `scope-decision-${decision.id}`,
+				}),
+			),
+	);
+
+const eligibilityReadinessIssuesOf = (
+	completion: CompletedScopeCheck,
+): readonly AnalysisReadinessIssue[] => {
+	if (completion.result.kind === "supported") return [];
+	return Object.freeze([
+		readinessIssue({
+			id: `scope-${completion.result.issue.code}`,
+			kind: "scope-blocker",
+			severity: "blocking",
+			factKeys: completion.result.issue.affectedFacts.map(String),
+			affectedResults: ["ITR-1 analysis scope"],
+			explanation: `${completion.result.title}: ${completion.result.explanation}`,
+			recoveryAction: completion.result.issue.recoveryAction,
+			targetId: undefined,
+		}),
+	]);
+};
+
+const resultInputsOf = (
+	context: SessionContext,
+	analysisReport: AnalysisReport | undefined,
+): readonly ReadinessResultInput[] =>
+	Object.freeze([
+		{
+			id: "salary-analysis",
+			label: "Salary analysis",
+			limitation: "Uses only accepted salary observations and permitted answers.",
+			computation: context.salaryComputation,
+		},
+		{
+			id: "house-property-analysis",
+			label: "House-property analysis",
+			limitation: "Covers only the supported FY 2025-26 house-property facts.",
+			computation: context.housePropertyComputation,
+		},
+		{
+			id: "other-sources-analysis",
+			label: "Other-source income analysis",
+			limitation: "Covers only supported other-source categories with accepted facts.",
+			computation: context.otherSourcesComputation,
+		},
+		{
+			id: "section-112a-analysis",
+			label: "Section 112A analysis",
+			limitation: "Covers only section 112A gains inside the supported ITR-1 boundary.",
+			computation: context.section112aCapitalGainComputation,
+		},
+		{
+			id: "agricultural-income-analysis",
+			label: "Agricultural-income analysis",
+			limitation: "Covers only agricultural income inside the supported ITR-1 boundary.",
+			computation: context.agriculturalIncomeComputation,
+		},
+		{
+			id: "savings-pension-deductions",
+			label: "Savings and pension deductions",
+			limitation: "Explains only the supported deduction categories and supplied proof facts.",
+			computation: context.savingsPensionDeductionComputation,
+		},
+		{
+			id: "health-disability-deductions",
+			label: "Health and disability deductions",
+			limitation: "Explains only the supported deduction categories and supplied proof facts.",
+			computation: context.healthDisabilityDeductionComputation,
+		},
+		{
+			id: "loan-interest-deductions",
+			label: "Loan-interest deductions",
+			limitation: "Explains only the supported deduction categories and supplied proof facts.",
+			computation: context.loanInterestDeductionComputation,
+		},
+		{
+			id: "donation-deductions",
+			label: "Donation deductions",
+			limitation: "Explains only the supported deduction categories and supplied proof facts.",
+			computation: context.donationDeductionComputation,
+		},
+		{
+			id: "remaining-deductions",
+			label: "Remaining supported deductions",
+			limitation: "Explains only the deduction sections implemented by the pinned rule pack.",
+			computation: context.remainingDeductionComputation,
+		},
+		{
+			id: "estimated-balance",
+			label: "Estimated refund or amount payable",
+			limitation: "Uses only accepted FY 2025-26 facts and is not an official result.",
+			computation: context.estimateComputation,
+		},
+		{
+			id: "old-regime",
+			label: "Old-regime computation",
+			limitation: "Uses the pinned AY 2026-27 rule pack and accepted fact revision.",
+			computation: context.oldRegimeComputation,
+		},
+		{
+			id: "new-regime",
+			label: "New-regime computation",
+			limitation: "Uses the pinned AY 2026-27 rule pack and accepted fact revision.",
+			computation: context.newRegimeComputation,
+		},
+		{
+			id: "regime-comparison",
+			label: "Regime comparison",
+			limitation: "Compares both regimes from the same accepted fact revision.",
+			computation: context.regimeComparison,
+		},
+		{
+			id: "complete-analysis",
+			label: "Complete analysis",
+			limitation: "Explains the selected scenario only and does not prepare a tax return.",
+			computation: analysisReport,
+		},
+	]);
+
+const documentReadinessIssuesOf = (
+	extractions: readonly DocumentExtractionRecord[],
+	hasCompleteAnalysis: boolean,
+): readonly AnalysisReadinessIssue[] =>
+	Object.freeze(
+		extractions.flatMap((record): readonly AnalysisReadinessIssue[] => {
+			if (record.status === "extracting") {
+				return [
+					readinessIssue({
+						id: `document-extracting-${record.documentId}`,
+						kind: "document-issue",
+						severity: "review",
+						factKeys: [],
+						affectedResults: ["Source evidence"],
+						explanation: `Document ${record.documentId} is still being inspected or extracted.`,
+						recoveryAction: "Wait for document processing to finish or cancel it.",
+						targetId: undefined,
+					}),
+				];
+			}
+			if (record.status === "failed") {
+				return [
+					readinessIssue({
+						id: `document-${record.issue.code}-${record.documentId}`,
+						kind: "document-issue",
+						severity: hasCompleteAnalysis ? "review" : "blocking",
+						factKeys: [],
+						affectedResults: ["Source evidence"],
+						explanation: `${record.issue.code}: document ${record.documentId} could not supply evidence.`,
+						recoveryAction: record.issue.recoveryAction,
+						targetId: undefined,
+					}),
+				];
+			}
+			return record.issues.map((issue) =>
+				readinessIssue({
+					id: `document-${record.documentId}-${issue.code}`,
+					kind: "document-issue",
+					severity: "review",
+					factKeys: issue.affectedFactKeys.map(String),
+					affectedResults: ["Results that use the affected facts"],
+					explanation: `${issue.code}: the selected document needs review.`,
+					recoveryAction: issue.recoveryAction,
+					targetId: `document-${record.documentId}`,
+				}),
+			);
+		}),
+	);
+
+const analysisReadinessFor = (
+	context: SessionContext,
+	analysisReport: AnalysisReport | undefined,
+): AnalysisReadiness => {
+	const answers = answersOf(context.answerDecisions);
+	const resolutions = resolutionsOf(context.resolutionDecisions);
+	const evaluation = context.analysisScopeEvaluation;
+	const reviewFacts: AnalysisReadinessIssue[] = [];
+	if (answers.length > 0) {
+		reviewFacts.push(
+			readinessIssue({
+				id: "attested-facts",
+				kind: "attested-fact",
+				severity: "review",
+				factKeys: answers.map((answer) => String(answer.factKey)).sort(),
+				affectedResults: ["Current-year analysis"],
+				explanation: `${answers.length} accepted fact${answers.length === 1 ? " comes" : "s come"} from permitted user attestations.`,
+				recoveryAction:
+					"Review the recorded answers and their downstream use before confirming the analysis.",
+				targetId: `answer-${answers[0]?.answerId ?? "missing"}`,
+			}),
+		);
+	}
+	if (resolutions.length > 0) {
+		reviewFacts.push(
+			readinessIssue({
+				id: "resolved-conflicts",
+				kind: "resolved-conflict",
+				severity: "review",
+				factKeys: resolutions
+					.map((resolution) => String(resolution.factKey))
+					.sort(),
+				affectedResults: ["Current-year analysis"],
+				explanation: `${resolutions.length} source conflict${resolutions.length === 1 ? " has" : "s have"} a recorded resolution.`,
+				recoveryAction:
+					"Review the selected value against every preserved source observation.",
+				targetId: `resolution-${resolutions[0]?.resolutionId ?? "missing"}`,
+			}),
+		);
+	}
+	reviewFacts.push(
+		...(evaluation?.calculationLimitations ?? []).map((limitation) =>
+			readinessIssue({
+				id: `limitation-${String(limitation.factKey)}`,
+				kind: "calculation-limitation",
+				severity: "review",
+				factKeys: [String(limitation.factKey)],
+				affectedResults: ["Tax calculations"],
+				explanation: limitation.explanation,
+				recoveryAction: "Keep this calculation limit in view when interpreting the affected result.",
+				targetId: "scope-calculation-limits-heading",
+			}),
+		),
+	);
+
+	return buildAnalysisReadiness({
+		analysisFactSetRevision: analysisReport?.factSetRevision,
+		primaryRegimeFactSetRevision: context.primaryRegime?.factSetRevision,
+		confirmedFactSetRevision: context.finalReviewConfirmation?.factSetRevision,
+		pendingRecomputation: context.pendingRecomputation.kind === "pending",
+		results: resultInputsOf(context, analysisReport),
+		scopeIssues: scopeReadinessIssuesOf(evaluation),
+		documentIssues: documentReadinessIssuesOf(
+			context.extractions,
+			analysisReport !== undefined,
+		),
+		missingFacts: context.questionnaire.questions.map((question) =>
+			readinessIssue({
+				id: `missing-${question.id}`,
+				kind: "missing-fact",
+				severity: "blocking",
+				factKeys: [String(question.suppliesFact)],
+				affectedResults: [question.affectedResult.label],
+				explanation: `The required fact ${question.suppliesFact} is unresolved.`,
+				recoveryAction: `Answer: ${question.prompt}`,
+				targetId: `question-${question.id}`,
+			}),
+		),
+		conflicts: context.reconciliation.conflicts.map((conflict) =>
+			readinessIssue({
+				id: `conflict-${conflict.conflictId}`,
+				kind: "source-conflict",
+				severity: "blocking",
+				factKeys: [String(conflict.factKey)],
+				affectedResults: conflict.affectedResults.map((result) => result.label),
+				explanation: `Source observations disagree for ${conflict.factKey}.`,
+				recoveryAction: "Review every competing observation and record a reasoned resolution.",
+				targetId: `conflict-${conflict.conflictId}`,
+			}),
+		),
+		reviewFacts,
+	});
+};
+
 const toSessionSnapshot = (
 	context: SessionContext,
 ): SessionOrchestratorSnapshot => {
@@ -3229,6 +3537,29 @@ const toSessionSnapshot = (
 				workflow: "eligibility",
 				rulePackId: context.rulePack.identity.id,
 				question: context.rulePack.question,
+				analysisReadiness: buildAnalysisReadiness({
+					analysisFactSetRevision: undefined,
+					primaryRegimeFactSetRevision: undefined,
+					confirmedFactSetRevision: undefined,
+					pendingRecomputation: false,
+					results: [],
+					scopeIssues: [],
+					documentIssues: [],
+					missingFacts: [
+						readinessIssue({
+							id: `scope-question-${context.rulePack.question.id}`,
+							kind: "missing-fact",
+							severity: "blocking",
+							factKeys: [String(context.rulePack.question.suppliesFact)],
+							affectedResults: ["ITR-1 analysis scope"],
+							explanation: "The initial analysis-scope answer is unresolved.",
+							recoveryAction: context.rulePack.question.prompt,
+							targetId: "scope-question",
+						}),
+					],
+					conflicts: [],
+					reviewFacts: [],
+				}),
 			};
 		case "complete":
 			if (!context.documentsStageEntered) {
@@ -3240,8 +3571,43 @@ const toSessionSnapshot = (
 					...(context.analysisScopeEvaluation === undefined
 						? {}
 						: { analysisScope: context.analysisScopeEvaluation }),
+					analysisReadiness: buildAnalysisReadiness({
+						analysisFactSetRevision: undefined,
+						primaryRegimeFactSetRevision: undefined,
+						confirmedFactSetRevision: undefined,
+						pendingRecomputation: false,
+						results: [],
+						scopeIssues: [
+							...eligibilityReadinessIssuesOf(context.scopeCheck.completion),
+							...scopeReadinessIssuesOf(context.analysisScopeEvaluation),
+						],
+						documentIssues: [],
+						missingFacts: [],
+						conflicts: [],
+						reviewFacts: [
+							readinessIssue({
+								id: "analysis-not-started",
+								kind: "analysis-not-started",
+								severity: "review",
+								factKeys: [],
+								affectedResults: ["Current-year analysis"],
+								explanation: "Source-document and fact analysis has not started.",
+								recoveryAction: "Complete the supported scope check and continue to source documents.",
+								targetId: undefined,
+							}),
+						],
+					}),
 				};
 			}
+			const analysisReport = buildAnalysisReport({
+				acceptedFacts: context.reconciliation.acceptedFacts,
+				factAnswers: answersOf(context.answerDecisions),
+				estimateComputation: context.estimateComputation,
+				oldRegimeComputation: context.oldRegimeComputation,
+				newRegimeComputation: context.newRegimeComputation,
+				regimeComparison: context.regimeComparison,
+				primaryRegime: context.primaryRegime,
+			});
 		return {
 			kind: "document-intake",
 			workflow: "documents",
@@ -3279,15 +3645,8 @@ const toSessionSnapshot = (
 			oldRegimeComputation: context.oldRegimeComputation,
 			regimeComparison: context.regimeComparison,
 			primaryRegime: context.primaryRegime,
-			analysisReport: buildAnalysisReport({
-				acceptedFacts: context.reconciliation.acceptedFacts,
-				factAnswers: answersOf(context.answerDecisions),
-				estimateComputation: context.estimateComputation,
-				oldRegimeComputation: context.oldRegimeComputation,
-				newRegimeComputation: context.newRegimeComputation,
-				regimeComparison: context.regimeComparison,
-				primaryRegime: context.primaryRegime,
-			}),
+			analysisReport,
+			analysisReadiness: analysisReadinessFor(context, analysisReport),
 			finalReviewConfirmation: context.finalReviewConfirmation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"
