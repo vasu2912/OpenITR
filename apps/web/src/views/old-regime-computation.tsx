@@ -192,7 +192,10 @@ export const OldRegimeComputationView = ({
 							</p>
 							<SummaryRows rows={liabilityRows(computation)} />
 						</section>
-						<ComputationTraceList nodes={computation.nodes} />
+						<ComputationTraceList
+							nodes={computation.nodes}
+							targetPrefix="old"
+						/>
 					</>
 				) : (
 					<>

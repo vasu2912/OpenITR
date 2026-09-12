@@ -98,6 +98,8 @@ import {
 	evaluateResolutionAttempt,
 	reconcileCanonicalFacts,
 } from "@openitr/fact-reconciliation";
+import { buildAnalysisReport } from "./analysis-report";
+import type { AnalysisReport } from "./analysis-report";
 import {
 	deriveMissingFactQuestions,
 	evaluateFactAnswerAttempt,
@@ -232,6 +234,7 @@ export type DocumentIntakeSnapshot = Readonly<{
 	primaryRegime:
 		| Readonly<{ regime: Regime; factSetRevision: FactSetRevision }>
 		| undefined;
+	analysisReport: AnalysisReport | undefined;
 	finalReviewConfirmation: FinalReviewConfirmation | undefined;
 	pendingRecomputation: PendingRecomputation;
 }>;
@@ -3276,6 +3279,15 @@ const toSessionSnapshot = (
 			oldRegimeComputation: context.oldRegimeComputation,
 			regimeComparison: context.regimeComparison,
 			primaryRegime: context.primaryRegime,
+			analysisReport: buildAnalysisReport({
+				acceptedFacts: context.reconciliation.acceptedFacts,
+				factAnswers: answersOf(context.answerDecisions),
+				estimateComputation: context.estimateComputation,
+				oldRegimeComputation: context.oldRegimeComputation,
+				newRegimeComputation: context.newRegimeComputation,
+				regimeComparison: context.regimeComparison,
+				primaryRegime: context.primaryRegime,
+			}),
 			finalReviewConfirmation: context.finalReviewConfirmation,
 			pendingRecomputation:
 				context.pendingRecomputation.kind === "pending"

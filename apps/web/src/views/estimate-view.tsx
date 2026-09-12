@@ -229,7 +229,10 @@ export const EstimateView = ({
 						</li>;
 					})}
 				</ul>
-				<ComputationTraceList nodes={estimate.nodes} />
+				<ComputationTraceList
+					nodes={estimate.nodes}
+					targetPrefix="estimate"
+				/>
 			</CardBody>
 		</Card>
 	);

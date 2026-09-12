@@ -132,6 +132,7 @@ describe("regime comparison through the public session", () => {
 			throw new Error("Expected a completed comparison");
 		}
 		expect(snapshot.primaryRegime).toBeUndefined();
+		expect(snapshot.analysisReport).toBeUndefined();
 		expect(snapshot.oldRegimeComputation.factSetRevision).toBe(
 			snapshot.newRegimeComputation.factSetRevision,
 		);
@@ -142,7 +143,13 @@ describe("regime comparison through the public session", () => {
 
 		session.send({ kind: "select-primary-regime", regime: "old" });
 		snapshot = session.getSnapshot();
-		if (snapshot.kind !== "document-intake") throw new Error("Expected intake");
+		if (
+			snapshot.kind !== "document-intake" ||
+			snapshot.newRegimeComputation?.kind !== "computed" ||
+			snapshot.regimeComparison?.kind !== "computed"
+		) {
+			throw new Error("Expected a completed new-regime comparison");
+		}
 		expect(snapshot.primaryRegime).toEqual({
 			regime: "old",
 			factSetRevision,
@@ -150,8 +157,67 @@ describe("regime comparison through the public session", () => {
 
 		session.send({ kind: "select-primary-regime", regime: "new" });
 		snapshot = session.getSnapshot();
-		if (snapshot.kind !== "document-intake") throw new Error("Expected intake");
+		if (
+			snapshot.kind !== "document-intake" ||
+			snapshot.newRegimeComputation?.kind !== "computed" ||
+			snapshot.regimeComparison?.kind !== "computed"
+		) {
+			throw new Error("Expected a completed new-regime comparison");
+		}
 		expect(snapshot.primaryRegime?.regime).toBe("new");
+		if (snapshot.analysisReport?.kind !== "computed") {
+			throw new Error("Expected a complete primary-regime analysis report");
+		}
+		expect(snapshot.analysisReport.regime).toBe("new");
+		expect(snapshot.analysisReport.factSetRevision).toBe(factSetRevision);
+		expect(snapshot.analysisReport.currentYear.taxableIncome.amount).toBe(
+			snapshot.newRegimeComputation.summary.totalIncome,
+		);
+		expect(snapshot.analysisReport.currentYear.totalTaxLiability.amount).toBe(
+			snapshot.newRegimeComputation.summary.finalTaxLiability,
+		);
+		expect(snapshot.analysisReport.currentYear.taxesPaid.amount).toBe(
+			snapshot.regimeComparison.taxesPaid,
+		);
+		expect(
+			snapshot.analysisReport.currentYear.incomeComposition.every(
+				(amount) => amount.traceTargetIds.length > 0,
+			),
+		).toBe(true);
+		expect(
+			[
+				...snapshot.analysisReport.currentYear.deductions,
+				snapshot.analysisReport.currentYear.taxableIncome,
+				snapshot.analysisReport.currentYear.totalTaxLiability,
+				snapshot.analysisReport.currentYear.taxesPaid,
+				snapshot.analysisReport.currentYear.estimatedBalance,
+			].every((amount) => amount.traceTargetIds.length > 0),
+		).toBe(true);
+		const salary = snapshot.analysisReport.currentYear.incomeComposition.find(
+			(amount) => amount.id === "salary",
+		);
+		expect(salary?.evidenceTargetIds.length).toBeGreaterThan(0);
+		expect(
+			snapshot.analysisReport.futurePlanning.every(
+				(idea) =>
+					idea.horizon === "future-financial-year" &&
+					idea.currentYearEffect === "none",
+		),
+		).toBe(true);
+
+		session.send({ kind: "select-primary-regime", regime: "old" });
+		snapshot = session.getSnapshot();
+		if (
+			snapshot.kind !== "document-intake" ||
+			snapshot.analysisReport?.kind !== "computed" ||
+			snapshot.oldRegimeComputation?.kind !== "computed"
+		) {
+			throw new Error("Expected a complete old-regime analysis report");
+		}
+		expect(snapshot.analysisReport.regime).toBe("old");
+		expect(snapshot.analysisReport.currentYear.taxableIncome.amount).toBe(
+			snapshot.oldRegimeComputation.summary.totalIncome,
+		);
 	});
 
 	test("hides both calculations, comparison, and choice before recomputing changed facts", async () => {
@@ -179,6 +245,7 @@ describe("regime comparison through the public session", () => {
 		expect(snapshot.newRegimeComputation).toBeUndefined();
 		expect(snapshot.regimeComparison).toBeUndefined();
 		expect(snapshot.primaryRegime).toBeUndefined();
+		expect(snapshot.analysisReport).toBeUndefined();
 
 		await expect.poll(() => {
 			const current = session.getSnapshot();
@@ -194,6 +261,72 @@ describe("regime comparison through the public session", () => {
 				? current.regimeComparison.factSetRevision
 				: undefined;
 		}).not.toBe(revision);
+	});
+
+	test("explains excluded deductions and keeps their planning conditional", async () => {
+		const session = await startCompletedComparison();
+		let snapshot = session.getSnapshot();
+		if (snapshot.kind !== "document-intake") throw new Error("Expected intake");
+		const presenceAnswer = snapshot.factAnswers.find(
+			(candidate) =>
+				candidate.questionId === "savings-pension-deductions-present",
+		);
+		if (presenceAnswer === undefined) {
+			throw new Error("Expected savings and pension presence answer");
+		}
+		session.send({
+			kind: "remove-missing-fact-answer",
+			answerId: presenceAnswer.answerId,
+		});
+		answer(session, "savings-pension-deductions-present", "yes");
+		for (const [questionId, value] of [
+			["deduction-80c-amount", "100000"],
+			["deduction-80ccc-amount", "60000"],
+			["deduction-80ccd1-amount", "50000"],
+			["deduction-80ccd1-employed", "yes"],
+			["deduction-80ccd1-salary-base", "300000"],
+			["deduction-80ccd1b-amount", "60000"],
+			["deduction-80ccd2-government-amount", "150000"],
+			["deduction-80ccd2-government-salary-base", "1000000"],
+			["deduction-80ccd2-other-amount", "150000"],
+			["deduction-80ccd2-other-salary-base", "1000000"],
+			["savings-pension-proof-available", "yes"],
+		] as const) {
+			answer(session, questionId, value);
+		}
+		await expect.poll(() => {
+			const current = session.getSnapshot();
+			return current.kind === "document-intake"
+				? current.regimeComparison?.kind
+				: undefined;
+		}).toBe("computed");
+		session.send({ kind: "select-primary-regime", regime: "new" });
+		snapshot = session.getSnapshot();
+		if (
+			snapshot.kind !== "document-intake" ||
+			snapshot.analysisReport?.kind !== "computed"
+		) {
+			throw new Error("Expected a complete analysis report");
+		}
+		const excluded = snapshot.analysisReport.currentYear.adjustments.find(
+			(item) => item.id === "new-regime-savings-and-pension-excluded",
+		);
+		expect(excluded).toMatchObject({
+			affectedAmount: "160000",
+			rulePackRevision: "2026-09-15",
+			traceTargetId:
+				"trace-new-derived.new-regime-savings-pension-deductions",
+		});
+		expect(excluded?.evidenceTargetIds.length).toBeGreaterThan(0);
+		expect(
+			snapshot.analysisReport.futurePlanning.find(
+				(idea) => idea.id === "review-limited-items",
+			),
+		).toMatchObject({
+			horizon: "future-financial-year",
+			currentYearEffect: "none",
+			ruleReference: { rulePackRevision: "2026-09-15" },
+		});
 	});
 
 	test("records final review confirmation only for the current fact revision", async () => {

@@ -30,8 +30,9 @@ const inputLabel = (input: ComputationNodeInput): string => {
 
 export const ComputationNodeCard = ({
 	node,
-}: Readonly<{ node: ComputationTraceNode }>) => (
-	<details className="openitr-trace-node">
+	targetId,
+}: Readonly<{ node: ComputationTraceNode; targetId?: string }>) => (
+	<details className="openitr-trace-node" id={targetId}>
 		<summary>
 			<strong>{node.nodeId}</strong>
 			<span className="openitr-trace-node-value">
@@ -79,16 +80,37 @@ export const ComputationNodeCard = ({
 
 export const ComputationTraceList = ({
 	nodes,
-}: Readonly<{ nodes: readonly ComputationTraceNode[] }>) => (
-	<>
-		<p className="openitr-trace-heading">
-			Computation trace — every node cites its rule, revision, unrounded
-			result, and rounded result
-		</p>
-		<div className="openitr-trace-list">
-			{nodes.map((node) => (
-				<ComputationNodeCard key={node.nodeId} node={node} />
-			))}
-		</div>
-	</>
-);
+	targetPrefix,
+}: Readonly<{
+	nodes: readonly ComputationTraceNode[];
+	targetPrefix?: string;
+}>) => {
+	const occurrences = new Map<string, number>();
+	return (
+		<>
+			<p className="openitr-trace-heading">
+				Computation trace — every node cites its rule, revision, unrounded
+				result, and rounded result
+			</p>
+			<div className="openitr-trace-list">
+				{nodes.map((node) => {
+					const nodeId = String(node.nodeId);
+					const occurrence = (occurrences.get(nodeId) ?? 0) + 1;
+					occurrences.set(nodeId, occurrence);
+					const occurrenceSuffix = occurrence === 1 ? "" : `-${occurrence}`;
+					return (
+						<ComputationNodeCard
+							key={`${nodeId}${occurrenceSuffix}`}
+							node={node}
+							{...(targetPrefix === undefined
+								? {}
+								: {
+										targetId: `trace-${targetPrefix}-${nodeId}${occurrenceSuffix}`,
+									})}
+						/>
+					);
+				})}
+			</div>
+		</>
+	);
+};

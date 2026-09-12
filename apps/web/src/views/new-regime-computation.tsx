@@ -200,7 +200,10 @@ export const NewRegimeComputationView = ({
 							</h3>
 							<SummaryRows rows={liabilityRows(computation)} />
 						</section>
-						<ComputationTraceList nodes={computation.nodes} />
+						<ComputationTraceList
+							nodes={computation.nodes}
+							targetPrefix="new"
+						/>
 					</>
 				) : (
 					<>
