@@ -36,6 +36,10 @@ const recordAnswerIfPresent = async ({
 test("compares regimes neutrally and records a changeable primary scenario", async ({
 	page,
 }) => {
+	const consoleErrors: string[] = [];
+	page.on("console", (message) => {
+		if (message.type() === "error") consoleErrors.push(message.text());
+	});
 	await openDocumentIntake(page, { "scope-total-income": "1100000" });
 	const bankInterestScope = page.locator(
 		'[data-scope-question="scope-bank-interest"]',
@@ -107,6 +111,78 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await expect(newChoice).toBeChecked();
 	await expect(oldChoice).not.toBeChecked();
 
+	const analysis = page.locator(".openitr-complete-analytics");
+	await expect(
+		analysis.getByRole("heading", { name: "Complete analysis" }),
+	).toBeVisible();
+	await expect(analysis.getByText("New regime selected")).toBeVisible();
+	await expect(
+		analysis.locator('[data-analysis-amount="taxable-income"]'),
+	).toContainText("₹ 9,75,000");
+	await expect(
+		analysis.locator('[data-analysis-amount="taxes-paid"]'),
+	).toContainText("₹ 61,250");
+	await expect(
+		analysis.getByRole("heading", { name: "Future-year planning ideas" }),
+	).toBeVisible();
+	await expect(
+		analysis.getByText("They do not alter the FY 2025-26 facts", {
+			exact: false,
+		}),
+	).toBeVisible();
+	await expect(analysis).not.toContainText(/guaranteed savings|buy now|sign up/i);
+	await expect(
+		analysis
+			.locator('[data-analysis-amount="taxes-paid"]')
+			.getByRole("link", { name: /^Evidence / }),
+	).toHaveCount(2);
+	for (const deductionId of [
+		"savings-and-pension",
+		"health-and-disability",
+		"loan-interest",
+		"donations",
+		"remaining",
+	]) {
+		expect(
+			await analysis
+				.locator(`[data-analysis-amount="${deductionId}"]`)
+				.getByRole("link", { name: /^Evidence / })
+				.count(),
+		).toBeLessThan(8);
+	}
+
+	const salaryAmount = analysis.locator('[data-analysis-amount="salary"]');
+	const salaryTraceTarget = await salaryAmount
+		.getByRole("link", { name: "Computation trace" })
+		.getAttribute("href");
+	await salaryAmount
+		.getByRole("link", { name: "Computation trace" })
+		.click();
+	await expect(
+		page.locator(`[id="${salaryTraceTarget?.slice(1) ?? "missing-trace"}"]`),
+	).toBeVisible();
+	const salaryEvidenceTarget = await salaryAmount
+		.getByRole("link", { name: "Evidence 1" })
+		.getAttribute("href");
+	await salaryAmount
+		.getByRole("link", { name: "Evidence 1" })
+		.click();
+	await expect(
+		page.locator(
+			`[id="${salaryEvidenceTarget?.slice(1) ?? "missing-evidence"}"]`,
+		),
+	).toBeVisible();
+	const duplicateIds = await page.locator("[id]").evaluateAll((elements) => {
+		const counts = new Map<string, number>();
+		for (const element of elements) {
+			counts.set(element.id, (counts.get(element.id) ?? 0) + 1);
+		}
+		return [...counts.entries()]
+			.filter(([id, count]) => id.length > 0 && count > 1)
+			.map(([id]) => id);
+	});
+	expect(duplicateIds).toEqual([]);
+
 	const finalReview = page.locator(".openitr-final-review");
 	await expect(
 		finalReview.getByRole("heading", {
@@ -158,6 +234,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 
 	await page.setViewportSize({ width: 390, height: 844 });
 	await expect(comparison).toBeVisible();
+	await expect(analysis).toBeVisible();
 	await expect(finalReview).toBeVisible();
 	expect(
 		await page.evaluate(
@@ -195,4 +272,5 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await expect(
 		finalReview.locator('[data-origin="source-observation"]').first(),
 	).toBeVisible();
+	expect(consoleErrors).toEqual([]);
 });

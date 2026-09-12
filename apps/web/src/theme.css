@@ -677,6 +677,115 @@ body,
 	border: var(--pf-t--global--border--width--regular) solid
 		var(--pf-t--global--border--color--default);
 	padding: var(--pf-t--global--spacer--sm);
+	scroll-margin-top: 6rem;
+}
+
+.openitr-complete-analytics section {
+	margin-top: var(--pf-t--global--spacer--xl);
+}
+
+.openitr-analysis-amounts {
+	display: grid;
+	gap: var(--pf-t--global--spacer--sm);
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+	margin: var(--pf-t--global--spacer--md) 0 0;
+}
+
+.openitr-analysis-amounts > div {
+	border: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
+	padding: var(--pf-t--global--spacer--md);
+}
+
+.openitr-analysis-amounts dt {
+	color: var(--pf-t--global--text--color--subtle);
+	font-weight: 600;
+}
+
+.openitr-analysis-amounts dd {
+	margin: var(--pf-t--global--spacer--xs) 0 0;
+}
+
+.openitr-analysis-value {
+	display: block;
+	font-size: var(--pf-t--global--font--size--xl);
+	font-weight: 700;
+}
+
+.openitr-analysis-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--md);
+	margin-top: var(--pf-t--global--spacer--xs);
+}
+
+.openitr-income-chart {
+	margin: var(--pf-t--global--spacer--md) 0;
+}
+
+.openitr-income-chart figcaption {
+	font-weight: 600;
+}
+
+.openitr-income-chart ul {
+	display: grid;
+	gap: var(--pf-t--global--spacer--sm);
+	list-style: none;
+	margin: var(--pf-t--global--spacer--md) 0 0;
+	padding: 0;
+}
+
+.openitr-income-chart li {
+	display: grid;
+	gap: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--md);
+	grid-template-columns: minmax(11rem, 1fr) minmax(8rem, 3fr) max-content;
+}
+
+.openitr-income-chart-track {
+	align-self: center;
+	background: var(--pf-t--global--background--color--secondary--default);
+	height: 0.75rem;
+}
+
+.openitr-income-chart-bar {
+	background: var(--pf-t--global--color--brand--default);
+	display: block;
+	height: 100%;
+}
+
+.openitr-analysis-adjustments,
+.openitr-future-planning ul {
+	display: grid;
+	gap: var(--pf-t--global--spacer--md);
+	margin-bottom: 0;
+}
+
+.openitr-analysis-adjustments li,
+.openitr-future-planning li {
+	border-left: var(--pf-t--global--border--width--strong) solid
+		var(--pf-t--global--border--color--brand--default);
+	padding-left: var(--pf-t--global--spacer--md);
+}
+
+.openitr-analysis-adjustments p,
+.openitr-future-planning li p {
+	margin: var(--pf-t--global--spacer--xs) 0 0;
+}
+
+.openitr-future-planning {
+	background: var(--pf-t--global--background--color--secondary--default);
+	padding: var(--pf-t--global--spacer--lg);
+}
+
+@media (max-width: 48rem) {
+	.openitr-income-chart li {
+		grid-template-columns: 1fr max-content;
+	}
+
+	.openitr-income-chart-track {
+		grid-column: 1 / -1;
+		grid-row: 2;
+	}
 }
 
 .openitr-trace-node > summary {

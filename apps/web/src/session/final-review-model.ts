@@ -348,11 +348,15 @@ export const buildFinalReview = (input: FinalReviewInput): FinalReview => {
 		);
 	}
 
+	const derivedNodeOccurrences = new Map<string, number>();
 	for (const node of input.derivedNodes) {
+		const nodeId = String(node.nodeId);
+		const occurrence = (derivedNodeOccurrences.get(nodeId) ?? 0) + 1;
+		derivedNodeOccurrences.set(nodeId, occurrence);
 		facts.push(
 			Object.freeze({
-				id: `derived-${String(node.nodeId)}`,
-				factKey: String(node.nodeId),
+				id: `derived-${nodeId}${occurrence === 1 ? "" : `-${occurrence}`}`,
+				factKey: nodeId,
 				value: String(node.roundedValue),
 				originKind: "derived",
 				origin: `Derived by rule ${String(node.ruleId)} from revision ${node.rulePackRevision}`,
