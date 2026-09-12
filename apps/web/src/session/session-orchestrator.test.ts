@@ -10,6 +10,7 @@ import {
 	firstSyntheticRevision,
 	secondSyntheticRevision,
 } from "./synthetic-rule-pack-fixtures";
+import { EDUCATIONAL_LIMITATIONS } from "./analysis-readiness";
 import { createSessionOrchestrator } from "./session-orchestrator";
 import type { SessionCommand } from "./session-orchestrator";
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
@@ -20,10 +21,47 @@ const createSession = () =>
 		rulePack: itr1Ay202627RulePack,
 		documents: inProcessInspectionFacility(),
 	});
+const expectedInitialReadiness = {
+	state: "blocked",
+	issues: [
+		{
+			id: "scope-question-itr1-resident-individual",
+			kind: "missing-fact",
+			severity: "blocking",
+			factKeys: ["taxpayer.residential-status"],
+			affectedResults: ["ITR-1 analysis scope"],
+			explanation: "The initial analysis-scope answer is unresolved.",
+			recoveryAction:
+				"For FY 2025-26, were you an individual with Resident status, excluding Resident but not ordinarily resident?",
+			targetId: "scope-question",
+		},
+	],
+	availableResults: [],
+	educationalLimitations: EDUCATIONAL_LIMITATIONS,
+};
+const expectedAnalysisNotStartedReadiness = {
+	state: "needs-review",
+	issues: [
+		{
+			id: "analysis-not-started",
+			kind: "analysis-not-started",
+			severity: "review",
+			factKeys: [],
+			affectedResults: ["Current-year analysis"],
+			explanation: "Source-document and fact analysis has not started.",
+			recoveryAction:
+				"Complete the supported scope check and continue to source documents.",
+			targetId: undefined,
+		},
+	],
+	availableResults: [],
+	educationalLimitations: EDUCATIONAL_LIMITATIONS,
+};
 const expectedInitialSnapshot = {
 	kind: "awaiting-scope-answer",
 	workflow: "eligibility",
 	rulePackId: "itr1-ay2026-27.2026-08-22",
+	analysisReadiness: expectedInitialReadiness,
 	question: {
 		id: "itr1-resident-individual",
 		prompt:
@@ -82,6 +120,7 @@ describe("ITR-1 scope check", () => {
 			kind: "scope-check-complete",
 			workflow: "eligibility",
 			rulePackId: "itr1-ay2026-27.2026-08-22",
+			analysisReadiness: expectedAnalysisNotStartedReadiness,
 			question: {
 				id: "itr1-resident-individual",
 				prompt:
@@ -121,6 +160,36 @@ describe("ITR-1 scope check", () => {
 			kind: "scope-check-complete",
 			workflow: "eligibility",
 			rulePackId: "itr1-ay2026-27.2026-08-22",
+			analysisReadiness: {
+				state: "blocked",
+				issues: [
+					{
+						id: "scope-RULE_ITR1_RESIDENT_STATUS_UNSUPPORTED",
+						kind: "scope-blocker",
+						severity: "blocking",
+						factKeys: ["taxpayer.residential-status"],
+						affectedResults: ["ITR-1 analysis scope"],
+						explanation:
+							"Not supported by this scope check: You answered No. Rule ITR1-ELIGIBILITY-RESIDENT limits ITR-1 analysis to an individual who is resident other than not ordinarily resident.",
+						recoveryAction:
+							"Stop this ITR-1 analysis and review another return-form scope or consult a qualified professional.",
+						targetId: undefined,
+					},
+					{
+						id: "analysis-not-started",
+						kind: "analysis-not-started",
+						severity: "review",
+						factKeys: [],
+						affectedResults: ["Current-year analysis"],
+						explanation: "Source-document and fact analysis has not started.",
+						recoveryAction:
+							"Complete the supported scope check and continue to source documents.",
+						targetId: undefined,
+					},
+				],
+				availableResults: [],
+				educationalLimitations: EDUCATIONAL_LIMITATIONS,
+			},
 			question: {
 				id: "itr1-resident-individual",
 				prompt:

@@ -97,7 +97,7 @@ export const RegimeComparisonView = ({
 	};
 
 	return (
-		<Card className="openitr-regime-comparison" component="section">
+		<Card className="openitr-regime-comparison" component="section" id="regime-comparison-heading">
 			<CardTitle>
 				<Title headingLevel="h2" size="lg">
 					Compare old and new regimes

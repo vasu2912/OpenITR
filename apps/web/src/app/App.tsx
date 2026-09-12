@@ -40,6 +40,7 @@ import type { SessionOrchestrator } from "../session/session-orchestrator";
 import { workerInspectionFacility } from "../session/worker-inspection-facility";
 import { DocumentsIntakeView } from "../views/documents-intake";
 import { CompleteAnalyticsView } from "../views/complete-analytics";
+import { AnalysisReadinessView } from "../views/analysis-readiness";
 import { DonationDeductionsView } from "../views/donation-deductions";
 import { RemainingDeductionsView } from "../views/remaining-deductions";
 import { AgriculturalIncomeView } from "../views/agricultural-income";
@@ -495,6 +496,9 @@ const ScopeInteraction = ({
 					<OldRegimeComputationView
 						computation={intake?.oldRegimeComputation}
 					/>
+					{intake === undefined ? null : (
+						<AnalysisReadinessView readiness={intake.analysisReadiness} />
+					)}
 					{intake === undefined ? null : (
 						<FinalReviewView intake={intake} session={session} />
 					)}
