@@ -71,6 +71,15 @@ header {
 	border: 1px solid #65747e;
 	padding: 12px 17px;
 	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.external-arrow {
+	width: 1em;
+	height: 1em;
+	flex: 0 0 auto;
+	display: block;
 }
 .home {
 	max-width: 1280px;
@@ -133,6 +142,9 @@ h1 span {
 	font-size: 14px;
 	font-weight: 600;
 	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
 }
 .small {
 	color: var(--muted);

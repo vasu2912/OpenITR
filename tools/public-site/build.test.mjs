@@ -65,6 +65,8 @@ test("production pages contain crawlable content, unique metadata, working local
 		isAccessibleForFree: true,
 		offers: { price: "0" },
 	});
+	expect(read("index.html").match(/class="external-arrow"/g)).toHaveLength(4);
+	expect(read("index.html")).not.toContain("↗");
 	expect(read("robots.txt")).toContain("User-agent: *\nAllow: /");
 	expect(scanRelease({ distDir: root }).violations).toEqual([]);
 });
