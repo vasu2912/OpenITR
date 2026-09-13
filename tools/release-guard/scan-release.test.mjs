@@ -39,6 +39,12 @@ const writeDist = (files) => {
 };
 
 describe("release guard", () => {
+	test("accepts outbound navigation and canonical metadata but still checks adjacent scripts", () => {
+		const links = '<a href="https://github.com/vasu2912/OpenITR">Source</a><link rel="canonical" href="https://openitr.vasu-kandagatla.workers.dev/">';
+		expect(() => runScanner(writeDist({ "index.html": links }))).not.toThrow();
+		writeFileSync(join(cleanupRoot, "dist/index.html"), `${links}<script src="https://example.test/app.js"></script>`);
+		expect(() => runScanner(join(cleanupRoot, "dist"))).toThrow();
+	});
 	test("accepts a static self-hosted release", () => {
 		const dist = writeDist({
 			"index.html": `<!doctype html>
@@ -116,7 +122,7 @@ describe("release guard", () => {
 		],
 		[
 			"in the first attribute position",
-			'<a href="https://cdn.example.test/pixel.gif">x</a>',
+			'<img src="https://cdn.example.test/pixel.gif">',
 		],
 	])(
 		"rejects a remote HTML reference written %s",

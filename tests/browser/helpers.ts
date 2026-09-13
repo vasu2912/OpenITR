@@ -60,7 +60,7 @@ export const seedVisitorStorage = (page: Page): void => {
 };
 
 export const openScopeQuestion = async (page: Page): Promise<void> => {
-	await page.goto("/");
+	await page.goto("/app/");
 	await expect(
 		page.getByRole("heading", { name: "Residential status" }),
 	).toBeVisible();

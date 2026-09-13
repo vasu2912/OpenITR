@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vite build && node ../../tools/release-guard/scan-release.mjs dist",
+		"build": "vite build && node ../../tools/public-site/build.mjs dist && node ../../tools/release-guard/scan-release.mjs dist",
 		"preview": "vite preview",
 		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},

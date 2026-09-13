@@ -75,7 +75,13 @@ export const scanRelease = ({ distDir }) => {
 		}
 
 		if (isHtml) {
-			for (const match of text.matchAll(REMOTE_ASSET_PATTERN)) {
+			// Navigation and canonical URLs do not download executable assets.
+			// Keep offsets intact so diagnostics retain their original line numbers.
+			const blankTag = (tag) => tag.replace(/[^\n]/g, " ");
+			const assetHtml = text
+				.replace(/<a\b[^>]*>/gi, blankTag)
+				.replace(/<link\b(?=[^>]*\srel=["']canonical["'])[^>]*>/gi, blankTag);
+			for (const match of assetHtml.matchAll(REMOTE_ASSET_PATTERN)) {
 				violations.push(
 					`${displayPath}:${lineOf(text, match.index)}: remote asset reference ${match[0].trim()}`,
 				);
