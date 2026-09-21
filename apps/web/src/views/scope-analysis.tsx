@@ -15,6 +15,28 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 
 import type { SessionOrchestrator } from "../session/session-orchestrator";
+import {
+	QuestionChoiceList,
+	type QuestionChoice,
+	yesNoQuestionChoices,
+} from "./question-choice-list";
+
+const housePropertyCountChoices: readonly QuestionChoice[] = Object.freeze([
+	{ label: "No properties", value: "0" },
+	{ label: "One property", value: "1" },
+	{ label: "Two properties", value: "2" },
+	{ label: "Three or more properties", value: "3" },
+]);
+
+const choicesFor = (
+	question: ScopeQuestion,
+): readonly QuestionChoice[] | undefined => {
+	if (question.answerSchema.kind === "boolean") return yesNoQuestionChoices;
+	if (question.id === "scope-house-property-count") {
+		return housePropertyCountChoices;
+	}
+	return undefined;
+};
 
 const inputValueOf = (fact: ScopeFact | undefined): string =>
 	fact?.state !== "known"
@@ -29,10 +51,14 @@ const ScopeQuestionForm = ({
 	question,
 	session,
 	initialFact,
+	onAnswerLater,
+	progressLabel,
 }: Readonly<{
 	question: ScopeQuestion;
 	session: SessionOrchestrator;
 	initialFact?: ScopeFact;
+	onAnswerLater?: () => void;
+	progressLabel?: string;
 }>) => {
 	const [value, setValue] = useState(() => inputValueOf(initialFact));
 	const [isEditing, setEditing] = useState(initialFact === undefined);
@@ -41,6 +67,7 @@ const ScopeQuestionForm = ({
 	const helpId = `${question.id}-help`;
 	const errorId = `${question.id}-error`;
 	const describedBy = error === undefined ? helpId : `${helpId} ${errorId}`;
+	const choices = choicesFor(question);
 	const submit = (event: FormEvent<HTMLFormElement>): void => {
 		event.preventDefault();
 		if (value.trim() === "") {
@@ -107,47 +134,63 @@ const ScopeQuestionForm = ({
 			data-scope-question={question.id}
 			id={`scope-question-${String(question.id)}`}
 		>
-			<form onSubmit={submit}>
-				<label htmlFor={inputId}>{question.prompt}</label>
+			{progressLabel === undefined ? null : (
+				<p className="openitr-scope-question-progress">{progressLabel}</p>
+			)}
+			<form className="openitr-scope-question-form" onSubmit={submit}>
+				{choices === undefined ? (
+					<label htmlFor={inputId}>{question.prompt}</label>
+				) : (
+					<QuestionChoiceList
+						describedBy={describedBy}
+						hasError={error !== undefined}
+						legend={question.prompt}
+						name={inputId}
+						onValueChange={setValue}
+						options={choices}
+						value={value}
+					/>
+				)}
 				<p id={helpId}>{question.helpText}</p>
 				{initialFact?.state === "blocked" ||
 				initialFact?.state === "unsupported" ? (
 					<p role="status">{factProvenance(initialFact)}</p>
 				) : null}
-				{question.answerSchema.kind === "boolean" ? (
-					<select
-						aria-describedby={describedBy}
-						aria-invalid={error !== undefined}
-						id={inputId}
-						onChange={(event) => setValue(event.target.value)}
-						value={value}
-					>
-						<option value="">Select an answer</option>
-						<option value="yes">Yes</option>
-						<option value="no">No</option>
-					</select>
-				) : (
-					<input
-						aria-describedby={describedBy}
-						aria-invalid={error !== undefined}
-						id={inputId}
-						inputMode={
-							question.answerSchema.kind === "exact-money"
-								? "decimal"
-								: "numeric"
-						}
-						onChange={(event) => setValue(event.target.value)}
-						type="text"
-						value={value}
-					/>
-				)}
-				<Button
-					isDisabled={value.trim() === ""}
-					type="submit"
-					variant="secondary"
+				<div
+					className={
+						choices === undefined
+							? "openitr-scope-question-answer"
+							: "openitr-scope-question-actions"
+					}
 				>
-					Record scope answer
-				</Button>
+					{choices === undefined ? (
+						<input
+							aria-describedby={describedBy}
+							aria-invalid={error !== undefined}
+							id={inputId}
+							inputMode={
+								question.answerSchema.kind === "exact-money"
+									? "decimal"
+									: "numeric"
+							}
+							onChange={(event) => setValue(event.target.value)}
+							type="text"
+							value={value}
+						/>
+					) : null}
+					<Button
+						isDisabled={value.trim() === ""}
+						type="submit"
+						variant="secondary"
+					>
+						Record scope answer
+					</Button>
+					{onAnswerLater === undefined ? null : (
+						<Button onClick={onAnswerLater} type="button" variant="link">
+							Answer later
+						</Button>
+					)}
+				</div>
 				{error === undefined ? null : (
 					<p id={errorId} role="alert">
 						{error}
@@ -221,21 +264,99 @@ const decisionLabel = (
 				? "Blocked"
 				: "Unknown";
 
+type ScopeAnalysisSection = "questions" | "decisions" | "evidence";
+
+const sectionTitle: Readonly<Record<Exclude<ScopeAnalysisSection, "questions">, string>> = {
+	decisions: "Scope decision",
+	evidence: "Evidence needed",
+};
+
 export const ScopeAnalysisView = ({
+	deferredQuestionIds = [],
 	evaluation,
+	onDeferQuestion,
+	section,
 	session,
 }: Readonly<{
+	deferredQuestionIds?: readonly ScopeQuestion["id"][];
 	evaluation: AnalysisScopeEvaluation;
+	onDeferQuestion?: (questionId: ScopeQuestion["id"]) => void;
+	section: ScopeAnalysisSection;
 	session: SessionOrchestrator;
-}>) => (
+}>) => {
+	const currentQuestion =
+		evaluation.questions.find(
+			(question) => !deferredQuestionIds.includes(question.id),
+		) ?? evaluation.questions[0];
+	const currentUnresolvedFact =
+		currentQuestion === undefined
+			? undefined
+			: evaluation.unresolvedFacts.find(
+					(fact) => fact.factKey === currentQuestion.factKey,
+				);
+	const remainingQuestionLabel = `${evaluation.questions.length} scope ${evaluation.questions.length === 1 ? "question" : "questions"} remaining`;
+
+	if (section === "questions") {
+		return (
+			<section aria-label="Current scope question" className="openitr-scope-question-workspace">
+				{currentQuestion === undefined ? (
+					<p>No unresolved scope questions</p>
+				) : (
+					<div
+						className="openitr-current-scope-question"
+						data-current-scope-question={currentQuestion.id}
+					>
+						<ul className="openitr-scope-analysis-question-list">
+							<ScopeQuestionForm
+								{...(currentUnresolvedFact === undefined
+									? {}
+									: { initialFact: currentUnresolvedFact })}
+								key={currentQuestion.id}
+								{...(evaluation.questions.length > 1 &&
+								onDeferQuestion !== undefined
+									? {
+											onAnswerLater: () =>
+												onDeferQuestion(currentQuestion.id),
+										}
+									: {})}
+								progressLabel={remainingQuestionLabel}
+								question={currentQuestion}
+								session={session}
+							/>
+						</ul>
+					</div>
+				)}
+				{evaluation.answeredQuestions.length === 0 ? null : (
+					<details className="openitr-recorded-scope-answers">
+						<summary>
+							Review {evaluation.answeredQuestions.length} recorded{" "}
+							{evaluation.answeredQuestions.length === 1 ? "answer" : "answers"}
+						</summary>
+						<ul className="openitr-scope-analysis-question-list">
+							{evaluation.answeredQuestions.map(({ question, fact }) => (
+								<ScopeQuestionForm
+									initialFact={fact}
+									key={question.id}
+									question={question}
+									session={session}
+								/>
+							))}
+						</ul>
+					</details>
+				)}
+			</section>
+		);
+	}
+
+	return (
 	<Card className="openitr-scope-analysis-card" component="section">
 		<CardTitle>
 			<Title headingLevel="h2" size="lg">
-				Complete ITR-1 analysis scope
+				{sectionTitle[section]}
 			</Title>
 		</CardTitle>
 		<CardBody>
-			<Alert
+			{section === "decisions" ? <Alert
 				aria-live="polite"
 				isInline
 				title={
@@ -251,49 +372,9 @@ export const ScopeAnalysisView = ({
 			>
 				Scope support does not mean that calculations, evidence review, filing
 				eligibility, or portal acceptance is complete.
-			</Alert>
+			</Alert> : null}
 
-			<section aria-labelledby="scope-questions-heading">
-				<h3 id="scope-questions-heading">Unresolved scope questions</h3>
-				{evaluation.questions.length === 0 ? (
-					<p>No unresolved scope questions</p>
-				) : (
-					<ul className="openitr-scope-analysis-question-list">
-						{evaluation.questions.map((question) => {
-							const unresolvedFact = evaluation.unresolvedFacts.find(
-								(fact) => fact.factKey === question.factKey,
-							);
-							return (
-								<ScopeQuestionForm
-									{...(unresolvedFact === undefined
-										? {}
-										: { initialFact: unresolvedFact })}
-									key={question.id}
-									question={question}
-									session={session}
-								/>
-							);
-						})}
-					</ul>
-				)}
-				{evaluation.answeredQuestions.length === 0 ? null : (
-					<>
-						<h4>Recorded scope answers</h4>
-						<ul className="openitr-scope-analysis-question-list">
-							{evaluation.answeredQuestions.map(({ question, fact }) => (
-								<ScopeQuestionForm
-									key={question.id}
-									question={question}
-									session={session}
-									initialFact={fact}
-								/>
-							))}
-						</ul>
-					</>
-				)}
-			</section>
-
-			<section aria-labelledby="scope-decisions-heading">
+			{section === "decisions" ? <section aria-labelledby="scope-decisions-heading">
 				<h3 id="scope-decisions-heading">Scope decisions</h3>
 				<ul className="openitr-scope-analysis-decision-list">
 					{evaluation.decisions.map((decision) => (
@@ -326,9 +407,9 @@ export const ScopeAnalysisView = ({
 						</li>
 					))}
 				</ul>
-			</section>
+			</section> : null}
 
-			<section aria-labelledby="scope-checklist-heading">
+			{section === "evidence" ? <section aria-labelledby="scope-checklist-heading">
 				<h3 id="scope-checklist-heading">Evidence checklist</h3>
 				{evaluation.checklist.length === 0 ? (
 					<p>
@@ -352,9 +433,9 @@ export const ScopeAnalysisView = ({
 						)}
 					</ul>
 				)}
-			</section>
+			</section> : null}
 
-			{evaluation.calculationLimitations.length === 0 ? null : (
+			{section !== "evidence" || evaluation.calculationLimitations.length === 0 ? null : (
 				<section aria-labelledby="scope-calculation-limits-heading">
 					<h3 id="scope-calculation-limits-heading">
 						Current calculation limits
@@ -367,9 +448,12 @@ export const ScopeAnalysisView = ({
 				</section>
 			)}
 
-			<p className="openitr-result-limit">
-				{evaluation.educationalLimitations.join(" ")}
-			</p>
+			{section === "evidence" ? (
+				<p className="openitr-result-limit">
+					{evaluation.educationalLimitations.join(" ")}
+				</p>
+			) : null}
 		</CardBody>
 	</Card>
-);
+	);
+};

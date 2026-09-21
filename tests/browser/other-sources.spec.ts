@@ -4,7 +4,7 @@ import {
 } from "@openitr/document-adapters/testing";
 import { expect, test } from "@playwright/test";
 
-import { openDocumentIntake, selectSourceFiles } from "./helpers";
+import { openDocumentIntake, openIncomeComputations, openReviewFacts, selectSourceFiles } from "./helpers";
 
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -27,11 +27,13 @@ test.describe("income from other sources analysis", () => {
 			mimeType: "application/pdf",
 			buffer: bufferOf(createForm16APdfFixture()),
 		}]);
+		await openReviewFacts(page);
 
 		await expect(page.getByLabel("How much taxable family pension did you receive in FY 2025-26?")).toBeVisible({ timeout: 30_000 });
 		await expect(page.getByLabel("How much ordinary dividend income did you receive in FY 2025-26?")).toHaveCount(0);
 		await expect(page.getByLabel("How much permitted interest outside savings accounts and deposits did you receive in FY 2025-26?")).toHaveCount(0);
 		await answerCurrent(page, "How much taxable family pension did you receive in FY 2025-26?", "90000");
+		await openIncomeComputations(page);
 
 		const result = page.locator(".openitr-other-sources-card");
 		await expect(result.getByRole("heading", { name: "Income from other sources analysis" })).toBeVisible();
@@ -52,6 +54,7 @@ test.describe("income from other sources analysis", () => {
 			mimeType: "application/pdf",
 			buffer: bufferOf(createForm16SalaryPdfFixture()),
 		}]);
+		await openReviewFacts(page);
 
 		const dividends = page.getByLabel("How much ordinary dividend income did you receive in FY 2025-26?");
 		await expect(dividends).toBeVisible({ timeout: 30_000 });
@@ -61,6 +64,7 @@ test.describe("income from other sources analysis", () => {
 		await expect(form.getByRole("button", { name: "Record answer" })).toBeFocused();
 		await page.keyboard.press("Enter");
 		await expect(form.getByRole("alert")).toContainText("Enter a non-negative amount");
+		await openIncomeComputations(page);
 		await expect(page.locator(".openitr-other-sources-card")).toContainText("FACT_OTHER_SOURCES_DIVIDENDS_MISSING");
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 	});

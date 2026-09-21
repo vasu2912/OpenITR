@@ -9,6 +9,8 @@ import { expect, test } from "@playwright/test";
 
 import {
 	openDocumentIntake,
+	openReviewFacts,
+	openTaxComparison,
 	selectSourceFiles,
 } from "./helpers";
 
@@ -34,6 +36,7 @@ test.describe("Form 16A non-salary TDS review", () => {
 		await expect(row).toContainText("2 non-salary income, 3 TDS", {
 			timeout: 30_000,
 		});
+		await openReviewFacts(page);
 
 		const reviewSection = page.locator(".openitr-review-card");
 		const incomeGroup = reviewSection.locator(
@@ -89,6 +92,7 @@ test.describe("Form 16A non-salary TDS review", () => {
 				buffer: bufferOf(createForm16APdfFixture()),
 			},
 		]);
+		await openTaxComparison(page);
 
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await expect(estimateSection).toBeVisible({ timeout: 30_000 });

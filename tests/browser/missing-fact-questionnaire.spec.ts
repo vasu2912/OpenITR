@@ -6,7 +6,13 @@ import {
 } from "@openitr/document-adapters/testing";
 import { expect, test } from "@playwright/test";
 
-import { openDocumentIntake, selectSourceFiles } from "./helpers";
+import {
+	openDocumentIntake,
+	openReviewFacts,
+	openTaxComparison,
+	recordQuestionAnswer,
+	selectSourceFiles,
+} from "./helpers";
 
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -28,6 +34,7 @@ test.describe("missing-fact questionnaire", () => {
 				buffer: bufferOf(utf8Bytes(createForm26AsTextFixture())),
 			},
 		]);
+		await openReviewFacts(page);
 
 		const questionnaire = page.locator(".openitr-missing-facts-card");
 		await expect(
@@ -47,12 +54,14 @@ test.describe("missing-fact questionnaire", () => {
 			.click();
 
 		const estimate = page.locator(".openitr-estimate-card");
+		await openTaxComparison(page);
 		await expect(estimate.getByText("₹ 61,250").first()).toBeVisible({
 			timeout: 30_000,
 		});
 		// Inspect the pending state before its scheduled recomputation settles.
 		await page.clock.install({ time: new Date("2026-09-03T12:00:00Z") });
 		await page.clock.pauseAt(new Date("2026-09-03T12:00:01Z"));
+		await openReviewFacts(page);
 		await questionnaire.getByRole("button", { name: "Change answer" }).first().click();
 
 		await expect(
@@ -66,6 +75,7 @@ test.describe("missing-fact questionnaire", () => {
 		);
 		await replacement.fill("9000");
 		await questionnaire.getByRole("button", { name: "Record answer" }).first().click();
+		await openTaxComparison(page);
 		await expect(
 			page.locator(".openitr-estimate-card").getByText("₹ 21,000").first(),
 		).toBeVisible({
@@ -84,6 +94,7 @@ test.describe("missing-fact questionnaire", () => {
 				buffer: bufferOf(utf8Bytes(createForm26AsTextFixture())),
 			},
 		]);
+		await openReviewFacts(page);
 
 		const questionnaire = page.locator(".openitr-missing-facts-card");
 		await expect(
@@ -152,11 +163,13 @@ test.describe("missing-fact questionnaire", () => {
 		await expect(
 			questionnaire.getByText("bank-interest.savings-account", { exact: true }),
 		).toBeVisible();
+		await openTaxComparison(page);
 		await expect(
 			page.getByRole("heading", {
 				name: /FACT_BANK_INTEREST_EVIDENCE_REQUIRED: bank-interest\.deposits/,
 			}),
 		).toBeVisible();
+		await openReviewFacts(page);
 
 		const depositsInput = questionnaire.getByLabel(
 			"How much interest on deposits (fixed or recurring) did you receive in FY 2025-26?",
@@ -167,14 +180,22 @@ test.describe("missing-fact questionnaire", () => {
 			.getByRole("button", { name: "Record answer" })
 			.click();
 		await expect(questionnaire.getByText("16 missing facts can be answered")).toBeVisible();
-		const deductionsPresent = questionnaire.getByLabel(
-			"Do you want to analyze any section 80C, 80CCC, or 80CCD savings and pension contributions for FY 2025-26?",
-		);
-		await deductionsPresent.selectOption("no");
-		await deductionsPresent
-			.locator("xpath=ancestor::form")
-			.getByRole("button", { name: "Record answer" })
-			.click();
+		const deductionsPrompt =
+			"Do you want to analyze any section 80C, 80CCC, or 80CCD savings and pension contributions for FY 2025-26?";
+		const deductionsForm = questionnaire
+			.locator("form")
+			.filter({ hasText: deductionsPrompt })
+			.first();
+		await expect(
+			deductionsForm.getByRole("radio", { name: "Yes" }),
+		).toBeVisible();
+		await expect(deductionsForm.getByRole("radio", { name: "No" })).toBeVisible();
+		await expect(deductionsForm.getByRole("combobox")).toHaveCount(0);
+		await recordQuestionAnswer({
+			page,
+			prompt: deductionsPrompt,
+			value: "no",
+		});
 		for (const prompt of [
 			"Do you want to analyze section 80D health-insurance, preventive-checkup, or eligible senior-citizen medical payments?",
 			"Do you want to analyze a section 80DD deduction for a dependent person with disability?",
@@ -192,16 +213,12 @@ test.describe("missing-fact questionnaire", () => {
 			"Do you want to analyze a political contribution under section 80GGC?",
 			"Do you need a Chapter VI-A deduction not named in this questionnaire?",
 		]) {
-			const category = questionnaire.getByLabel(prompt);
-			await category.selectOption("no");
-			await category
-				.locator("xpath=ancestor::form")
-				.getByRole("button", { name: "Record answer" })
-				.click();
+			await recordQuestionAnswer({ page, prompt, value: "no" });
 		}
 		await expect(
 			questionnaire.getByText("Every permitted missing fact has been supplied"),
 		).toBeVisible();
+		await openTaxComparison(page);
 		await expect(
 			page.getByRole("heading", {
 				name: /FACT_BANK_INTEREST_EVIDENCE_REQUIRED/,
@@ -220,6 +237,7 @@ test.describe("missing-fact questionnaire", () => {
 				buffer: bufferOf(utf8Bytes(createAisJsonBankInterestFixture())),
 			},
 		]);
+		await openReviewFacts(page);
 
 		await expect(
 			page
@@ -228,9 +246,9 @@ test.describe("missing-fact questionnaire", () => {
 		).toBeVisible({ timeout: 30_000 });
 		const questionnaire = page.locator(".openitr-missing-facts-card");
 		await expect(
-			questionnaire.getByLabel(
-				"Do you want to analyze any section 80C, 80CCC, or 80CCD savings and pension contributions for FY 2025-26?",
-			),
+			questionnaire.getByRole("group", {
+				name: "Do you want to analyze any section 80C, 80CCC, or 80CCD savings and pension contributions for FY 2025-26?",
+			}),
 		).toBeVisible();
 		await expect(
 			questionnaire.getByLabel(

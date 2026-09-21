@@ -1,7 +1,13 @@
 import { createForm16SalaryPdfFixture } from "@openitr/document-adapters/testing";
 import { expect, test } from "@playwright/test";
 
-import { openDocumentIntake, selectSourceFiles } from "./helpers";
+import {
+	openDocumentIntake,
+	openIncomeComputations,
+	openReviewFacts,
+	recordQuestionAnswer,
+	selectSourceFiles,
+} from "./helpers";
 
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -11,16 +17,7 @@ const answerCurrent = async (
 	label: string,
 	value: string,
 ) => {
-	const input = page.getByLabel(label);
-	if ((await input.evaluate((element) => element.tagName)) === "SELECT") {
-		await input.selectOption(value);
-	} else {
-		await input.fill(value);
-	}
-	await input
-		.locator("xpath=ancestor::form")
-		.getByRole("button", { name: "Record answer" })
-		.click();
+	await recordQuestionAnswer({ page, prompt: label, value });
 };
 
 const enterCapitalGainQuestions = async (
@@ -34,6 +31,7 @@ const enterCapitalGainQuestions = async (
 			buffer: bufferOf(createForm16SalaryPdfFixture()),
 		},
 	]);
+	await openReviewFacts(page);
 };
 
 test.describe("limited section 112A capital-gain analysis", () => {
@@ -42,9 +40,9 @@ test.describe("limited section 112A capital-gain analysis", () => {
 	}) => {
 		await enterCapitalGainQuestions(page);
 
-		const eligibleAsset = page.getByLabel(
-			"Did every reported section 112A disposal involve a listed equity share, an equity-oriented fund unit, or a business-trust unit?",
-		);
+		const eligibleAsset = page.getByRole("group", {
+			name: "Did every reported section 112A disposal involve a listed equity share, an equity-oriented fund unit, or a business-trust unit?",
+		});
 		await expect(eligibleAsset).toBeVisible({ timeout: 30_000 });
 		await answerCurrent(
 			page,
@@ -71,6 +69,7 @@ test.describe("limited section 112A capital-gain analysis", () => {
 			"What was the total cost of acquisition for the supported section 112A disposals?",
 			"400000",
 		);
+		await openIncomeComputations(page);
 
 		const result = page.locator(".openitr-section112a-card");
 		await expect(
@@ -89,11 +88,12 @@ test.describe("limited section 112A capital-gain analysis", () => {
 		await expect(result).toContainText(
 			"Round the exact tax component to the nearest whole rupee",
 		);
+		await openReviewFacts(page);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
 			"capital-gains.section112a-sale-consideration",
 		);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
-			"Question revision 2026-09-15",
+			"Question revision 2026-09-17",
 		);
 	});
 
@@ -102,29 +102,33 @@ test.describe("limited section 112A capital-gain analysis", () => {
 	}) => {
 		await page.setViewportSize({ width: 390, height: 844 });
 		await enterCapitalGainQuestions(page);
-		const eligibleAsset = page.getByLabel(
-			"Did every reported section 112A disposal involve a listed equity share, an equity-oriented fund unit, or a business-trust unit?",
-		);
+		const eligibleAssetForm = page
+			.locator("form")
+			.filter({
+				hasText:
+					"Did every reported section 112A disposal involve a listed equity share, an equity-oriented fund unit, or a business-trust unit?",
+			})
+			.first();
+		const eligibleAsset = eligibleAssetForm.getByRole("radio", { name: "No" });
 		await expect(eligibleAsset).toBeVisible({ timeout: 30_000 });
 		await eligibleAsset.focus();
-		await eligibleAsset.selectOption("no");
+		await eligibleAsset.check();
 		await page.keyboard.press("Tab");
 		await expect(
-			eligibleAsset
-				.locator("xpath=ancestor::form")
-				.getByRole("button", { name: "Record answer" }),
+			eligibleAssetForm.getByRole("button", { name: "Record answer" }),
 		).toBeFocused();
 		await page.keyboard.press("Enter");
-
-		const result = page.locator(".openitr-section112a-card");
-		await expect(result).toContainText(
-			"RULE_SECTION112A_CLASSIFICATION_UNSUPPORTED",
-		);
 		await expect(
 			page.getByLabel(
 				"Was every reported section 112A disposal classified as a long-term capital gain?",
 			),
 		).toHaveCount(0);
+		await openIncomeComputations(page);
+
+		const result = page.locator(".openitr-section112a-card");
+		await expect(result).toContainText(
+			"RULE_SECTION112A_CLASSIFICATION_UNSUPPORTED",
+		);
 		expect(
 			await page.evaluate(
 				() => document.documentElement.scrollWidth <= window.innerWidth,

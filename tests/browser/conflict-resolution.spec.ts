@@ -11,6 +11,9 @@ import type { Page } from "@playwright/test";
 import {
 	candidateRow,
 	openDocumentIntake,
+	openIncomeComputations,
+	openReviewFacts,
+	openTaxComparison,
 	selectSourceFiles,
 } from "./helpers";
 
@@ -65,9 +68,7 @@ const selectSalaryAisAndStatement = async (
 };
 
 const waitUntilAllExtracted = async (page: Page): Promise<void> => {
-	// The estimate card appears as soon as every selected slice settles,
-	// whether its scenario computes or blocks on review.
-	await expect(page.locator(".openitr-estimate-card")).toBeVisible({
+	await expect(candidateRow(page, "openitr-sentinel-26as-export.txt")).toContainText("Identified", {
 		timeout: 30_000,
 	});
 };
@@ -79,11 +80,13 @@ test.describe("cross-source conflict resolution", () => {
 		await openDocumentIntake(page);
 		await selectSalaryAisAndStatement(page, "7,890.25");
 		await waitUntilAllExtracted(page);
+		await openTaxComparison(page);
 
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await expect(
 			estimateSection.getByText("₹ 53,569.15").first(),
 		).toBeVisible({ timeout: 30_000 });
+		await openReviewFacts(page);
 		await expect(page.locator(".openitr-conflicts-card")).toHaveCount(0);
 	});
 
@@ -93,6 +96,7 @@ test.describe("cross-source conflict resolution", () => {
 		await openDocumentIntake(page);
 		await selectSalaryAisAndStatement(page, "9,000.00");
 		await waitUntilAllExtracted(page);
+		await openReviewFacts(page);
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
@@ -112,11 +116,13 @@ test.describe("cross-source conflict resolution", () => {
 		).toBeVisible();
 
 		const estimateSection = page.locator(".openitr-estimate-card");
+		await openTaxComparison(page);
 		await expect(
 			estimateSection.getByText(/FACT_TAX_FACT_CONFLICTED/),
 		).toBeVisible();
 
 		// The salary scenario needs none of the disputed facts.
+		await openIncomeComputations(page);
 		const salarySection = page.locator(".openitr-computation-card");
 		await expect(salarySection.getByText(/Final tax liability/)).toBeVisible();
 	});
@@ -127,6 +133,7 @@ test.describe("cross-source conflict resolution", () => {
 		await openDocumentIntake(page);
 		await selectSalaryAisAndStatement(page, "9,000.00");
 		await waitUntilAllExtracted(page);
+		await openReviewFacts(page);
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
@@ -160,11 +167,13 @@ test.describe("cross-source conflict resolution", () => {
 		await expect(conflictsCard.getByText(/Original evidence retained/)).toBeVisible();
 
 		const estimateSection = page.locator(".openitr-estimate-card");
+		await openTaxComparison(page);
 		await expect(
 			estimateSection.getByText("₹ 53,569.15").first(),
 		).toBeVisible({ timeout: 30_000 });
 
 		// Both original savings observations remain listed as evidence.
+		await openReviewFacts(page);
 		const reviewSection = page.locator(".openitr-review-card");
 		const savingsCards = reviewSection.locator(
 			'.openitr-observation[data-fact-key="bank-interest.savings-account"]',
@@ -178,6 +187,7 @@ test.describe("cross-source conflict resolution", () => {
 		await openDocumentIntake(page);
 		await selectSalaryAisAndStatement(page, "9,000.00");
 		await waitUntilAllExtracted(page);
+		await openReviewFacts(page);
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
@@ -202,6 +212,7 @@ test.describe("cross-source conflict resolution", () => {
 		).toBeVisible();
 
 		const estimateSection = page.locator(".openitr-estimate-card");
+		await openTaxComparison(page);
 		await expect(
 			estimateSection.getByText("₹ 53,678.9").first(),
 		).toBeVisible({ timeout: 30_000 });
@@ -217,6 +228,7 @@ test.describe("cross-source conflict resolution", () => {
 		await openDocumentIntake(page);
 		await selectSalaryAisAndStatement(page, "9,000.00");
 		await waitUntilAllExtracted(page);
+		await openReviewFacts(page);
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(

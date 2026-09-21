@@ -8,6 +8,7 @@ import { expect, test } from "@playwright/test";
 
 import {
 	openDocumentIntake,
+	openTaxComparison,
 	selectSourceFiles,
 } from "./helpers";
 
@@ -40,6 +41,7 @@ test.describe("estimated refund or amount payable", () => {
 	}) => {
 		await openDocumentIntake(page);
 		await selectAllThreeDocuments(page);
+		await openTaxComparison(page);
 
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await expect(
@@ -55,12 +57,7 @@ test.describe("estimated refund or amount payable", () => {
 
 		await expect(
 			estimateSection.getByText("Educational analysis only"),
-		).toBeVisible();
-		await expect(
-			estimateSection.getByText(
-				/not an official result|not a filing computation/,
-			),
-		).toBeVisible();
+		).toHaveCount(0);
 
 		await expect(
 			estimateSection.getByText("Taxes paid (TDS deposits and challan payments)"),
@@ -98,6 +95,7 @@ test.describe("estimated refund or amount payable", () => {
 				buffer: bufferOf(createForm16SalaryPdfFixture()),
 			},
 		]);
+		await openTaxComparison(page);
 
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await expect(estimateSection).toBeVisible({ timeout: 30_000 });

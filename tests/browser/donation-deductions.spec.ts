@@ -1,7 +1,13 @@
 import { createForm16SalaryPdfFixture } from "@openitr/document-adapters/testing";
 import { expect, test } from "@playwright/test";
 
-import { openDocumentIntake, selectSourceFiles } from "./helpers";
+import {
+	openDeductions as openDeductionsPage,
+	openDocumentIntake,
+	openReviewFacts,
+	recordQuestionAnswer,
+	selectSourceFiles,
+} from "./helpers";
 
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -32,7 +38,8 @@ const openDeductions = async (
 			buffer: bufferOf(createForm16SalaryPdfFixture()),
 		},
 	]);
-	await expect(page.getByLabel(prompts.present)).toBeVisible({
+	await openReviewFacts(page);
+	await expect(page.getByRole("group", { name: prompts.present })).toBeVisible({
 		timeout: 30_000,
 	});
 };
@@ -42,16 +49,7 @@ const record = async (
 	prompt: string,
 	value: string,
 ) => {
-	const input = page.getByLabel(prompt);
-	if ((await input.evaluate((element) => element.tagName)) === "SELECT") {
-		await input.selectOption(value);
-	} else {
-		await input.fill(value);
-	}
-	await input
-		.locator("xpath=ancestor::form")
-		.getByRole("button", { name: "Record answer" })
-		.click();
+	await recordQuestionAnswer({ page, prompt, value });
 };
 
 test.describe("donation deductions", () => {
@@ -59,10 +57,12 @@ test.describe("donation deductions", () => {
 		page,
 	}) => {
 		await openDeductions(page);
+		await openDeductionsPage(page);
 		const card = page.locator(".openitr-donation-card");
 		await expect(card).toContainText(
 			"FACT_DONATION_DEDUCTION_PRESENCE_MISSING",
 		);
+		await openReviewFacts(page);
 		for (const [prompt, value] of [
 			[prompts.present, "yes"],
 			[prompts.amount, "80000"],
@@ -77,6 +77,7 @@ test.describe("donation deductions", () => {
 		] as const) {
 			await record(page, prompt, value);
 		}
+		await openDeductionsPage(page);
 
 		await expect(card).toContainText(
 			"50% deduction subject to qualifying limit",
@@ -109,6 +110,7 @@ test.describe("donation deductions", () => {
 		] as const) {
 			await record(page, prompt, value);
 		}
+		await openDeductionsPage(page);
 
 		const card = page.locator(".openitr-donation-card");
 		await expect(card).toContainText("Status: Rejected");

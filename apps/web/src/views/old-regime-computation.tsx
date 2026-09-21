@@ -156,11 +156,6 @@ export const OldRegimeComputationView = ({
 				</Title>
 			</CardTitle>
 			<CardBody>
-				<Alert isInline title="Educational analysis only" variant="info">
-					This computation uses accepted evidence, recorded answers, and the
-					pinned rule pack. It is not tax advice or a filing result. Review the
-					figures and cited steps yourself.
-				</Alert>
 				{computation.kind === "computed" ? (
 					<>
 						<p>

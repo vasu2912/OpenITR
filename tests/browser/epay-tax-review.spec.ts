@@ -12,6 +12,8 @@ import type { Page } from "@playwright/test";
 import {
 	candidateRow,
 	openDocumentIntake,
+	openReviewFacts,
+	openTaxComparison,
 	selectSourceFiles,
 } from "./helpers";
 
@@ -63,6 +65,7 @@ test.describe("e-Pay Tax receipt review", () => {
 			"Document type: epay-tax-receipt-pdf (2026-27)",
 		);
 		await expect(row).toContainText("1 tax payment");
+		await openReviewFacts(page);
 
 		const reviewSection = page.locator(".openitr-review-card");
 		const paymentGroup = reviewSection.locator(
@@ -89,6 +92,7 @@ test.describe("e-Pay Tax receipt review", () => {
 		await expect(currentLine).toContainText("Total Tax Paid");
 
 		const estimateSection = page.locator(".openitr-estimate-card");
+		await openTaxComparison(page);
 		await expect(
 			estimateSection.getByText(
 				"Taxes paid (TDS deposits and challan payments)",
@@ -118,6 +122,7 @@ test.describe("e-Pay Tax receipt review", () => {
 
 		const row = candidateRow(page, "openitr-sentinel-epay-tax-receipt.pdf");
 		await expect(row).toContainText("1 review item", { timeout: 30_000 });
+		await openReviewFacts(page);
 
 		const reviewSection = page.locator(".openitr-review-card");
 		await expect(
@@ -128,6 +133,7 @@ test.describe("e-Pay Tax receipt review", () => {
 		).toBeVisible();
 
 		const estimateSection = page.locator(".openitr-estimate-card");
+		await openTaxComparison(page);
 		await expect(
 			estimateSection.getByText(
 				"Taxes paid (TDS deposits and challan payments)",
@@ -168,11 +174,13 @@ test.describe("e-Pay Tax receipt review", () => {
 		await expect(
 			candidateRow(page, "openitr-sentinel-epay-tax-receipt.pdf"),
 		).toContainText("1 tax payment", { timeout: 30_000 });
+		await openReviewFacts(page);
 
 		const conflictsSection = page.locator(".openitr-conflicts-card");
 		await expect(conflictsSection).toHaveCount(0);
 
 		const estimateSection = page.locator(".openitr-estimate-card");
+		await openTaxComparison(page);
 		await expect(
 			estimateSection.getByText("₹ 1,06,920").first(),
 		).toBeVisible({ timeout: 30_000 });

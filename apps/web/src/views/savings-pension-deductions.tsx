@@ -76,10 +76,6 @@ export const SavingsPensionDeductionsView = ({
 				</Title>
 			</CardTitle>
 			<CardBody>
-				<Alert isInline title="Educational analysis only" variant="info">
-					OpenITR applies the pinned category, shared, percentage-base, and
-					regime rules. Review every claimed amount and its supporting details.
-				</Alert>
 				{computation.kind !== "computed" ? (
 					<Alert
 						isInline

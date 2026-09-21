@@ -1,7 +1,13 @@
 import { createForm16SalaryPdfFixture } from "@openitr/document-adapters/testing";
 import { expect, test } from "@playwright/test";
 
-import { openDocumentIntake, selectSourceFiles } from "./helpers";
+import {
+	openDeductions as openDeductionsPage,
+	openDocumentIntake,
+	openReviewFacts,
+	recordQuestionAnswer,
+	selectSourceFiles,
+} from "./helpers";
 
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -22,7 +28,10 @@ const openDeductions = async (page: Parameters<typeof openDocumentIntake>[0]) =>
 			buffer: bufferOf(createForm16SalaryPdfFixture()),
 		},
 	]);
-	await expect(page.getByLabel(prompts.health)).toBeVisible({ timeout: 30_000 });
+	await openReviewFacts(page);
+	await expect(page.getByRole("group", { name: prompts.health })).toBeVisible({
+		timeout: 30_000,
+	});
 };
 
 const record = async (
@@ -30,16 +39,7 @@ const record = async (
 	prompt: string,
 	value: string,
 ) => {
-	const input = page.getByLabel(prompt);
-	if ((await input.evaluate((element) => element.tagName)) === "SELECT") {
-		await input.selectOption(value);
-	} else {
-		await input.fill(value);
-	}
-	await input
-		.locator("xpath=ancestor::form")
-		.getByRole("button", { name: "Record answer" })
-		.click();
+	await recordQuestionAnswer({ page, prompt, value });
 };
 
 const recordUnselectedCategories = async (
@@ -55,14 +55,15 @@ test.describe("health and disability deductions", () => {
 		await openDeductions(page);
 		await record(page, prompts.health, "no");
 		await recordUnselectedCategories(page);
+		await expect(
+			page.getByLabel("Does the section 80D claim include you, your spouse, or dependent children?"),
+		).toHaveCount(0);
+		await openDeductionsPage(page);
 
 		const card = page.locator(".openitr-health-disability-card");
 		await expect(card).toContainText("No health or disability deduction category was selected.");
 		await expect(card).toContainText("Old-regime deduction");
 		await expect(card).toContainText("New-regime deduction");
-		await expect(
-			page.getByLabel("Does the section 80D claim include you, your spouse, or dependent children?"),
-		).toHaveCount(0);
 	});
 
 	test("shows capped 80D results, cited regime trace, and recorded origins", async ({
@@ -86,6 +87,7 @@ test.describe("health and disability deductions", () => {
 			await record(page, prompt, value);
 		}
 		await recordUnselectedCategories(page);
+		await openDeductionsPage(page);
 
 		const card = page.locator(".openitr-health-disability-card");
 		await expect(card).toContainText("Claimed ₹ 95,000");
@@ -96,8 +98,9 @@ test.describe("health and disability deductions", () => {
 		await expect(card).toContainText("Attested answer");
 		await card.getByText("New-regime section 80D exclusion").click();
 		await expect(card).toContainText("ITR1-NR-80D-EXCLUSION");
+		await openReviewFacts(page);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
-			"Question revision 2026-09-15",
+			"Question revision 2026-09-17",
 		);
 	});
 
@@ -140,6 +143,7 @@ test.describe("health and disability deductions", () => {
 			await record(page, prompt, value);
 		}
 		await recordUnselectedCategories(page);
+		await openDeductionsPage(page);
 		const card = page.locator(".openitr-health-disability-card");
 		await expect(card).toContainText("80D: FACT_80D_MEDICAL_WITH_INSURANCE_PREMIUM");
 		await expect(card).toContainText("Remove self and family medical expenditure");
@@ -156,6 +160,7 @@ test.describe("health and disability deductions", () => {
 		await record(page, prompts.taxpayer, "yes");
 		await record(page, "Was your certified disability severe disability of 80% or more?", "yes");
 		await record(page, "Are the required section 80U disability-certificate and Form 10-IA details available?", "no");
+		await openDeductionsPage(page);
 
 		const card = page.locator(".openitr-health-disability-card");
 		await expect(card).toContainText("80U: FACT_80U_CERTIFICATE_REQUIRED");

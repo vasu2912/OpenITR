@@ -18,7 +18,7 @@ test.describe("OpenITR session lifecycle", () => {
 			page.getByRole("heading", { name: "Residential status" }),
 		).toBeVisible();
 		await expect(
-			page.getByRole("heading", { name: "Complete ITR-1 analysis scope" }),
+			page.locator("[data-current-scope-question]"),
 		).toHaveCount(0);
 		await expect(
 			page.getByRole("radio", { name: "Yes" }),
@@ -49,7 +49,7 @@ test.describe("OpenITR session lifecycle", () => {
 			page.getByRole("heading", { name: "Residential status" }),
 		).toBeVisible();
 		await expect(
-			page.getByRole("heading", { name: "Complete ITR-1 analysis scope" }),
+			page.locator("[data-current-scope-question]"),
 		).toHaveCount(0);
 		await expect(
 			page.getByRole("radio", { name: "No" }),

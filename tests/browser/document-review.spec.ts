@@ -7,6 +7,8 @@ import type { Request } from "@playwright/test";
 
 import {
 	openDocumentIntake,
+	openIncomeComputations,
+	openReviewFacts,
 	selectSourceFiles,
 } from "./helpers";
 
@@ -36,6 +38,7 @@ test.describe("Form 16 salary observation review", () => {
 		await expect(row).toContainText("3 salary observations", {
 			timeout: 30_000,
 		});
+		await openReviewFacts(page);
 
 		const reviewSection = page.locator(".openitr-review-card");
 		await expect(reviewSection.getByText("salary.section-17-1")).toBeVisible();
@@ -90,6 +93,7 @@ test.describe("Form 16 salary observation review", () => {
 		await expect(
 			page.locator('[data-candidate="openitr-sentinel-unknown.bin"]'),
 		).toContainText("Rejected", { timeout: 30_000 });
+		await openReviewFacts(page);
 		await expect(page.locator(".openitr-review-card")).toHaveCount(0);
 	});
 
@@ -98,11 +102,14 @@ test.describe("Form 16 salary observation review", () => {
 	}) => {
 		await openDocumentIntake(page);
 		await selectForm16(page);
+		await expect(page.locator(`[data-candidate="${SENTINEL_FORM16_NAME}"]`)).toContainText("Identified", { timeout: 30_000 });
+		await openReviewFacts(page);
 
 		const reviewSection = page.locator(".openitr-review-card");
 		await expect(reviewSection.getByText("salary.taxable-total")).toBeVisible({
 			timeout: 30_000,
 		});
+		await openIncomeComputations(page);
 
 		const computation = page.locator(".openitr-computation-card");
 		await expect(computation).toBeVisible();
@@ -157,6 +164,8 @@ test.describe("Form 16 salary observation review", () => {
 				),
 			},
 		]);
+		await expect(page.locator('[data-candidate="synthetic-pension-form16.pdf"]')).toContainText("Identified", { timeout: 30_000 });
+		await openReviewFacts(page);
 
 		const review = page.locator(".openitr-review-card");
 		await expect(
@@ -165,6 +174,7 @@ test.describe("Form 16 salary observation review", () => {
 		await expect(
 			review.getByRole("heading", { name: "synthetic-pension-form16.pdf" }),
 		).toBeVisible();
+		await openIncomeComputations(page);
 
 		const computation = page.locator(".openitr-computation-card");
 		const sources = computation.locator(".openitr-salary-source");
@@ -179,10 +189,12 @@ test.describe("Form 16 salary observation review", () => {
 			"₹ 15,00,000",
 		);
 
+		await page.getByRole("button", { name: /^Documents / }).click();
 		await page
 			.locator('[data-candidate="synthetic-pension-form16.pdf"]')
 			.getByRole("button", { name: "Remove" })
 			.click();
+		await openIncomeComputations(page);
 		await expect(sources).toHaveCount(1);
 		await expect(computation.locator(".openitr-result-details")).toContainText(
 			"₹ 12,00,000",
@@ -202,6 +214,8 @@ test.describe("Form 16 salary observation review", () => {
 		const sentinelAmount = FORM16_SALARY_FIXTURE_SENTINEL_AMOUNT;
 		const sentinelEmployee = "OpenITR Synthetic Employee";
 		await selectForm16(page);
+		await expect(page.locator(`[data-candidate="${SENTINEL_FORM16_NAME}"]`)).toContainText("Identified", { timeout: 30_000 });
+		await openReviewFacts(page);
 
 		const reviewSection = page.locator(".openitr-review-card");
 		await expect(

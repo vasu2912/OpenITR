@@ -22,9 +22,6 @@ export const OtherSourcesComputationView = ({
 				<Title headingLevel="h2" size="lg">Income from other sources analysis</Title>
 			</CardTitle>
 			<CardBody>
-				<Alert isInline title="Educational analysis only" variant="info">
-					This local analysis applies the pinned other-source rules to accepted evidence and answers. Review each category and cited step yourself.
-				</Alert>
 				{computation.kind === "computed" ? (
 					<>
 						<dl className="openitr-result-details openitr-other-sources-summary">

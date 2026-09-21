@@ -74,11 +74,6 @@ export const SalaryComputationView = ({
 				</Title>
 			</CardTitle>
 			<CardBody>
-				<Alert isInline title="Educational analysis only" variant="info">
-					This estimate comes from your accepted salary evidence, your
-					recorded answers, and the pinned rule pack. It is not tax advice
-					and not a filing result. Review every figure yourself.
-				</Alert>
 				{computation.kind === "blocked" ? (
 					computation.issues.map((issue) => (
 						<Alert

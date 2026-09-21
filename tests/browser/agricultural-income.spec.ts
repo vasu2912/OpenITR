@@ -1,7 +1,13 @@
 import { createForm16SalaryPdfFixture } from "@openitr/document-adapters/testing";
 import { expect, test } from "@playwright/test";
 
-import { openDocumentIntake, selectSourceFiles } from "./helpers";
+import {
+	openDocumentIntake,
+	openIncomeComputations,
+	openReviewFacts,
+	openTaxComparison,
+	selectSourceFiles,
+} from "./helpers";
 
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -17,6 +23,7 @@ const enterAgriculturalIncome = async (
 			buffer: bufferOf(createForm16SalaryPdfFixture()),
 		},
 	]);
+	await openReviewFacts(page);
 	await expect(
 		page.getByLabel("What was your agricultural income for FY 2025-26?"),
 	).toBeVisible({ timeout: 30_000 });
@@ -37,9 +44,11 @@ test.describe("agricultural-income explanation", () => {
 		await expect(page.getByText("synthetic-salary.pdf")).toBeVisible({
 			timeout: 30_000,
 		});
+		await openReviewFacts(page);
 		await expect(
 			page.getByLabel("What was your agricultural income for FY 2025-26?"),
 		).toHaveCount(0);
+		await openIncomeComputations(page);
 		await expect(page.locator(".openitr-agricultural-income-card")).toHaveCount(
 			0,
 		);
@@ -49,8 +58,10 @@ test.describe("agricultural-income explanation", () => {
 		page,
 	}) => {
 		await enterAgriculturalIncome(page);
+		await openIncomeComputations(page);
 		const card = page.locator(".openitr-agricultural-income-card");
 		await expect(card).toContainText("FACT_AGRICULTURAL_INCOME_MISSING");
+		await openReviewFacts(page);
 
 		const amount = page.getByLabel(
 			"What was your agricultural income for FY 2025-26?",
@@ -60,6 +71,7 @@ test.describe("agricultural-income explanation", () => {
 			.locator("xpath=ancestor::form")
 			.getByRole("button", { name: "Record answer" })
 			.click();
+		await openIncomeComputations(page);
 
 		await expect(
 			card.getByRole("heading", { name: "Agricultural-income explanation" }),
@@ -75,11 +87,12 @@ test.describe("agricultural-income explanation", () => {
 		await expect(card).toContainText(
 			"ITR1-AGRICULTURAL-INCOME-EXEMPT-REPORTING",
 		);
+		await openReviewFacts(page);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
 			"scope.agriculture-income",
 		);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
-			"Question revision 2026-09-15",
+			"Question revision 2026-09-17",
 		);
 	});
 
@@ -97,12 +110,14 @@ test.describe("agricultural-income explanation", () => {
 			.getByRole("button", { name: "Record answer" });
 		await expect(submit).toBeFocused();
 		await page.keyboard.press("Enter");
+		await openIncomeComputations(page);
 
 		const card = page.locator(".openitr-agricultural-income-card");
 		await expect(card).toContainText(
 			"RULE_AGRICULTURAL_INCOME_ITR1_LIMIT_EXCEEDED",
 		);
 		await expect(card).toContainText("pinned ITR-1 limit of ₹5000");
+		await openTaxComparison(page);
 		await expect(page.locator(".openitr-estimate-card")).toHaveCount(0);
 		expect(
 			await page.evaluate(

@@ -2,7 +2,13 @@ import { createForm16SalaryPdfFixture } from "@openitr/document-adapters/testing
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-import { openDocumentIntake, selectSourceFiles } from "./helpers";
+import {
+	openDocumentIntake,
+	openReviewFacts,
+	openTaxComparison,
+	recordQuestionAnswer,
+	selectSourceFiles,
+} from "./helpers";
 
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -16,17 +22,7 @@ const recordAnswerIfPresent = async ({
 	label: string;
 	value: string;
 }>): Promise<void> => {
-	const input = page.getByLabel(label);
-	if ((await input.count()) === 0) return;
-	if ((await input.evaluate((element) => element.tagName)) === "SELECT") {
-		await input.selectOption(value);
-	} else {
-		await input.fill(value);
-	}
-	await input
-		.locator("xpath=ancestor::form")
-		.getByRole("button", { name: "Record answer" })
-		.click();
+	await recordQuestionAnswer({ optional: true, page, prompt: label, value });
 };
 
 test.describe("complete new-regime computation", () => {
@@ -34,16 +30,16 @@ test.describe("complete new-regime computation", () => {
 		page,
 	}) => {
 		await openDocumentIntake(page, { "scope-total-income": "1100000" });
+		await page.getByRole("button", { name: /^Scope check / }).click();
 		const bankInterestScope = page.locator(
 			'[data-scope-question="scope-bank-interest"]',
 		);
 		await expect(bankInterestScope).toBeVisible();
-		await bankInterestScope
-			.locator("#scope-bank-interest-answer")
-			.selectOption("no");
+		await bankInterestScope.getByRole("radio", { name: "No" }).check();
 		await bankInterestScope
 			.getByRole("button", { name: "Record scope answer" })
 			.click();
+		await page.getByRole("button", { name: /^Documents / }).click();
 		await selectSourceFiles(page, [
 			{
 				name: "synthetic-new-regime-salary.pdf",
@@ -51,11 +47,12 @@ test.describe("complete new-regime computation", () => {
 				buffer: bufferOf(createForm16SalaryPdfFixture()),
 			},
 		]);
+		await openReviewFacts(page);
 
 		await expect(
-			page.getByLabel(
-				"Were you a resident senior citizen for FY 2025-26?",
-			),
+			page.getByRole("group", {
+				name: "Were you a resident senior citizen for FY 2025-26?",
+			}),
 		).toBeVisible({ timeout: 30_000 });
 
 		for (const [label, value] of [
@@ -125,6 +122,7 @@ test.describe("complete new-regime computation", () => {
 		] as const) {
 			await recordAnswerIfPresent({ page, label, value });
 		}
+		await openTaxComparison(page);
 
 		const computation = page.locator(".openitr-new-regime-card");
 		await expect(

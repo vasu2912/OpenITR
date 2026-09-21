@@ -19,11 +19,6 @@ export const Section112aCapitalGainView = ({
 				</Title>
 			</CardTitle>
 			<CardBody>
-				<Alert isInline title="Educational analysis only" variant="info">
-					This local result covers only the limited section 112A case allowed by
-					the pinned ITR-1 rule pack. Review the classification, amounts, and
-					cited steps yourself.
-				</Alert>
 				{computation.kind === "computed" ? (
 					<>
 						<dl className="openitr-result-details openitr-section112a-summary">

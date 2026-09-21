@@ -1,7 +1,13 @@
 import { createForm16SalaryPdfFixture } from "@openitr/document-adapters/testing";
 import { expect, test } from "@playwright/test";
 
-import { openDocumentIntake, selectSourceFiles } from "./helpers";
+import {
+	openDeductions as openDeductionsPage,
+	openDocumentIntake,
+	openReviewFacts,
+	recordQuestionAnswer,
+	selectSourceFiles,
+} from "./helpers";
 
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -19,7 +25,10 @@ const openDeductions = async (page: Parameters<typeof openDocumentIntake>[0]) =>
 		mimeType: "application/pdf",
 		buffer: bufferOf(createForm16SalaryPdfFixture()),
 	}]);
-	await expect(page.getByLabel(prompts.education)).toBeVisible({ timeout: 30_000 });
+	await openReviewFacts(page);
+	await expect(page.getByRole("group", { name: prompts.education })).toBeVisible({
+		timeout: 30_000,
+	});
 };
 
 const record = async (
@@ -27,13 +36,7 @@ const record = async (
 	prompt: string,
 	value: string,
 ) => {
-	const input = page.getByLabel(prompt);
-	if ((await input.evaluate((element) => element.tagName)) === "SELECT") {
-		await input.selectOption(value);
-	} else {
-		await input.fill(value);
-	}
-	await input.locator("xpath=ancestor::form").getByRole("button", { name: "Record answer" }).click();
+	await recordQuestionAnswer({ page, prompt, value });
 };
 
 test.describe("loan-interest deductions", () => {
@@ -64,6 +67,7 @@ test.describe("loan-interest deductions", () => {
 			["How much additional eligible interest remains for section 80EEA after section 24(b)?", "175000"],
 			["Are the lender and loan-account details available for section 80EEA?", "yes"],
 		] as const) await record(page, prompt, value);
+		await openDeductionsPage(page);
 
 		const card = page.locator(".openitr-loan-interest-card");
 		await expect(card).toContainText("Interest supplied ₹ 1,75,000");
@@ -99,6 +103,7 @@ test.describe("loan-interest deductions", () => {
 			["Is this section 80EEB interest excluded from every other deduction?", "yes"],
 			["Are the lender, loan-account, and vehicle-registration details available for section 80EEB?", "yes"],
 		] as const) await record(page, prompt, value);
+		await openDeductionsPage(page);
 		const card = page.locator(".openitr-loan-interest-card");
 		await expect(card).toContainText("80EEB: FACT_80EEB_PURPOSE_INELIGIBLE");
 		await expect(card).toContainText("exclusively electric vehicle");

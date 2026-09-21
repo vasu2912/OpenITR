@@ -6,7 +6,15 @@ import {
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-import { openDocumentIntake, selectSourceFiles } from "./helpers";
+import {
+	openAnalysis,
+	openDocumentIntake,
+	openFinalReview,
+	openReviewFacts,
+	openTaxComparison,
+	recordQuestionAnswer,
+	selectSourceFiles,
+} from "./helpers";
 
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -20,17 +28,7 @@ const recordAnswerIfPresent = async ({
 	label: string;
 	value: string;
 }>): Promise<void> => {
-	const input = page.getByLabel(label);
-	if ((await input.count()) === 0) return;
-	if ((await input.evaluate((element) => element.tagName)) === "SELECT") {
-		await input.selectOption(value);
-	} else {
-		await input.fill(value);
-	}
-	await input
-		.locator("xpath=ancestor::form")
-		.getByRole("button", { name: "Record answer" })
-		.click();
+	await recordQuestionAnswer({ optional: true, page, prompt: label, value });
 };
 
 test("compares regimes neutrally and records a changeable primary scenario", async ({
@@ -41,15 +39,15 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 		if (message.type() === "error") consoleErrors.push(message.text());
 	});
 	await openDocumentIntake(page, { "scope-total-income": "1100000" });
+	await page.getByRole("button", { name: /^Scope check / }).click();
 	const bankInterestScope = page.locator(
 		'[data-scope-question="scope-bank-interest"]',
 	);
-	await bankInterestScope
-		.locator("#scope-bank-interest-answer")
-		.selectOption("no");
+	await bankInterestScope.getByRole("radio", { name: "No" }).check();
 	await bankInterestScope
 		.getByRole("button", { name: "Record scope answer" })
 		.click();
+	await page.getByRole("button", { name: /^Documents / }).click();
 	await selectSourceFiles(page, [
 		{
 			name: "synthetic-regime-comparison.pdf",
@@ -62,9 +60,12 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 			buffer: bufferOf(utf8Bytes(createForm26AsTextFixture())),
 		},
 	]);
+	await openReviewFacts(page);
 
 	await expect(
-		page.getByLabel("Were you a resident senior citizen for FY 2025-26?"),
+		page.getByRole("group", {
+			name: "Were you a resident senior citizen for FY 2025-26?",
+		}),
 	).toBeVisible({ timeout: 30_000 });
 	for (const [label, value] of [
 		["How much savings-account interest did you receive in FY 2025-26?", "0"],
@@ -88,6 +89,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	] as const) {
 		await recordAnswerIfPresent({ page, label, value });
 	}
+	await openTaxComparison(page);
 
 	const comparison = page.locator(".openitr-regime-comparison");
 	await expect(
@@ -110,6 +112,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await newChoice.check();
 	await expect(newChoice).toBeChecked();
 	await expect(oldChoice).not.toBeChecked();
+	await openAnalysis(page);
 
 	const analysis = page.locator(".openitr-complete-analytics");
 	await expect(
@@ -161,10 +164,12 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await expect(
 		page.locator(`[id="${salaryTraceTarget?.slice(1) ?? "missing-trace"}"]`),
 	).toBeVisible();
-	const salaryEvidenceTarget = await salaryAmount
+	await openAnalysis(page);
+	const refreshedSalaryAmount = page.locator('[data-analysis-amount="salary"]');
+	const salaryEvidenceTarget = await refreshedSalaryAmount
 		.getByRole("link", { name: "Evidence 1" })
 		.getAttribute("href");
-	await salaryAmount
+	await refreshedSalaryAmount
 		.getByRole("link", { name: "Evidence 1" })
 		.click();
 	await expect(
@@ -182,6 +187,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 			.map(([id]) => id);
 	});
 	expect(duplicateIds).toEqual([]);
+	await openFinalReview(page);
 
 	const finalReview = page.locator(".openitr-final-review");
 	await expect(
@@ -223,7 +229,9 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await expect(
 		page.locator(`[id="${sourceTarget?.slice(1) ?? "missing-target"}"]`),
 	).toBeVisible();
+	await openTaxComparison(page);
 	await expect(newChoice).toBeChecked();
+	await openAnalysis(page);
 	const readiness = page.locator(".openitr-analysis-readiness");
 	await expect(
 		readiness.getByRole("heading", { name: /Needs review/ }),
@@ -239,20 +247,20 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 		readiness.getByRole("button", { name: /upload|submit|file|download/i }),
 	).toHaveCount(0);
 
-	await finalReview
+	await openFinalReview(page);
+	const currentFinalReview = page.locator(".openitr-final-review");
+	await currentFinalReview
 		.getByRole("button", { name: "Confirm reviewed fact set" })
 		.click();
 	await expect(
-		finalReview.getByText("Confirmed revision", { exact: false }),
+		currentFinalReview.getByText("Confirmed revision", { exact: false }),
 	).toBeVisible();
+	await openAnalysis(page);
 	await expect(
 		readiness.getByRole("heading", { name: /Analysis-ready/ }),
 	).toBeVisible();
-	await expect(
-		page.locator(".openitr-estimate-card").getByRole("heading", {
-			name: /Educational analysis only/,
-		}),
-	).toBeVisible();
+	await openTaxComparison(page);
+	await expect(page.getByText("Educational analysis only")).toHaveCount(0);
 	await expect(
 		page.getByRole("button", {
 			name: /download.*(?:ITR|JSON)|upload.*portal|submit.*return|file.*return/i,
@@ -268,22 +276,28 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	).toHaveCount(0);
 
 	await page.setViewportSize({ width: 390, height: 844 });
+	await openTaxComparison(page);
 	await expect(comparison).toBeVisible();
+	await openAnalysis(page);
 	await expect(analysis).toBeVisible();
+	await openFinalReview(page);
 	await expect(finalReview).toBeVisible();
+	await openAnalysis(page);
 	await expect(readiness).toBeVisible();
 	expect(
 		await page.evaluate(
 			() => document.documentElement.scrollWidth <= window.innerWidth,
 		),
 	).toBe(true);
+	await openTaxComparison(page);
 	expect(
 		await comparison.locator(".openitr-regime-table-wrap").evaluate(
 			(element) => element.scrollWidth <= element.clientWidth,
 		),
 	).toBe(true);
 
-	const seniorReviewFact = finalReview
+	await openFinalReview(page);
+	const seniorReviewFact = page.locator(".openitr-final-review")
 		.locator('[data-origin="user-attestation"]')
 		.filter({ hasText: "taxpayer.senior-citizen" });
 	const answerTarget = await seniorReviewFact
@@ -296,17 +310,19 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 		.locator(`[id="${answerTarget?.slice(1) ?? "missing-answer"}"]`)
 		.getByRole("button", { name: "Change answer" })
 		.click();
+	await openFinalReview(page);
+	const updatedFinalReview = page.locator(".openitr-final-review");
 	await expect(
-		finalReview.getByText("Confirmed revision", { exact: false }),
+		updatedFinalReview.getByText("Confirmed revision", { exact: false }),
 	).toHaveCount(0);
 	await expect(
-		finalReview.getByText("Warnings and unresolved review items"),
+		updatedFinalReview.getByText("Warnings and unresolved review items"),
 	).toBeVisible();
 	await expect(
-		finalReview.getByText("Affects: Old regime", { exact: false }).first(),
+		updatedFinalReview.getByText("Affects: Old regime", { exact: false }).first(),
 	).toBeVisible();
 	await expect(
-		finalReview.locator('[data-origin="source-observation"]').first(),
+		updatedFinalReview.locator('[data-origin="source-observation"]').first(),
 	).toBeVisible();
 	expect(consoleErrors).toEqual([]);
 });

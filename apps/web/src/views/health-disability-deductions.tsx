@@ -43,11 +43,6 @@ export const HealthDisabilityDeductionsView = ({
 				</Title>
 			</CardTitle>
 			<CardBody>
-				<Alert isInline title="Educational analysis only" variant="info">
-					OpenITR applies the pinned section 80D, 80DD, 80DDB, and 80U
-					category and regime rules. Review the facts, certificates, and payment
-					details before relying on this analysis.
-				</Alert>
 				{computation.kind !== "computed" ? (
 					<div className="openitr-deduction-issues">
 						{computation.issues.map((currentIssue) => (

@@ -80,6 +80,11 @@ export {
 } from "./revisions/2026-09-15/rule-pack";
 export { itr1Ay202627RulePackManifest20260915 } from "./revisions/2026-09-15/manifest";
 export {
+	itr1Ay202627CompiledRulePack20260917,
+	itr1Ay202627RulePack20260917,
+} from "./revisions/2026-09-17/rule-pack";
+export { itr1Ay202627RulePackManifest20260917 } from "./revisions/2026-09-17/manifest";
+export {
 	createScopeRulePack,
 } from "./scope-rule-pack";
 export {

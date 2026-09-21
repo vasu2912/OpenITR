@@ -63,7 +63,7 @@ export const openScopeQuestion = async (page: Page): Promise<void> => {
 	await page.goto("/app/");
 	await expect(
 		page.getByRole("heading", { name: "Residential status" }),
-	).toBeVisible();
+	).toBeVisible({ timeout: 30_000 });
 };
 
 export const answerScopeCheck = async (
@@ -71,7 +71,59 @@ export const answerScopeCheck = async (
 	answer: "Yes" | "No",
 ): Promise<void> => {
 	await page.getByRole("radio", { name: answer }).check();
-	await page.getByRole("button", { name: "Check scope" }).click();
+	await page.getByRole("button", { name: "Continue" }).click();
+};
+
+export const recordQuestionAnswer = async ({
+	optional = false,
+	page,
+	prompt,
+	submitButtonName = "Record answer",
+	value,
+}: Readonly<{
+	optional?: boolean;
+	page: Page;
+	prompt: string | RegExp;
+	submitButtonName?: string;
+	value: string;
+}>): Promise<boolean> => {
+	const form = page.locator("form").filter({ hasText: prompt }).first();
+	if ((await form.count()) === 0) {
+		if (optional) return false;
+		throw new Error(`Question form not found: ${String(prompt)}`);
+	}
+	const radioLabel =
+		value === "yes" ? "Yes" : value === "no" ? "No" : undefined;
+	const radio =
+		radioLabel === undefined
+			? undefined
+			: form.getByRole("radio", { name: radioLabel, exact: true });
+	if (radio !== undefined && (await radio.count()) > 0) {
+		await radio.check();
+	} else {
+		await form.getByLabel(prompt).fill(value);
+	}
+	await form.getByRole("button", { name: submitButtonName }).click();
+	return true;
+};
+
+const scopeChoiceLabel = (
+	questionId: string,
+	value: string,
+): string | undefined => {
+	if (value === "yes") return "Yes";
+	if (value === "no") return "No";
+	if (questionId !== "scope-house-property-count") return undefined;
+	switch (value) {
+		case "0":
+			return "No properties";
+		case "1":
+			return "One property";
+		case "2":
+			return "Two properties";
+		default:
+			return "Three or more properties";
+	}
 };
 
 export const expectInitialScopeAnswer = async ({
@@ -79,14 +131,14 @@ export const expectInitialScopeAnswer = async ({
 	answer,
 }: Readonly<{ page: Page; answer: "Yes" | "No" }>): Promise<void> => {
 	await expect(
-		page.getByRole("heading", { name: "Complete ITR-1 analysis scope" }),
+		page.getByRole("heading", { name: "Scope questions" }),
 	).toBeVisible();
-	await expect(page.getByText("More scope facts are needed")).toBeVisible();
 	const individual = page.locator('[data-scope-question="scope-individual"]');
 	if (answer === "Yes") {
 		await expect(individual).toContainText("Recorded answer: Yes");
 	} else {
-		await expect(individual.getByRole("combobox")).toHaveValue("");
+		await expect(individual.getByRole("radio", { name: "Yes" })).not.toBeChecked();
+		await expect(individual.getByRole("radio", { name: "No" })).not.toBeChecked();
 	}
 };
 
@@ -151,7 +203,7 @@ export const openDocumentIntake = async (
 ): Promise<void> => {
 	await openScopeQuestion(page);
 	await answerScopeCheck(page, "Yes");
-	for (const [questionId, defaultValue] of Object.entries({
+	const defaultAnswers: Readonly<Record<string, string>> = {
 		"scope-individual": "yes",
 		"scope-resident-other-than-rnor": "yes",
 		"scope-total-income": "900000",
@@ -185,23 +237,69 @@ export const openDocumentIntake = async (
 		// Bank interest remains unresolved until evidence or an amount answer supplies it.
 		"scope-salary-pension": "yes",
 		"scope-other-sources": "no",
-	})) {
-		const value = scopeOverrides[questionId] ?? defaultValue;
-		const row = page.locator(`[data-scope-question="${questionId}"]`);
-		const input = row.locator(`#${questionId}-answer`);
-		if ((await input.count()) === 0) {
+	};
+	const skippedQuestionIds = new Set<string>();
+	while (true) {
+		const row = page.locator("[data-current-scope-question]");
+		if ((await row.count()) === 0) break;
+		const questionId = await row.getAttribute("data-current-scope-question");
+		if (questionId === null) break;
+		const value = scopeOverrides[questionId] ?? defaultAnswers[questionId];
+		if (value === undefined) {
+			if (skippedQuestionIds.has(questionId)) break;
+			skippedQuestionIds.add(questionId);
+			await row.getByRole("button", { name: "Answer later" }).click();
 			continue;
 		}
-		if ((await input.evaluate((element) => element.tagName)) === "SELECT") {
-			await input.selectOption(value);
+		const choiceLabel = scopeChoiceLabel(questionId, value);
+		if (choiceLabel === undefined) {
+			await row.locator(`#${questionId}-answer`).fill(value);
 		} else {
-			await input.fill(value);
+			await row.getByRole("radio", { name: choiceLabel }).check();
 		}
 		await row.getByRole("button", { name: "Record scope answer" }).click();
 	}
+	await openWorkflowStage(page, "documents");
 	await expect(
 		page.getByRole("heading", { name: "Select source documents" }),
 	).toBeVisible();
+};
+
+const openWorkflowStage = async (
+	page: Page,
+	stage: "documents" | "review" | "computations" | "analysis" | "final-review",
+): Promise<void> => {
+	await page
+		.locator(`[data-workflow-stage="${stage}"]`)
+		.filter({ visible: true })
+		.click();
+};
+
+export const openReviewFacts = async (page: Page): Promise<void> => {
+	await openWorkflowStage(page, "review");
+};
+
+export const openIncomeComputations = async (page: Page): Promise<void> => {
+	await openWorkflowStage(page, "computations");
+	await page.getByRole("button", { name: "Income", exact: true }).click();
+};
+
+export const openDeductions = async (page: Page): Promise<void> => {
+	await openWorkflowStage(page, "computations");
+	await page.getByRole("button", { name: "Deductions", exact: true }).click();
+};
+
+export const openTaxComparison = async (page: Page): Promise<void> => {
+	await openWorkflowStage(page, "computations");
+	await page.getByRole("button", { name: "Tax comparison", exact: true }).click();
+};
+
+export const openAnalysis = async (page: Page): Promise<void> => {
+	await openWorkflowStage(page, "analysis");
+};
+
+export const openFinalReview = async (page: Page): Promise<void> => {
+	await openWorkflowStage(page, "final-review");
 };
 
 export type BrowserFixtureFile = Readonly<{

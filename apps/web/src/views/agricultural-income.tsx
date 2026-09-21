@@ -17,10 +17,6 @@ export const AgriculturalIncomeView = ({
 				</Title>
 			</CardTitle>
 			<CardBody>
-				<Alert isInline title="Educational analysis only" variant="info">
-					OpenITR applies the pinned AY 2026-27 ITR-1 limit and exempt-income
-					reporting rule. Review the amount, provenance, and cited rules yourself.
-				</Alert>
 				{computation.kind === "computed" ? (
 					<>
 						<dl className="openitr-result-details openitr-agricultural-income-summary">

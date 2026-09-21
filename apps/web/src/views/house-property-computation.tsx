@@ -60,9 +60,6 @@ export const HousePropertyComputationView = ({
 		<Card className="openitr-property-card" component="section">
 			<CardTitle><Title headingLevel="h2" size="lg">House-property analysis</Title></CardTitle>
 			<CardBody>
-				<Alert isInline title="Educational analysis only" variant="info">
-					This local analysis applies the pinned house-property rules to facts you attested. Review each amount, source, and cited step yourself.
-				</Alert>
 				{computation.kind === "computed" ? (
 					<>
 						<dl className="openitr-result-details openitr-property-summary">

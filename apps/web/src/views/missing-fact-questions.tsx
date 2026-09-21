@@ -21,6 +21,10 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 
 import type { SessionOrchestrator } from "../session/session-orchestrator";
+import {
+	QuestionChoiceList,
+	yesNoQuestionChoices,
+} from "./question-choice-list";
 
 const wholeRupeeText = (value: number): string =>
 	`₹ ${value.toLocaleString("en-IN")}`;
@@ -80,6 +84,7 @@ const MissingFactQuestionForm = ({
 	const rationaleId = `${question.id}-rationale`;
 	const affectedId = `${question.id}-affected`;
 	const errorId = `${question.id}-error`;
+	const describedBy = `${helpId} ${rationaleId} ${affectedId}${error === undefined ? "" : ` ${errorId}`}`;
 
 	const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
 		event.preventDefault();
@@ -103,9 +108,24 @@ const MissingFactQuestionForm = ({
 	return (
 		<li className="openitr-missing-fact-item" id={`question-${question.id}`}>
 			<form onSubmit={handleSubmit}>
-				<label className="openitr-missing-fact-label" htmlFor={inputId}>
-					{question.prompt}
-				</label>
+				{question.answerSchema.kind === "boolean" ? (
+					<QuestionChoiceList
+						describedBy={describedBy}
+						hasError={error !== undefined}
+						legend={question.prompt}
+						name={inputId}
+						onValueChange={(nextValue) => {
+							setValue(nextValue);
+							setError(undefined);
+						}}
+						options={yesNoQuestionChoices}
+						value={value}
+					/>
+				) : (
+					<label className="openitr-missing-fact-label" htmlFor={inputId}>
+						{question.prompt}
+					</label>
+				)}
 				<p className="openitr-missing-fact-help" id={helpId}>
 					{question.helpText}
 				</p>
@@ -126,7 +146,7 @@ const MissingFactQuestionForm = ({
 								₹
 							</span>
 							<input
-								aria-describedby={`${helpId} ${rationaleId} ${affectedId}${error === undefined ? "" : ` ${errorId}`}`}
+								aria-describedby={describedBy}
 								aria-invalid={error !== undefined}
 								className="openitr-missing-fact-input"
 								id={inputId}
@@ -142,7 +162,7 @@ const MissingFactQuestionForm = ({
 						</>
 					) : question.answerSchema.kind === "iso-date" ? (
 						<input
-							aria-describedby={`${helpId} ${rationaleId} ${affectedId}${error === undefined ? "" : ` ${errorId}`}`}
+							aria-describedby={describedBy}
 							aria-invalid={error !== undefined}
 							className="openitr-missing-fact-input"
 							id={inputId}
@@ -153,23 +173,7 @@ const MissingFactQuestionForm = ({
 							type="date"
 							value={value}
 						/>
-					) : (
-						<select
-						aria-describedby={`${helpId} ${rationaleId} ${affectedId}${error === undefined ? "" : ` ${errorId}`}`}
-						aria-invalid={error !== undefined}
-						className="openitr-missing-fact-input"
-						id={inputId}
-						onChange={(event) => {
-							setValue(event.target.value);
-							setError(undefined);
-						}}
-						value={value}
-						>
-							<option value="">Select an answer</option>
-							<option value="yes">Yes</option>
-							<option value="no">No</option>
-						</select>
-					)}
+					) : null}
 					<Button type="submit" variant="primary">
 						Record answer
 					</Button>

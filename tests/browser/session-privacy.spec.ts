@@ -74,7 +74,7 @@ test.describe("OpenITR browser privacy boundary", () => {
 		await seedVisitorStorage(secondTab);
 		await openScopeQuestion(secondTab);
 		await expect(
-			secondTab.getByRole("heading", { name: "Complete ITR-1 analysis scope" }),
+			secondTab.locator("[data-current-scope-question]"),
 		).toHaveCount(0);
 		await answerScopeCheck(secondTab, "No");
 		await expectInitialScopeAnswer({ page: secondTab, answer: "No" });

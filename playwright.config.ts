@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const previewPort = 4173;
+const previewPort = process.env.OPENITR_PREVIEW_PORT ?? "4173";
 const previewUrl = `http://127.0.0.1:${previewPort}`;
 
 export default defineConfig({
