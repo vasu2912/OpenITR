@@ -2,7 +2,14 @@ import type {
 	EstimateEvidenceRole,
 	RefundOrAmountPayableEstimate,
 } from "@openitr/itr1-ay2026-27";
-import { Alert, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	Title,
+} from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
 import { keyed } from "./keyed";
@@ -156,19 +163,19 @@ export const EstimateView = ({
 				One result from this reconciliation: computed liability compared against
 				accepted taxes paid.
 			</Alert>
-			<dl className="openitr-result-details">
+			<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
 				{summaryRows(estimate).map((row) => (
-					<div key={row.label}>
-						<dt>{row.label}</dt>
-						<dd>
+					<DescriptionListGroup key={row.label}>
+						<DescriptionListTerm>{row.label}</DescriptionListTerm>
+						<DescriptionListDescription>
 							<strong>{row.value}</strong>
 							{row.hint ? (
 								<small className="openitr-summary-hint"> {row.hint}</small>
 							) : null}
-						</dd>
-					</div>
+						</DescriptionListDescription>
+					</DescriptionListGroup>
 				))}
-			</dl>
+			</DescriptionList>
 			<p className="openitr-trace-heading">
 				Source evidence behind the estimate
 			</p>

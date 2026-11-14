@@ -2,9 +2,15 @@ import type {
 	OtherSourceCategory,
 	OtherSourcesComputation,
 } from "@openitr/itr1-ay2026-27";
-import { Title } from "@patternfly/react-core";
+import {
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	Title,
+} from "@patternfly/react-core";
 
-import { rupeeFormat } from "./computation-trace-view";
+import { rupeeFormat, TraceDetail, TraceStep } from "./computation-trace-view";
 import { IssueAlert } from "./plain-language";
 
 const categoryLabels: Readonly<Record<OtherSourceCategory["kind"], string>> =
@@ -26,60 +32,75 @@ export const OtherSourcesComputationView = ({
 			</Title>
 			{computation.kind === "computed" ? (
 				<>
-					<dl className="openitr-result-details openitr-other-sources-summary">
-						<div>
-							<dt>Gross other-source income</dt>
-							<dd>₹ {rupeeFormat(computation.grossTotal)}</dd>
-						</div>
-						<div>
-							<dt>Old-regime family-pension deduction</dt>
-							<dd>
+					<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
+						<DescriptionListGroup>
+							<DescriptionListTerm>
+								Gross other-source income
+							</DescriptionListTerm>
+							<DescriptionListDescription>
+								₹ {rupeeFormat(computation.grossTotal)}
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+						<DescriptionListGroup>
+							<DescriptionListTerm>
+								Old-regime family-pension deduction
+							</DescriptionListTerm>
+							<DescriptionListDescription>
 								₹ {rupeeFormat(computation.oldRegime.familyPensionDeduction)}
-							</dd>
-						</div>
-						<div>
-							<dt>Old-regime other-source income</dt>
-							<dd>₹ {rupeeFormat(computation.oldRegime.total)}</dd>
-						</div>
-						<div>
-							<dt>New-regime family-pension deduction</dt>
-							<dd>
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+						<DescriptionListGroup>
+							<DescriptionListTerm>
+								Old-regime other-source income
+							</DescriptionListTerm>
+							<DescriptionListDescription>
+								₹ {rupeeFormat(computation.oldRegime.total)}
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+						<DescriptionListGroup>
+							<DescriptionListTerm>
+								New-regime family-pension deduction
+							</DescriptionListTerm>
+							<DescriptionListDescription>
 								₹ {rupeeFormat(computation.newRegime.familyPensionDeduction)}
-							</dd>
-						</div>
-						<div>
-							<dt>New-regime other-source income</dt>
-							<dd>₹ {rupeeFormat(computation.newRegime.total)}</dd>
-						</div>
-					</dl>
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+						<DescriptionListGroup>
+							<DescriptionListTerm>
+								New-regime other-source income
+							</DescriptionListTerm>
+							<DescriptionListDescription>
+								₹ {rupeeFormat(computation.newRegime.total)}
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+					</DescriptionList>
 					<h3>Category amounts</h3>
-					<dl className="openitr-result-details openitr-other-sources-categories">
+					<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
 						{computation.categories.map((category) => (
-							<div key={category.kind}>
-								<dt>{categoryLabels[category.kind]}</dt>
-								<dd>₹ {rupeeFormat(category.amount)}</dd>
-							</div>
+							<DescriptionListGroup key={category.kind}>
+								<DescriptionListTerm>
+									{categoryLabels[category.kind]}
+								</DescriptionListTerm>
+								<DescriptionListDescription>
+									₹ {rupeeFormat(category.amount)}
+								</DescriptionListDescription>
+							</DescriptionListGroup>
 						))}
-					</dl>
-					<p className="openitr-trace-heading">Cited computation details</p>
-					<div className="openitr-trace-list">
+					</DescriptionList>
+					<p>Cited computation details</p>
+					<div>
 						{computation.trace.map((node) => (
-							<details className="openitr-trace-node" key={String(node.ruleId)}>
-								<summary>
-									<strong>{node.label}</strong>
-									<span className="openitr-trace-node-value">
-										₹ {rupeeFormat(node.result)}
-									</span>
-								</summary>
-								<dl className="openitr-trace-details">
-									<dt>Rule</dt>
-									<dd>{node.ruleId}</dd>
-									<dt>Operation</dt>
-									<dd>{node.operation}</dd>
-									<dt>Inputs</dt>
-									<dd>{node.inputs.map(String).join(", ")}</dd>
-								</dl>
-							</details>
+							<TraceStep
+								key={String(node.ruleId)}
+								label={node.label}
+								value={`₹ ${rupeeFormat(node.result)}`}
+							>
+								<TraceDetail term="Rule">{node.ruleId}</TraceDetail>
+								<TraceDetail term="Operation">{node.operation}</TraceDetail>
+								<TraceDetail term="Inputs">
+									{node.inputs.map(String).join(", ")}
+								</TraceDetail>
+							</TraceStep>
 						))}
 					</div>
 				</>

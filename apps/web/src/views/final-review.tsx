@@ -1,4 +1,12 @@
-import { Alert, Button, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Button,
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	Title,
+} from "@patternfly/react-core";
 
 import { buildFinalReview } from "../session/final-review-model";
 import type {
@@ -148,30 +156,38 @@ export const FinalReviewView = ({
 											<FactLabel factKey={fact.factKey} />
 											<strong>{fact.value}</strong>
 										</header>
-										<dl>
-											<div>
-												<dt>Origin</dt>
-												<dd>
+										<DescriptionList isCompact isHorizontal>
+											<DescriptionListGroup>
+												<DescriptionListTerm>Origin</DescriptionListTerm>
+												<DescriptionListDescription>
 													{originLabels[fact.originKind]} · {fact.origin}
-												</dd>
-											</div>
-											<div>
-												<dt>Evidence</dt>
-												<dd>{fact.evidence}</dd>
-											</div>
-											<div>
-												<dt>Transformation</dt>
-												<dd>{fact.transformation}</dd>
-											</div>
-											<div>
-												<dt>Downstream use</dt>
-												<dd>
+												</DescriptionListDescription>
+											</DescriptionListGroup>
+											<DescriptionListGroup>
+												<DescriptionListTerm>Evidence</DescriptionListTerm>
+												<DescriptionListDescription>
+													{fact.evidence}
+												</DescriptionListDescription>
+											</DescriptionListGroup>
+											<DescriptionListGroup>
+												<DescriptionListTerm>
+													Transformation
+												</DescriptionListTerm>
+												<DescriptionListDescription>
+													{fact.transformation}
+												</DescriptionListDescription>
+											</DescriptionListGroup>
+											<DescriptionListGroup>
+												<DescriptionListTerm>
+													Downstream use
+												</DescriptionListTerm>
+												<DescriptionListDescription>
 													{fact.downstreamUses.length === 0
 														? "No direct downstream use recorded"
 														: fact.downstreamUses.join(", ")}
-												</dd>
-											</div>
-										</dl>
+												</DescriptionListDescription>
+											</DescriptionListGroup>
+										</DescriptionList>
 										{fact.targetId === undefined ? null : (
 											<a href={`#${fact.targetId}`}>
 												Return to source or decision

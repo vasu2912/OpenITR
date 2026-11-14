@@ -9,13 +9,37 @@ import type {
 	AttestedAnswerFact,
 	MissingFactQuestionnaire,
 } from "@openitr/question-engine";
-import { Alert, Button, Title } from "@patternfly/react-core";
+import {
+	ActionGroup,
+	Alert,
+	Button,
+	Content,
+	DataList,
+	DataListAction,
+	DataListCell,
+	DataListItem,
+	DataListItemCells,
+	DataListItemRow,
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	ExpandableSection,
+	Form,
+	FormHelperText,
+	HelperText,
+	HelperTextItem,
+	Stack,
+	StackItem,
+	Title,
+} from "@patternfly/react-core";
 import type { FormEvent } from "react";
 import { useState } from "react";
 
 import type { SessionOrchestrator } from "../session/session-orchestrator";
 import { FactLabel } from "./plain-language";
 import {
+	AmountInput,
 	QuestionChoiceList,
 	yesNoQuestionChoices,
 } from "./question-choice-list";
@@ -61,9 +85,11 @@ const validationMessage = (
 };
 
 const MissingFactQuestionForm = ({
+	position,
 	question,
 	session,
 }: Readonly<{
+	position: Readonly<{ index: number; total: number }>;
 	question: ApplicableFactQuestion;
 	session: SessionOrchestrator;
 }>) => {
@@ -95,86 +121,85 @@ const MissingFactQuestionForm = ({
 		}
 	};
 
+	const clearError = (nextValue: string): void => {
+		setValue(nextValue);
+		setError(undefined);
+	};
+
+	const promptId = `${question.id}-prompt`;
 	return (
-		<li className="openitr-missing-fact-item" id={`question-${question.id}`}>
-			<form onSubmit={handleSubmit}>
+		<StackItem id={`question-${question.id}`}>
+			<Form className="openitr-measure" onSubmit={handleSubmit}>
+				<Stack>
+					<Content component="small">
+						Question {position.index + 1} of {position.total} ·{" "}
+						{question.affectedResult.label}
+					</Content>
+					<Title headingLevel="h3" id={promptId} size="lg">
+						{question.prompt}
+					</Title>
+					<Content component="p" id={helpId}>
+						{question.helpText}
+					</Content>
+				</Stack>
 				{question.answerSchema.kind === "boolean" ? (
 					<QuestionChoiceList
 						describedBy={describedBy}
 						hasError={error !== undefined}
-						legend={question.prompt}
+						labelledBy={promptId}
 						name={inputId}
-						onValueChange={(nextValue) => {
-							setValue(nextValue);
-							setError(undefined);
-						}}
+						onValueChange={clearError}
 						options={yesNoQuestionChoices}
 						value={value}
 					/>
 				) : (
-					<label className="openitr-missing-fact-label" htmlFor={inputId}>
-						{question.prompt}
-					</label>
+					<AmountInput
+						describedBy={describedBy}
+						error={error}
+						errorId={errorId}
+						id={inputId}
+						labelledBy={promptId}
+						onValueChange={clearError}
+						placeholder={
+							question.answerSchema.kind === "exact-money" ? "0.00" : undefined
+						}
+						showRupee={question.answerSchema.kind === "exact-money"}
+						type={question.answerSchema.kind === "iso-date" ? "date" : "text"}
+						value={value}
+					/>
 				)}
-				<p className="openitr-missing-fact-help" id={helpId}>
-					{question.helpText}
-				</p>
-				<dl className="openitr-question-context">
-					<div id={rationaleId}>
-						<dt>Why this is required</dt>
-						<dd>{question.whyRequired}</dd>
-					</div>
-					<div id={affectedId}>
-						<dt>Result this can affect</dt>
-						<dd>{question.affectedResult.label}</dd>
-					</div>
-				</dl>
-				<div className="openitr-missing-fact-answer-row">
-					{question.answerSchema.kind === "exact-money" ? (
-						<>
-							<span aria-hidden="true" className="openitr-rupee-prefix">
-								₹
-							</span>
-							<input
-								aria-describedby={describedBy}
-								aria-invalid={error !== undefined}
-								className="openitr-missing-fact-input"
-								id={inputId}
-								inputMode="decimal"
-								onChange={(event) => {
-									setValue(event.target.value);
-									setError(undefined);
-								}}
-								placeholder="0.00"
-								type="text"
-								value={value}
-							/>
-						</>
-					) : question.answerSchema.kind === "iso-date" ? (
-						<input
-							aria-describedby={describedBy}
-							aria-invalid={error !== undefined}
-							className="openitr-missing-fact-input"
-							id={inputId}
-							onChange={(event) => {
-								setValue(event.target.value);
-								setError(undefined);
-							}}
-							type="date"
-							value={value}
-						/>
-					) : null}
-					<Button type="submit" variant="primary">
-						Record answer
+				{question.answerSchema.kind === "boolean" && error !== undefined ? (
+					<FormHelperText>
+						<HelperText isLiveRegion>
+							<HelperTextItem id={errorId} variant="error">
+								{error}
+							</HelperTextItem>
+						</HelperText>
+					</FormHelperText>
+				) : null}
+				<ActionGroup>
+					<Button type="submit" variant="secondary">
+						Save answer
 					</Button>
-				</div>
-				{error === undefined ? null : (
-					<p className="openitr-missing-fact-error" id={errorId} role="alert">
-						{error}
-					</p>
-				)}
-			</form>
-		</li>
+				</ActionGroup>
+				<ExpandableSection toggleText="Why OpenITR asks this">
+					<DescriptionList isCompact>
+						<DescriptionListGroup id={rationaleId}>
+							<DescriptionListTerm>Why this is required</DescriptionListTerm>
+							<DescriptionListDescription>
+								{question.whyRequired}
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+						<DescriptionListGroup id={affectedId}>
+							<DescriptionListTerm>Result this can affect</DescriptionListTerm>
+							<DescriptionListDescription>
+								{question.affectedResult.label}
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+					</DescriptionList>
+				</ExpandableSection>
+			</Form>
+		</StackItem>
 	);
 };
 
@@ -210,52 +235,82 @@ export const MissingFactQuestionsView = ({
 					title={`${questionnaire.questions.length} missing ${questionnaire.questions.length === 1 ? "fact" : "facts"} can be answered`}
 					variant="warning"
 				>
-					These questions come from the pinned rule pack. Leave an answer blank
-					until you can attest it; OpenITR will keep it unknown.
+					Your documents did not contain these facts. Answer the ones you can
+					confirm. Anything left blank stays unknown, and the results it affects
+					stay blocked.
 				</Alert>
 			)}
-			<ul className="openitr-missing-fact-list">
-				{questionnaire.questions.map((question) => (
+			<Stack className="openitr-question-stack" hasGutter>
+				{questionnaire.questions.map((question, index) => (
 					<MissingFactQuestionForm
 						key={question.id}
+						position={{ index, total: questionnaire.questions.length }}
 						question={question}
 						session={session}
 					/>
 				))}
-			</ul>
+			</Stack>
 			{answers.length === 0 ? null : (
-				<div className="openitr-recorded-answers">
-					<h3>Recorded answers</h3>
-					<ul>
+				<Stack hasGutter>
+					<Title headingLevel="h3" id="recorded-answers-heading" size="md">
+						Recorded answers
+					</Title>
+					<DataList aria-label="Recorded answers" isCompact>
 						{answers.map((answer) => (
-							<li id={`answer-${answer.answerId}`} key={answer.answerId}>
-								<FactLabel factKey={answer.factKey} />:{" "}
-								{typeof answer.value === "boolean"
-									? answer.value
-										? "Yes"
-										: "No"
-									: isIsoDate(answer.value)
-										? answer.value
-										: `₹ ${answer.value}`}
-								<Button
-									onClick={() =>
-										session.send({
-											kind: "remove-missing-fact-answer",
-											answerId: answer.answerId,
-										})
-									}
-									variant="link"
-								>
-									Change answer
-								</Button>
-								<small>
-									Question revision {answer.questionRevision}; recorded{" "}
-									{answer.answeredAt}
-								</small>
-							</li>
+							<DataListItem
+								aria-labelledby={`answer-${answer.answerId}-label`}
+								id={`answer-${answer.answerId}`}
+								key={answer.answerId}
+							>
+								<DataListItemRow>
+									<DataListItemCells
+										dataListCells={[
+											<DataListCell key="fact" width={3}>
+												<span id={`answer-${answer.answerId}-label`}>
+													<FactLabel factKey={answer.factKey} />
+												</span>
+												<ExpandableSection toggleText="Technical details">
+													<Content component="small">
+														Question revision {answer.questionRevision},
+														recorded {answer.answeredAt}
+													</Content>
+												</ExpandableSection>
+											</DataListCell>,
+											<DataListCell key="value">
+												<strong>
+													{typeof answer.value === "boolean"
+														? answer.value
+															? "Yes"
+															: "No"
+														: isIsoDate(answer.value)
+															? answer.value
+															: `₹ ${answer.value}`}
+												</strong>
+											</DataListCell>,
+										]}
+									/>
+									<DataListAction
+										aria-label="Actions"
+										aria-labelledby={`answer-${answer.answerId}-label`}
+										id={`answer-${answer.answerId}-actions`}
+									>
+										<Button
+											onClick={() =>
+												session.send({
+													kind: "remove-missing-fact-answer",
+													answerId: answer.answerId,
+												})
+											}
+											variant="link"
+										>
+											Change answer
+										</Button>
+									</DataListAction>
+								</DataListItemRow>
+							</DataListItem>
 						))}
-					</ul>
-				</div>
+					</DataList>
+				</Stack>
 			)}
 		</section>
 	);

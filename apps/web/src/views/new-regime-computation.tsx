@@ -1,5 +1,11 @@
 import type { NewRegimeComputation } from "@openitr/itr1-ay2026-27";
-import { Title } from "@patternfly/react-core";
+import {
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	Title,
+} from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
 import { keyed } from "./keyed";
@@ -16,19 +22,19 @@ type SummaryRow = Readonly<{
 const amount = (value: string): string => `₹ ${rupeeFormat(value)}`;
 
 const SummaryRows = ({ rows }: Readonly<{ rows: readonly SummaryRow[] }>) => (
-	<dl className="openitr-result-details">
+	<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
 		{rows.map((row) => (
-			<div key={row.label}>
-				<dt>{row.label}</dt>
-				<dd>
+			<DescriptionListGroup key={row.label}>
+				<DescriptionListTerm>{row.label}</DescriptionListTerm>
+				<DescriptionListDescription>
 					<strong>{row.value}</strong>
 					{row.hint ? (
 						<small className="openitr-summary-hint"> {row.hint}</small>
 					) : null}
-				</dd>
-			</div>
+				</DescriptionListDescription>
+			</DescriptionListGroup>
 		))}
-	</dl>
+	</DescriptionList>
 );
 
 const incomeRows = (computation: ComputedNewRegime): readonly SummaryRow[] => [

@@ -9,7 +9,16 @@ import type {
 	TdsObservation,
 } from "@openitr/model";
 import { epayChallanReferenceOf } from "@openitr/model";
-import { Alert, Button, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Button,
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	ExpandableSection,
+	Title,
+} from "@patternfly/react-core";
 import { useState } from "react";
 
 import { rupeeFormat } from "./computation-trace-view";
@@ -256,19 +265,18 @@ const ObservationCard = ({
 				Original text: <q>{observation.evidenceText}</q>
 			</p>
 			{observation.recordDetails ? (
-				<dl className="openitr-observation-details">
+				<DescriptionList isCompact isHorizontal>
 					{observation.recordDetails.map((detail) => (
-						<div key={detail.label}>
-							<dt>{detail.label}:</dt>
-							<dd>
+						<DescriptionListGroup key={detail.label}>
+							<DescriptionListTerm>{detail.label}:</DescriptionListTerm>
+							<DescriptionListDescription>
 								<code>{detail.value}</code>
-							</dd>
-						</div>
+							</DescriptionListDescription>
+						</DescriptionListGroup>
 					))}
-				</dl>
+				</DescriptionList>
 			) : null}
-			<details className="openitr-observation-steps">
-				<summary>Normalization steps</summary>
+			<ExpandableSection toggleText="Normalization steps">
 				<ol className="openitr-step-list">
 					{observation.transformationSteps.map((step) => (
 						<li key={step.order}>
@@ -277,7 +285,7 @@ const ObservationCard = ({
 						</li>
 					))}
 				</ol>
-			</details>
+			</ExpandableSection>
 			<p className="openitr-observation-rule">
 				Field definition {observation.ruleId}: {observation.ruleDescription}
 			</p>
