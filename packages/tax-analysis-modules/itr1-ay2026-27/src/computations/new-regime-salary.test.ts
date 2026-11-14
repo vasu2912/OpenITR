@@ -33,7 +33,7 @@ const residentAnswer = (): AttestedAnswer => ({
 	rulePackId: itr1Ay202627RulePack.identity.id,
 });
 
-let nextEvidenceY = 600;
+const nextEvidenceY = 600;
 
 const observation = ({
 	documentId: sourceDocumentId = documentId,

@@ -229,7 +229,7 @@ export const evaluateResolutionAttempt = (
 			rejection: "attestation-not-permitted",
 		});
 	}
-	let attestedValue;
+	let attestedValue: ReturnType<typeof parseExactMoney>;
 	try {
 		attestedValue = parseExactMoney(input.choice.value);
 	} catch {

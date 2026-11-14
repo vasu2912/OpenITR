@@ -10,6 +10,7 @@ import {
 	subtractExactMoney,
 } from "@openitr/model";
 import type { ExactMoney, FactKey, IssueCode, RuleId, ScopeRulePack } from "@openitr/model";
+import { requireFact } from "./require-fact";
 
 const FACT_KEYS = Object.freeze({
 	savingsInterest: parseFactKey("bank-interest.savings-account"),
@@ -108,9 +109,9 @@ export const computeRemainingDeductions = ({ rulePack, facts }: Readonly<{ ruleP
 		trace.push({ label: `Section ${section} allowed deduction`, ruleId, inputs, operation, result: oldRegimeAllowed });
 	};
 
-	const senior = bool(FACT_KEYS.seniorCitizen)!;
-	const savings = money(FACT_KEYS.savingsInterest)!;
-	const deposits = money(FACT_KEYS.depositInterest)!;
+	const senior = requireFact(bool(FACT_KEYS.seniorCitizen), FACT_KEYS.seniorCitizen);
+	const savings = requireFact(money(FACT_KEYS.savingsInterest), FACT_KEYS.savingsInterest);
+	const deposits = requireFact(money(FACT_KEYS.depositInterest), FACT_KEYS.depositInterest);
 	const section80tta = senior ? zero : minExactMoney(savings, exactMoneyFromWholeRupees(constants.section80ttaLimitWholeRupees));
 	const section80ttb = senior ? minExactMoney(addExactMoney(savings, deposits), exactMoneyFromWholeRupees(constants.section80ttbLimitWholeRupees)) : zero;
 	addResult("80TTA", section80tta, zero, constants.section80ttaRuleId, [FACT_KEYS.savingsInterest, FACT_KEYS.seniorCitizen], "Savings interest capped once for a non-senior taxpayer", senior ? "not-applicable" : "allowed");
@@ -118,49 +119,49 @@ export const computeRemainingDeductions = ({ rulePack, facts }: Readonly<{ ruleP
 
 	let section80cch = zero;
 	if (bool(FACT_KEYS.section80cchPresent)) {
-		const eligible = bool(FACT_KEYS.section80cchEligible)! && bool(FACT_KEYS.section80cchAgeEligible)! && bool(FACT_KEYS.section80cchCentralGovernmentEmployee)! && bool(FACT_KEYS.section80cchDetailsAvailable)!;
-		if (eligible) section80cch = minExactMoney(addExactMoney(money(FACT_KEYS.section80cchTaxpayerContribution)!, money(FACT_KEYS.section80cchGovernmentContribution)!), multiplyByBasisPoints(money(FACT_KEYS.section80cchSalary)!, constants.section80cchSalaryLimitBasisPoints));
+		const eligible = requireFact(bool(FACT_KEYS.section80cchEligible), FACT_KEYS.section80cchEligible) && requireFact(bool(FACT_KEYS.section80cchAgeEligible), FACT_KEYS.section80cchAgeEligible) && requireFact(bool(FACT_KEYS.section80cchCentralGovernmentEmployee), FACT_KEYS.section80cchCentralGovernmentEmployee) && requireFact(bool(FACT_KEYS.section80cchDetailsAvailable), FACT_KEYS.section80cchDetailsAvailable);
+		if (eligible) section80cch = minExactMoney(addExactMoney(requireFact(money(FACT_KEYS.section80cchTaxpayerContribution), FACT_KEYS.section80cchTaxpayerContribution), requireFact(money(FACT_KEYS.section80cchGovernmentContribution), FACT_KEYS.section80cchGovernmentContribution)), multiplyByBasisPoints(requireFact(money(FACT_KEYS.section80cchSalary), FACT_KEYS.section80cchSalary), constants.section80cchSalaryLimitBasisPoints));
 		else issues.push(issue("FACT_80CCH_ELIGIBILITY_NOT_MET", [FACT_KEYS.section80cchEligible, FACT_KEYS.section80cchAgeEligible, FACT_KEYS.section80cchCentralGovernmentEmployee, FACT_KEYS.section80cchDetailsAvailable], "Do not claim section 80CCH unless the Agniveer, age, employment, and account details are confirmed.", "warning"));
 	}
-	const section80cchPresent = bool(FACT_KEYS.section80cchPresent)!;
+	const section80cchPresent = requireFact(bool(FACT_KEYS.section80cchPresent), FACT_KEYS.section80cchPresent);
 	const section80cchEligible = bool(FACT_KEYS.section80cchEligible) === true && bool(FACT_KEYS.section80cchAgeEligible) === true && bool(FACT_KEYS.section80cchCentralGovernmentEmployee) === true && bool(FACT_KEYS.section80cchDetailsAvailable) === true;
 	addResult("80CCH", section80cch, section80cch, constants.section80cchRuleId, [FACT_KEYS.section80cchTaxpayerContribution, FACT_KEYS.section80cchGovernmentContribution, FACT_KEYS.section80cchSalary], "Eligible contributions capped by the pinned salary percentage", !section80cchPresent ? "not-applicable" : section80cchEligible ? "allowed" : "rejected");
 
 	let section80gg = zero;
 	if (bool(FACT_KEYS.section80ggPresent)) {
-		const eligible = !bool(FACT_KEYS.section80ggHraReceived)! && !bool(FACT_KEYS.section80ggDisqualifyingProperty)! && bool(FACT_KEYS.section80ggForm10baDetails)!;
+		const eligible = !requireFact(bool(FACT_KEYS.section80ggHraReceived), FACT_KEYS.section80ggHraReceived) && !requireFact(bool(FACT_KEYS.section80ggDisqualifyingProperty), FACT_KEYS.section80ggDisqualifyingProperty) && requireFact(bool(FACT_KEYS.section80ggForm10baDetails), FACT_KEYS.section80ggForm10baDetails);
 		if (eligible) {
-			const rent = money(FACT_KEYS.section80ggRentPaid)!;
-			const income = money(FACT_KEYS.section80ggAdjustedTotalIncome)!;
+			const rent = requireFact(money(FACT_KEYS.section80ggRentPaid), FACT_KEYS.section80ggRentPaid);
+			const income = requireFact(money(FACT_KEYS.section80ggAdjustedTotalIncome), FACT_KEYS.section80ggAdjustedTotalIncome);
 			const reduction = multiplyByWholePercent(income, constants.section80ggRentReductionPercent);
 			const excessRent = compareExactMoney(rent, reduction) > 0 ? subtractExactMoney(rent, reduction) : zero;
 			section80gg = minExactMoney(excessRent, minExactMoney(multiplyByWholePercent(income, constants.section80ggIncomeLimitPercent), exactMoneyFromWholeRupees(constants.section80ggAnnualLimitWholeRupees)));
 		} else issues.push(issue("FACT_80GG_ELIGIBILITY_NOT_MET", [FACT_KEYS.section80ggHraReceived, FACT_KEYS.section80ggDisqualifyingProperty, FACT_KEYS.section80ggForm10baDetails], "Resolve the HRA, property-ownership, and Form 10BA conditions before claiming section 80GG.", "warning"));
 	}
-	const section80ggPresent = bool(FACT_KEYS.section80ggPresent)!;
+	const section80ggPresent = requireFact(bool(FACT_KEYS.section80ggPresent), FACT_KEYS.section80ggPresent);
 	const section80ggEligible = bool(FACT_KEYS.section80ggHraReceived) === false && bool(FACT_KEYS.section80ggDisqualifyingProperty) === false && bool(FACT_KEYS.section80ggForm10baDetails) === true;
 	addResult("80GG", section80gg, zero, constants.section80ggRuleId, [FACT_KEYS.section80ggRentPaid, FACT_KEYS.section80ggAdjustedTotalIncome], "Least of rent less ten percent of income, twenty-five percent of income, and the annual cap", !section80ggPresent ? "not-applicable" : section80ggEligible ? "allowed" : "rejected");
 
 	let section80gga = zero;
 	if (bool(FACT_KEYS.section80ggaPresent)) {
-		const amount = money(FACT_KEYS.section80ggaAmount)!;
-		const cashRejected = bool(FACT_KEYS.section80ggaCashPayment)! && compareExactMoney(amount, exactMoneyFromWholeRupees(constants.section80ggaCashPaymentLimitWholeRupees)) > 0;
-		const eligible = bool(FACT_KEYS.section80ggaEligiblePurpose)! && !bool(FACT_KEYS.section80ggaBusinessIncome)! && bool(FACT_KEYS.section80ggaDetailsAvailable)! && !cashRejected;
+		const amount = requireFact(money(FACT_KEYS.section80ggaAmount), FACT_KEYS.section80ggaAmount);
+		const cashRejected = requireFact(bool(FACT_KEYS.section80ggaCashPayment), FACT_KEYS.section80ggaCashPayment) && compareExactMoney(amount, exactMoneyFromWholeRupees(constants.section80ggaCashPaymentLimitWholeRupees)) > 0;
+		const eligible = requireFact(bool(FACT_KEYS.section80ggaEligiblePurpose), FACT_KEYS.section80ggaEligiblePurpose) && !requireFact(bool(FACT_KEYS.section80ggaBusinessIncome), FACT_KEYS.section80ggaBusinessIncome) && requireFact(bool(FACT_KEYS.section80ggaDetailsAvailable), FACT_KEYS.section80ggaDetailsAvailable) && !cashRejected;
 		if (eligible) section80gga = amount;
 		if (cashRejected) issues.push(issue("FACT_80GGA_CASH_PAYMENT_EXCEEDS_LIMIT", [FACT_KEYS.section80ggaAmount, FACT_KEYS.section80ggaCashPayment], "Exclude the cash payment above the section 80GGA limit.", "warning"));
 		else if (!eligible) issues.push(issue("FACT_80GGA_ELIGIBILITY_NOT_MET", [FACT_KEYS.section80ggaEligiblePurpose, FACT_KEYS.section80ggaBusinessIncome, FACT_KEYS.section80ggaDetailsAvailable], "Confirm the qualifying purpose, absence of business income, and recipient details before claiming section 80GGA.", "warning"));
 	}
-	const section80ggaPresent = bool(FACT_KEYS.section80ggaPresent)!;
-	const section80ggaEligible = bool(FACT_KEYS.section80ggaEligiblePurpose) === true && bool(FACT_KEYS.section80ggaBusinessIncome) === false && bool(FACT_KEYS.section80ggaDetailsAvailable) === true && !(bool(FACT_KEYS.section80ggaCashPayment) === true && compareExactMoney(money(FACT_KEYS.section80ggaAmount)!, exactMoneyFromWholeRupees(constants.section80ggaCashPaymentLimitWholeRupees)) > 0);
+	const section80ggaPresent = requireFact(bool(FACT_KEYS.section80ggaPresent), FACT_KEYS.section80ggaPresent);
+	const section80ggaEligible = bool(FACT_KEYS.section80ggaEligiblePurpose) === true && bool(FACT_KEYS.section80ggaBusinessIncome) === false && bool(FACT_KEYS.section80ggaDetailsAvailable) === true && !(bool(FACT_KEYS.section80ggaCashPayment) === true && compareExactMoney(requireFact(money(FACT_KEYS.section80ggaAmount), FACT_KEYS.section80ggaAmount), exactMoneyFromWholeRupees(constants.section80ggaCashPaymentLimitWholeRupees)) > 0);
 	addResult("80GGA", section80gga, zero, constants.section80ggaRuleId, [FACT_KEYS.section80ggaAmount, FACT_KEYS.section80ggaCashPayment], "Eligible contribution after the cash-payment restriction", !section80ggaPresent ? "not-applicable" : section80ggaEligible ? "allowed" : "rejected");
 
 	let section80ggc = zero;
 	if (bool(FACT_KEYS.section80ggcPresent)) {
-		const eligible = bool(FACT_KEYS.section80ggcEligibleRecipient)! && !bool(FACT_KEYS.section80ggcCashPayment)! && bool(FACT_KEYS.section80ggcDateWithinYear)! && bool(FACT_KEYS.section80ggcDetailsAvailable)!;
-		if (eligible) section80ggc = minExactMoney(money(FACT_KEYS.section80ggcAmount)!, money(FACT_KEYS.section80ggcGrossTotalIncome)!);
+		const eligible = requireFact(bool(FACT_KEYS.section80ggcEligibleRecipient), FACT_KEYS.section80ggcEligibleRecipient) && !requireFact(bool(FACT_KEYS.section80ggcCashPayment), FACT_KEYS.section80ggcCashPayment) && requireFact(bool(FACT_KEYS.section80ggcDateWithinYear), FACT_KEYS.section80ggcDateWithinYear) && requireFact(bool(FACT_KEYS.section80ggcDetailsAvailable), FACT_KEYS.section80ggcDetailsAvailable);
+		if (eligible) section80ggc = minExactMoney(requireFact(money(FACT_KEYS.section80ggcAmount), FACT_KEYS.section80ggcAmount), requireFact(money(FACT_KEYS.section80ggcGrossTotalIncome), FACT_KEYS.section80ggcGrossTotalIncome));
 		else issues.push(issue("FACT_80GGC_ELIGIBILITY_NOT_MET", [FACT_KEYS.section80ggcEligibleRecipient, FACT_KEYS.section80ggcCashPayment, FACT_KEYS.section80ggcDateWithinYear, FACT_KEYS.section80ggcDetailsAvailable], "Confirm the political party or electoral trust, non-cash payment, contribution date, and transaction details before claiming section 80GGC.", "warning"));
 	}
-	const section80ggcPresent = bool(FACT_KEYS.section80ggcPresent)!;
+	const section80ggcPresent = requireFact(bool(FACT_KEYS.section80ggcPresent), FACT_KEYS.section80ggcPresent);
 	const section80ggcEligible = bool(FACT_KEYS.section80ggcEligibleRecipient) === true && bool(FACT_KEYS.section80ggcCashPayment) === false && bool(FACT_KEYS.section80ggcDateWithinYear) === true && bool(FACT_KEYS.section80ggcDetailsAvailable) === true;
 	addResult("80GGC", section80ggc, zero, constants.section80ggcRuleId, [FACT_KEYS.section80ggcAmount, FACT_KEYS.section80ggcGrossTotalIncome, FACT_KEYS.section80ggcEligibleRecipient, FACT_KEYS.section80ggcCashPayment, FACT_KEYS.section80ggcDateWithinYear], "Eligible non-cash political contribution capped by gross total income", !section80ggcPresent ? "not-applicable" : section80ggcEligible ? "allowed" : "rejected");
 	trace.push({ label: "New-regime treatment for remaining deductions", ruleId: constants.newRegimeExclusionRuleId, inputs: [FACT_KEYS.section80cchPresent, FACT_KEYS.section80ggPresent, FACT_KEYS.section80ggaPresent, FACT_KEYS.section80ggcPresent, FACT_KEYS.seniorCitizen], operation: "Exclude sections 80GG, 80GGA, 80GGC, 80TTA, and 80TTB; retain eligible section 80CCH", result: section80cch });

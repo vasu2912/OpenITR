@@ -840,7 +840,7 @@ const createIdentifiedGatedSession = async () => {
 
 	calls
 		.filter((call) => call.stage === "inspect")
-		.forEach((call) =>
+		.forEach((call) => {
 			call.resolve({
 				kind: "identified",
 				document: {
@@ -848,7 +848,8 @@ const createIdentifiedGatedSession = async () => {
 					templateRevision: parseTemplateRevision("2026-27"),
 				},
 				adapter: { adapterId: "form16-pdf", adapterVersion: "1" },
-			} satisfies DocumentInspectionOutcome),
+			} satisfies DocumentInspectionOutcome);
+		},
 		);
 	return { session, calls };
 };
@@ -1249,7 +1250,7 @@ describe("observation extraction lifecycle", () => {
 
 		calls
 			.filter((call) => call.stage === "extract")
-			.forEach((call) =>
+			.forEach((call) => {
 				call.resolve({
 					kind: "extracted",
 					taxPaymentObservations: [],
@@ -1261,7 +1262,8 @@ describe("observation extraction lifecycle", () => {
 					nonSalaryIncomeObservations: [],
 					issues: [],
 					pages: [],
-				} satisfies DocumentExtractionOutcome),
+				} satisfies DocumentExtractionOutcome);
+			},
 			);
 		await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -1284,7 +1286,7 @@ describe("observation extraction lifecycle", () => {
 
 		calls
 			.filter((call) => call.stage === "extract")
-			.forEach((call) =>
+			.forEach((call) => {
 				call.resolve({
 					kind: "extracted",
 					taxPaymentObservations: [],
@@ -1296,7 +1298,8 @@ describe("observation extraction lifecycle", () => {
 					nonSalaryIncomeObservations: [],
 					issues: [],
 					pages: [],
-				} satisfies DocumentExtractionOutcome),
+				} satisfies DocumentExtractionOutcome);
+			},
 			);
 		await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -1583,7 +1586,7 @@ describe("new-regime salary computation exposure", () => {
 		}
 		calls
 			.filter((call) => call.stage === "extract")
-			.forEach((call) =>
+			.forEach((call) => {
 				call.resolve({
 					kind: "extracted",
 					taxPaymentObservations: [],
@@ -1608,7 +1611,8 @@ describe("new-regime salary computation exposure", () => {
 						},
 					],
 					pages: [],
-				} satisfies DocumentExtractionOutcome),
+				} satisfies DocumentExtractionOutcome);
+			},
 			);
 		await waitFor(() => salaryComputationOf(session)?.kind === "blocked");
 
@@ -1767,7 +1771,7 @@ describe("refund-or-payable estimate exposure", () => {
 		}
 		calls
 			.filter((call) => call.stage === "extract")
-			.forEach((call) =>
+			.forEach((call) => {
 				call.resolve({
 					kind: "extracted",
 					taxPaymentObservations: [],
@@ -1797,7 +1801,8 @@ describe("refund-or-payable estimate exposure", () => {
 						},
 					],
 					pages: [],
-				} satisfies DocumentExtractionOutcome),
+				} satisfies DocumentExtractionOutcome);
+			},
 			);
 		await waitFor(() => estimateComputationOf(session)?.kind === "blocked");
 

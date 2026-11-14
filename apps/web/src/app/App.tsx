@@ -702,6 +702,7 @@ const ScopeInteraction = ({
 		return () => window.removeEventListener("hashchange", openHashTarget);
 	}, []);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll to the hash target again whenever the page or session content changes.
 	useEffect(() => {
 		const targetId = decodeURIComponent(window.location.hash.slice(1));
 		if (targetId === "") return;

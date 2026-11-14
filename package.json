@@ -3,17 +3,22 @@
 	"private": true,
 	"packageManager": "pnpm@11.19.0",
 	"scripts": {
-		"dev": "pnpm --filter @openitr/web dev",
 		"build": "pnpm --filter @openitr/web build",
+		"check": "pnpm lint && pnpm typecheck && pnpm test",
 		"deploy:cloudflare": "wrangler deploy",
+		"dev": "pnpm --filter @openitr/web dev",
+		"format": "biome format --write",
+		"lint": "biome check",
+		"lint:fix": "biome check --write",
 		"preview": "pnpm --filter @openitr/web build && pnpm --filter @openitr/web preview",
 		"test": "vitest run",
 		"test:browser": "playwright test",
 		"typecheck": "pnpm --recursive --if-present typecheck",
 		"upload:cloudflare": "wrangler versions upload",
-		"validate": "pnpm typecheck && pnpm test && pnpm build && pnpm test:browser"
+		"validate": "biome ci && pnpm typecheck && pnpm test && pnpm build && pnpm test:browser"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "2.6.4",
 		"@playwright/test": "^1.62.1",
 		"@types/react": "19.2.18",
 		"@types/react-dom": "19.2.4",

@@ -6,7 +6,7 @@ import {
 	createInspectionFailedOutcome,
 	exactMoneyFromWholeRupees,
 	isIsoDate,
-	parseExactMoney,
+	type parseExactMoney,
 	parseFactKey,
 	parseIssueCode,
 	parseIsoTimestamp,
@@ -3561,7 +3561,7 @@ const toSessionSnapshot = (
 					reviewFacts: [],
 				}),
 			};
-		case "complete":
+		case "complete": {
 			if (!context.documentsStageEntered) {
 				return {
 					kind: "scope-check-complete",
@@ -3653,6 +3653,7 @@ const toSessionSnapshot = (
 					? { kind: "pending" }
 					: { kind: "idle" },
 		};
+		}
 		default: {
 			const _exhaustive: never = context.scopeCheck;
 			return _exhaustive;
@@ -4094,7 +4095,7 @@ export const createSessionOrchestrator = ({
 						extractions: snapshot.extractions,
 						resolutions: snapshot.factResolutions,
 					});
-					let answeredAt;
+					let answeredAt: ReturnType<typeof parseIsoTimestamp>;
 					try {
 						answeredAt = parseIsoTimestamp(
 							command.executionContext.answerTime,
@@ -4197,7 +4198,7 @@ export const createSessionOrchestrator = ({
 							`Rejected fact resolution (${command.groupId}): conflict-not-found`,
 						);
 					}
-					let recordedAt;
+					let recordedAt: ReturnType<typeof parseIsoTimestamp>;
 					try {
 						recordedAt = parseIsoTimestamp(
 							command.executionContext.recordedAt,

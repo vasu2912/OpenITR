@@ -4,6 +4,7 @@ import type {
 	UnresolvedFactConflict,
 } from "@openitr/fact-reconciliation";
 import {
+	FormGroup,
 	Alert,
 	Button,
 	Radio,
@@ -145,10 +146,14 @@ const ConflictForm = ({
 					</span>
 				) : null}
 			</fieldset>
-			<label className="openitr-conflict-reason">
-				Reason for this resolution (required)
+			<FormGroup
+				className="openitr-conflict-reason"
+				fieldId={`${conflict.conflictId}-reason`}
+				isRequired
+				label="Reason for this resolution"
+			>
 				<TextArea
-					aria-label="Reason for this resolution"
+					id={`${conflict.conflictId}-reason`}
 					onChange={(_event, value) => {
 						setReason(value);
 						setError(undefined);
@@ -157,7 +162,7 @@ const ConflictForm = ({
 					resizeOrientation="vertical"
 					value={reason}
 				/>
-			</label>
+			</FormGroup>
 			{error ? (
 				<Alert
 					isInline

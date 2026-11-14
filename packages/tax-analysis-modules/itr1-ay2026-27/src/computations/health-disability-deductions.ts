@@ -8,6 +8,7 @@ import {
 	subtractExactMoney,
 } from "@openitr/model";
 import type { ExactMoney, FactKey, IssueCode, RuleId, ScopeRulePack } from "@openitr/model";
+import { requireFact } from "./require-fact";
 
 const FACT_KEYS = Object.freeze({
 	healthPresent: parseFactKey("deductions.80d-present"),
@@ -254,11 +255,11 @@ export const computeHealthDisabilityDeductions = ({
 				if (!bool(group.claimed)) continue;
 				const baseKeys = [group.senior, group.premium, group.preventive];
 				if (!requireFacts("80D", baseKeys)) continue;
-				const senior = bool(group.senior)!;
+				const senior = requireFact(bool(group.senior), group.senior);
 				if (senior && !requireFacts("80D", [group.medical])) continue;
-				const premium = money(group.premium)!;
-				const preventive = money(group.preventive)!;
-				const medical = senior ? money(group.medical)! : zero;
+				const premium = requireFact(money(group.premium), group.premium);
+				const preventive = requireFact(money(group.preventive), group.preventive);
+				const medical = senior ? requireFact(money(group.medical), group.medical) : zero;
 				if (compareExactMoney(premium, zero) > 0) {
 					if (!requireFacts("80D", [group.noncash, group.policy])) continue;
 					if (!bool(group.noncash)) {
@@ -281,14 +282,16 @@ export const computeHealthDisabilityDeductions = ({
 			}
 			if (!blockers.some((candidate) => candidate.category === "80D")) {
 				const claimed = sum(groupValues.flatMap(({ premium, preventive, medical }) => [premium, preventive, medical]));
-				const nonPreventiveAllowed = groupValues.map(({ premium, medical, limit }) => minExactMoney(sum([premium, medical]), limit));
+				const groupAllowances = groupValues.map(({ premium, medical, preventive, limit }) => {
+					const nonPreventive = minExactMoney(sum([premium, medical]), limit);
+					return {
+						nonPreventive,
+						preventiveCapacity: minExactMoney(preventive, subtractExactMoney(limit, nonPreventive)),
+					};
+				});
+				const nonPreventiveAllowed = groupAllowances.map(({ nonPreventive }) => nonPreventive);
 				const preventiveWithinGroupCapacity = sum(
-					groupValues.map(({ preventive, limit }, index) =>
-						minExactMoney(
-							preventive,
-							subtractExactMoney(limit, nonPreventiveAllowed[index]!),
-						),
-					),
+					groupAllowances.map(({ preventiveCapacity }) => preventiveCapacity),
 				);
 				const preventiveAllowed = minExactMoney(
 					preventiveWithinGroupCapacity,
@@ -314,7 +317,7 @@ export const computeHealthDisabilityDeductions = ({
 			if (!bool(FACT_KEYS.dependentQualifyingPayment)) blockers.push(issue("FACT_80DD_QUALIFYING_PAYMENT_REQUIRED", "80DD", "blocking", [FACT_KEYS.dependentQualifyingPayment], "Confirm a qualifying maintenance, treatment, training, rehabilitation, or approved-scheme payment, or remove the section 80DD category."));
 			if (!bool(FACT_KEYS.dependentCertificate)) blockers.push(issue("FACT_80DD_CERTIFICATE_REQUIRED", "80DD", "blocking", [FACT_KEYS.dependentCertificate], "Provide the disability-certificate and applicable Form 10-IA details before relying on section 80DD."));
 			if (!blockers.some((candidate) => candidate.category === "80DD")) {
-				const severe = bool(FACT_KEYS.dependentSevere)!;
+				const severe = requireFact(bool(FACT_KEYS.dependentSevere), FACT_KEYS.dependentSevere);
 				const allowed = exactMoneyFromWholeRupees(severe ? constants.dependentSevereDisabilityAmountWholeRupees : constants.dependentDisabilityAmountWholeRupees);
 				categories.push({ category: "80DD", claimedAmount: allowed, oldRegimeAllowed: allowed, newRegimeAllowed: zero, applicablePerson: "eligible-dependent" });
 				trace.push(
@@ -331,12 +334,12 @@ export const computeHealthDisabilityDeductions = ({
 			if (!bool(FACT_KEYS.specifiedDiseaseEligiblePerson)) blockers.push(issue("FACT_80DDB_PERSON_INELIGIBLE", "80DDB", "blocking", [FACT_KEYS.specifiedDiseaseEligiblePerson], "Confirm that treatment was for the taxpayer or an eligible dependent, or remove the section 80DDB category."));
 			if (!bool(FACT_KEYS.specifiedDiseaseConfirmed)) blockers.push(issue("FACT_80DDB_DISEASE_UNSUPPORTED", "80DDB", "blocking", [FACT_KEYS.specifiedDiseaseConfirmed], "Confirm an eligible specified disease before applying section 80DDB."));
 			if (!bool(FACT_KEYS.specifiedDiseasePrescription)) blockers.push(issue("FACT_80DDB_PRESCRIPTION_REQUIRED", "80DDB", "blocking", [FACT_KEYS.specifiedDiseasePrescription], "Provide the specialist prescription and specified-disease details before relying on section 80DDB."));
-			const expenditure = money(FACT_KEYS.specifiedDiseaseExpenditure)!;
-			const reimbursement = money(FACT_KEYS.specifiedDiseaseReimbursement)!;
+			const expenditure = requireFact(money(FACT_KEYS.specifiedDiseaseExpenditure), FACT_KEYS.specifiedDiseaseExpenditure);
+			const reimbursement = requireFact(money(FACT_KEYS.specifiedDiseaseReimbursement), FACT_KEYS.specifiedDiseaseReimbursement);
 			if (compareExactMoney(reimbursement, expenditure) > 0) blockers.push(issue("FACT_80DDB_REIMBURSEMENT_EXCEEDS_EXPENDITURE", "80DDB", "blocking", [FACT_KEYS.specifiedDiseaseExpenditure, FACT_KEYS.specifiedDiseaseReimbursement], "Correct the expenditure or reimbursement so reimbursement does not exceed qualifying expenditure."));
 			if (!blockers.some((candidate) => candidate.category === "80DDB")) {
 				const net = subtractExactMoney(expenditure, reimbursement);
-				const senior = bool(FACT_KEYS.specifiedDiseaseSenior)!;
+				const senior = requireFact(bool(FACT_KEYS.specifiedDiseaseSenior), FACT_KEYS.specifiedDiseaseSenior);
 				const allowed = minExactMoney(net, exactMoneyFromWholeRupees(senior ? constants.specifiedDiseaseSeniorLimitWholeRupees : constants.specifiedDiseaseLimitWholeRupees));
 				categories.push({ category: "80DDB", claimedAmount: net, oldRegimeAllowed: allowed, newRegimeAllowed: zero, applicablePerson: "taxpayer-or-eligible-dependent" });
 				trace.push(
@@ -352,7 +355,7 @@ export const computeHealthDisabilityDeductions = ({
 		if (requireFacts("80U", required)) {
 			if (!bool(FACT_KEYS.taxpayerCertificate)) blockers.push(issue("FACT_80U_CERTIFICATE_REQUIRED", "80U", "blocking", [FACT_KEYS.taxpayerCertificate], "Provide the disability-certificate and applicable Form 10-IA details before relying on section 80U."));
 			if (!blockers.some((candidate) => candidate.category === "80U")) {
-				const severe = bool(FACT_KEYS.taxpayerSevere)!;
+				const severe = requireFact(bool(FACT_KEYS.taxpayerSevere), FACT_KEYS.taxpayerSevere);
 				const allowed = exactMoneyFromWholeRupees(severe ? constants.taxpayerSevereDisabilityAmountWholeRupees : constants.taxpayerDisabilityAmountWholeRupees);
 				categories.push({ category: "80U", claimedAmount: allowed, oldRegimeAllowed: allowed, newRegimeAllowed: zero, applicablePerson: "resident-taxpayer" });
 				trace.push(

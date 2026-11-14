@@ -1,0 +1,103 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"root": true,
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true,
+		"defaultBranch": "main"
+	},
+	"files": {
+		"includes": [
+			"**",
+			"!.agents",
+			"!**/dist",
+			"!test-results",
+			"!pnpm-lock.yaml",
+			"!skills-lock.json"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 80
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double",
+			"semicolons": "always",
+			"trailingCommas": "all",
+			"arrowParentheses": "always"
+		}
+	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"correctness": {
+				"noUnusedImports": "error",
+				"noUnusedVariables": "error",
+				"useExhaustiveDependencies": "error",
+				"useHookAtTopLevel": "error",
+				"useJsxKeyInIterable": "error"
+			},
+			"suspicious": {
+				"noConsole": "error",
+				"noExplicitAny": "error",
+				"noDoubleEquals": "error",
+				"noFocusedTests": "error",
+				"noSkippedTests": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "error",
+				"noParameterAssign": "error",
+				"useConst": "error",
+				"useImportType": "error",
+				"useExportType": "error",
+				"useNodejsImportProtocol": "error",
+				"useTemplate": "error",
+				"useFilenamingConvention": {
+					"level": "error",
+					"options": { "filenameCases": ["kebab-case", "export"] }
+				}
+			},
+			"security": {
+				"noDangerouslySetInnerHtml": "error",
+				"noGlobalEval": "error"
+			},
+			"complexity": {
+				"noExcessiveCognitiveComplexity": {
+					"level": "warn",
+					"options": { "maxAllowedComplexity": 25 }
+				}
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.test.ts", "**/*.test.mjs", "tests/**", "**/testing.ts", "**/fixtures/**"],
+			"linter": {
+				"rules": {
+					"suspicious": { "noConsole": "off", "noExplicitAny": "warn" },
+					"style": { "noNonNullAssertion": "off" },
+					"complexity": { "noExcessiveCognitiveComplexity": "off" }
+				}
+			}
+		},
+		{
+			"includes": ["tools/**"],
+			"linter": {
+				"rules": {
+					"suspicious": { "noConsole": "off" }
+				}
+			}
+		}
+	]
+}

@@ -14,6 +14,7 @@ import type {
 	RuleId,
 	ScopeRulePack,
 } from "@openitr/model";
+import { requireFact } from "./require-fact";
 
 const FACT_KEYS = Object.freeze({
 	present: parseFactKey("deductions.savings-pension-present"),
@@ -252,15 +253,15 @@ export const computeSavingsPensionDeductions = ({
 		};
 	}
 
-	const section80c = requiredMoney(byKey, FACT_KEYS.section80c)!;
-	const section80ccc = requiredMoney(byKey, FACT_KEYS.section80ccc)!;
-	const section80ccd1 = requiredMoney(byKey, FACT_KEYS.section80ccd1)!;
-	const section80ccd1b = requiredMoney(byKey, FACT_KEYS.section80ccd1b)!;
-	const governmentEmployer = requiredMoney(
-		byKey,
+	const section80c = requireFact(requiredMoney(byKey, FACT_KEYS.section80c), FACT_KEYS.section80c);
+	const section80ccc = requireFact(requiredMoney(byKey, FACT_KEYS.section80ccc), FACT_KEYS.section80ccc);
+	const section80ccd1 = requireFact(requiredMoney(byKey, FACT_KEYS.section80ccd1), FACT_KEYS.section80ccd1);
+	const section80ccd1b = requireFact(requiredMoney(byKey, FACT_KEYS.section80ccd1b), FACT_KEYS.section80ccd1b);
+	const governmentEmployer = requireFact(
+		requiredMoney(byKey, FACT_KEYS.section80ccd2Government),
 		FACT_KEYS.section80ccd2Government,
-	)!;
-	const otherEmployer = requiredMoney(byKey, FACT_KEYS.section80ccd2Other)!;
+	);
+	const otherEmployer = requireFact(requiredMoney(byKey, FACT_KEYS.section80ccd2Other), FACT_KEYS.section80ccd2Other);
 	const zero = exactMoneyFromWholeRupees(0);
 
 	let section80ccd1Allowed = zero;
@@ -359,6 +360,11 @@ export const computeSavingsPensionDeductions = ({
 		};
 	}
 
+	const oldGovernmentEmployerAllowance = requireFact(oldGovernmentEmployerAllowed, FACT_KEYS.section80ccd2GovernmentSalaryBase);
+	const oldOtherEmployerAllowance = requireFact(oldOtherEmployerAllowed, FACT_KEYS.section80ccd2OtherSalaryBase);
+	const newGovernmentEmployerAllowance = requireFact(newGovernmentEmployerAllowed, FACT_KEYS.section80ccd2GovernmentSalaryBase);
+	const newOtherEmployerAllowance = requireFact(newOtherEmployerAllowed, FACT_KEYS.section80ccd2OtherSalaryBase);
+
 	const sharedClaimed = sum([section80c, section80ccc, section80ccd1Allowed]);
 	const sharedAllowed = minExactMoney(
 		sharedClaimed,
@@ -372,24 +378,24 @@ export const computeSavingsPensionDeductions = ({
 		sharedClaimed,
 		sharedAllowed,
 		section80ccd1bAllowed,
-		governmentEmployerAllowed: oldGovernmentEmployerAllowed!,
-		otherEmployerAllowed: oldOtherEmployerAllowed!,
+		governmentEmployerAllowed: oldGovernmentEmployerAllowance,
+		otherEmployerAllowed: oldOtherEmployerAllowance,
 		totalAllowed: sum([
 			sharedAllowed,
 			section80ccd1bAllowed,
-			oldGovernmentEmployerAllowed!,
-			oldOtherEmployerAllowed!,
+			oldGovernmentEmployerAllowance,
+			oldOtherEmployerAllowance,
 		]),
 	};
 	const newRegime: SavingsPensionRegimeResult = {
 		sharedClaimed,
 		sharedAllowed: zero,
 		section80ccd1bAllowed: zero,
-		governmentEmployerAllowed: newGovernmentEmployerAllowed!,
-		otherEmployerAllowed: newOtherEmployerAllowed!,
+		governmentEmployerAllowed: newGovernmentEmployerAllowance,
+		otherEmployerAllowed: newOtherEmployerAllowance,
 		totalAllowed: sum([
-			newGovernmentEmployerAllowed!,
-			newOtherEmployerAllowed!,
+			newGovernmentEmployerAllowance,
+			newOtherEmployerAllowance,
 		]),
 	};
 
@@ -399,9 +405,9 @@ export const computeSavingsPensionDeductions = ({
 		applicablePerson: SavingsPensionDeductionClaim["applicablePerson"],
 	): SavingsPensionDeductionClaim => ({
 		category,
-		claimedAmount: requiredMoney(byKey, factKey)!,
+		claimedAmount: requireFact(requiredMoney(byKey, factKey), factKey),
 		applicablePerson,
-		origin: byKey.get(factKey)!.origin,
+		origin: requireFact(byKey.get(factKey), factKey).origin,
 	});
 	const claims = Object.freeze([
 		claim("80C", FACT_KEYS.section80c, "taxpayer-or-eligible-family"),
@@ -422,7 +428,7 @@ export const computeSavingsPensionDeductions = ({
 	const anyPositive = claims.some(
 		(candidate) => compareExactMoney(candidate.claimedAmount, zero) > 0,
 	);
-	const proofAvailable = requiredBoolean(byKey, FACT_KEYS.proofAvailable)!;
+	const proofAvailable = requireFact(requiredBoolean(byKey, FACT_KEYS.proofAvailable), FACT_KEYS.proofAvailable);
 	const issues =
 		anyPositive && !proofAvailable
 			? [
@@ -475,7 +481,7 @@ export const computeSavingsPensionDeductions = ({
 					FACT_KEYS.section80ccd2GovernmentSalaryBase,
 				],
 				operation: `Apply ${constants.oldRegimeGovernmentEmployerSalaryPercent}% of the government-employer salary base`,
-				result: oldGovernmentEmployerAllowed!,
+				result: oldGovernmentEmployerAllowance,
 			},
 			{
 				label: "Old-regime other-employer contribution",
@@ -485,7 +491,7 @@ export const computeSavingsPensionDeductions = ({
 					FACT_KEYS.section80ccd2OtherSalaryBase,
 				],
 				operation: `Apply ${constants.oldRegimeOtherEmployerSalaryPercent}% of the other-employer salary base`,
-				result: oldOtherEmployerAllowed!,
+				result: oldOtherEmployerAllowance,
 			},
 			{
 				label: "New-regime savings and personal-pension exclusions",
@@ -508,7 +514,7 @@ export const computeSavingsPensionDeductions = ({
 					FACT_KEYS.section80ccd2GovernmentSalaryBase,
 				],
 				operation: `Apply ${constants.newRegimeEmployerSalaryPercent}% of the government-employer salary base`,
-				result: newGovernmentEmployerAllowed!,
+				result: newGovernmentEmployerAllowance,
 			},
 			{
 				label: "New-regime other-employer contribution",
@@ -518,7 +524,7 @@ export const computeSavingsPensionDeductions = ({
 					FACT_KEYS.section80ccd2OtherSalaryBase,
 				],
 				operation: `Apply ${constants.newRegimeEmployerSalaryPercent}% of the other-employer salary base`,
-				result: newOtherEmployerAllowed!,
+				result: newOtherEmployerAllowance,
 			},
 		]),
 	};

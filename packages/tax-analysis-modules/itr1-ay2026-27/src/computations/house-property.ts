@@ -120,7 +120,7 @@ const blocked = (
 	),
 });
 
-const valueOf = (
+const factValueOf = (
 	facts: readonly HousePropertyFact[],
 	key: FactKey,
 ): boolean | ExactMoney | undefined =>
@@ -189,7 +189,7 @@ const prepareProperty = ({
 	facts: readonly HousePropertyFact[];
 }>): PreparedProperty | HousePropertyComputation => {
 	const ownedKey = factKey(propertyNumber, "owned-by-taxpayer");
-	const owned = valueOf(facts, ownedKey);
+	const owned = factValueOf(facts, ownedKey);
 	if (typeof owned !== "boolean") {
 		return blocked("FACT_HOUSE_PROPERTY_OWNERSHIP_MISSING", ownedKey, `ownership for property ${propertyNumber}`);
 	}
@@ -205,7 +205,7 @@ const prepareProperty = ({
 	}
 
 	const occupancyKey = factKey(propertyNumber, "self-occupied-throughout-year");
-	const selfOccupied = valueOf(facts, occupancyKey);
+	const selfOccupied = factValueOf(facts, occupancyKey);
 	if (typeof selfOccupied !== "boolean") {
 		return blocked("FACT_HOUSE_PROPERTY_OCCUPANCY_MISSING", occupancyKey, `occupancy for property ${propertyNumber}`);
 	}
@@ -215,11 +215,11 @@ const prepareProperty = ({
 		const actualRentKey = factKey(propertyNumber, "actual-rent");
 		const vacancyKey = factKey(propertyNumber, "vacancy-reduced-rent");
 		const municipalTaxesKey = factKey(propertyNumber, "municipal-taxes-paid");
-		const expectedRent = valueOf(facts, expectedRentKey);
-		const actualRent = valueOf(facts, actualRentKey);
-		const vacancyReducedRent = valueOf(facts, vacancyKey);
-		const municipalTaxesPaid = valueOf(facts, municipalTaxesKey);
-		const interest = valueOf(facts, interestKey);
+		const expectedRent = factValueOf(facts, expectedRentKey);
+		const actualRent = factValueOf(facts, actualRentKey);
+		const vacancyReducedRent = factValueOf(facts, vacancyKey);
+		const municipalTaxesPaid = factValueOf(facts, municipalTaxesKey);
+		const interest = factValueOf(facts, interestKey);
 		if (typeof expectedRent !== "string") return blocked("FACT_HOUSE_PROPERTY_EXPECTED_RENT_MISSING", expectedRentKey, `expected rent for property ${propertyNumber}`);
 		if (typeof actualRent !== "string") return blocked("FACT_HOUSE_PROPERTY_ACTUAL_RENT_MISSING", actualRentKey, `actual rent for property ${propertyNumber}`);
 		if (typeof vacancyReducedRent !== "boolean") return blocked("FACT_HOUSE_PROPERTY_VACANCY_MISSING", vacancyKey, `vacancy effect for property ${propertyNumber}`);
@@ -242,7 +242,7 @@ const prepareProperty = ({
 			},
 		};
 	}
-	const interest = valueOf(facts, interestKey);
+	const interest = factValueOf(facts, interestKey);
 	if (typeof interest !== "string") {
 		return blocked("FACT_HOUSE_PROPERTY_INTEREST_MISSING", interestKey, `borrowed-capital interest for property ${propertyNumber}`);
 	}
@@ -259,7 +259,7 @@ const prepareProperty = ({
 		enhancedLimitApplies = true;
 		for (const name of conditionNames) {
 			const key = factKey(propertyNumber, name);
-			const value = valueOf(facts, key);
+			const value = factValueOf(facts, key);
 			if (typeof value !== "boolean") return blocked("FACT_HOUSE_PROPERTY_INTEREST_CONDITION_MISSING", key, `section 24(b) eligibility for property ${propertyNumber}`);
 			if (!value) {
 				enhancedLimitApplies = false;

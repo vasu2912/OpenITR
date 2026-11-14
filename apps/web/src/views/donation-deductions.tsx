@@ -9,6 +9,7 @@ import {
 
 import { rupeeFormat } from "./computation-trace-view";
 import { FactLabel, IssueAlert } from "./plain-language";
+import { keyed } from "./keyed";
 
 const originLabel = (fact: DonationDeductionFact): string =>
 	fact.origin.kind === "attested-answer"
@@ -113,8 +114,8 @@ export const DonationDeductionsView = ({
 						<details className="openitr-health-facts">
 							<summary>Recorded facts and origins</summary>
 							<ul>
-								{computation.facts.map((fact, index) => (
-									<li key={`${String(fact.factKey)}:${index}`}>
+								{keyed(computation.facts, (fact) => String(fact.factKey)).map(({ key, item: fact }) => (
+									<li key={key}>
 										<strong><FactLabel factKey={fact.factKey} /></strong>: {valueLabel(fact)}
 										<small>{originLabel(fact)}</small>
 									</li>
@@ -125,10 +126,10 @@ export const DonationDeductionsView = ({
 							<>
 								<p className="openitr-trace-heading">Cited computation trace</p>
 								<div className="openitr-trace-list">
-									{computation.trace.map((node, index) => (
+									{keyed(computation.trace, (node) => String(node.ruleId)).map(({ key, item: node }) => (
 										<details
 											className="openitr-trace-node"
-											key={`${String(node.ruleId)}:${index}`}
+											key={key}
 										>
 											<summary>
 												<strong>{node.label}</strong>

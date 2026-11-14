@@ -5,6 +5,7 @@ import {
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
 import { IssueAlert } from "./plain-language";
+import { keyed } from "./keyed";
 
 type ComputedOldRegime = Extract<OldRegimeComputation, { kind: "computed" }>;
 
@@ -192,8 +193,8 @@ export const OldRegimeComputationView = ({
 							This result is blocked until every cited fact has accepted evidence
 							or a permitted recorded answer.
 						</p>
-						{computation.issues.map((issue, index) => (
-							<IssueAlert issue={issue} key={`${String(issue.code)}-${index}`} />
+						{keyed(computation.issues, (issue) => String(issue.code)).map(({ key, item: issue }) => (
+							<IssueAlert issue={issue} key={key} />
 						))}
 					</>
 				)}

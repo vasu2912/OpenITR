@@ -9,6 +9,7 @@ import {
 
 import { rupeeFormat } from "./computation-trace-view";
 import { IssueAlert } from "./plain-language";
+import { keyed } from "./keyed";
 
 const personLabel: Readonly<
 	Record<SavingsPensionDeductionClaim["applicablePerson"], string>
@@ -116,10 +117,10 @@ export const SavingsPensionDeductionsView = ({
 							<>
 								<p className="openitr-trace-heading">Cited computation trace</p>
 								<div className="openitr-trace-list">
-									{computation.trace.map((node, index) => (
+									{keyed(computation.trace, (node) => String(node.ruleId)).map(({ key, item: node }) => (
 										<details
 											className="openitr-trace-node"
-											key={`${String(node.ruleId)}:${index}`}
+											key={key}
 										>
 											<summary>
 												<strong>{node.label}</strong>

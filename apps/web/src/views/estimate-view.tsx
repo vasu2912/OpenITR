@@ -9,6 +9,7 @@ import {
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
 import { FactLabel, IssueAlert } from "./plain-language";
+import { keyed } from "./keyed";
 
 const roleLabels: Readonly<Record<EstimateEvidenceRole, string>> =
 	Object.freeze({
@@ -134,8 +135,8 @@ export const EstimateView = ({
 						A final estimate needs accepted facts from every slice below.
 						The missing or disputed items need review first.
 					</p>
-					{estimate.issues.map((issue, index) => (
-						<IssueAlert issue={issue} key={`${String(issue.code)}-${index}`} />
+					{keyed(estimate.issues, (issue) => String(issue.code)).map(({ key, item: issue }) => (
+						<IssueAlert issue={issue} key={key} />
 					))}
 			</section>
 		);

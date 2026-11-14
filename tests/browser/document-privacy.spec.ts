@@ -1,5 +1,4 @@
 import {
-	createAisJsonFixture,
 	createForm16PdfFixture,
 	createUnknownBytesFixture,
 } from "@openitr/document-adapters/testing";

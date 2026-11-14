@@ -18,6 +18,7 @@ import { useState } from "react";
 
 import { rupeeFormat } from "./computation-trace-view";
 import { FactLabel, IssueAlert } from "./plain-language";
+import { keyed } from "./keyed";
 
 type PagesList = Extract<DocumentExtractionRecord, { status: "done" }>["pages"];
 
@@ -200,11 +201,10 @@ const ObservationEvidencePanel = ({
 		);
 	}
 	return (
-		<div
+		<section
 			aria-label={`Evidence for ${observation.factKey}`}
 			className="openitr-evidence-panel"
 			id={`evidence-${observation.observationId}`}
-			role="region"
 		>
 			<p className="openitr-evidence-heading">{locator.heading}</p>
 			<p className="openitr-evidence-locator">{locator.description}</p>
@@ -231,7 +231,7 @@ const ObservationEvidencePanel = ({
 					);
 				})}
 			</ol>
-		</div>
+		</section>
 	);
 };
 
@@ -382,8 +382,8 @@ export const SalaryReviewView = ({
 							</h3>
 							<small>Document {String(record.documentId).slice(0, 12)}…</small>
 						</header>
-						{record.issues.map((issue, issueIndex) => (
-							<IssueAlert issue={issue} key={`${String(issue.code)}-${issueIndex}`} />
+						{keyed(record.issues, (issue) => String(issue.code)).map(({ key, item: issue }) => (
+							<IssueAlert issue={issue} key={key} />
 						))}
 						{groupsOfRecord(record).map(
 							(group) =>

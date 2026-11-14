@@ -4,11 +4,6 @@ import type { Page } from "@playwright/test";
 export const privacySentinel = "openitr-privacy-sentinel-f21a3c";
 export const seededStorageJson = `{"visitor-seed":"${privacySentinel}"}`;
 
-type CrossTabChannelProbe = Readonly<{
-	broadcastChannels: number;
-	sharedWorkers: number;
-}>;
-
 type BrowserStorageSnapshot = Readonly<{
 	localStorageJson: string;
 	sessionStorageJson: string;

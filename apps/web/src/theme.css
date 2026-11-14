@@ -246,8 +246,6 @@ body,
 	padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
 }
 
-.openitr-question-choice:has(input:checked) {
-}
 
 .openitr-question-choice input {
 	accent-color: var(--pf-t--global--color--brand--default);

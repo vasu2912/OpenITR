@@ -95,7 +95,7 @@ const blocked = (
 	),
 });
 
-const valueOf = (
+const factValueOf = (
 	facts: readonly Section112aCapitalGainFact[],
 	factKey: FactKey,
 ): ExactMoney | boolean | undefined =>
@@ -139,7 +139,7 @@ export const computeSection112aCapitalGain = ({
 		values.set(fact.factKey, fact.value);
 	}
 
-	const reportedGain = valueOf(facts, FACT_KEYS.reportedGain);
+	const reportedGain = factValueOf(facts, FACT_KEYS.reportedGain);
 	if (typeof reportedGain !== "string") {
 		return blocked(
 			"FACT_SECTION112A_REPORTED_GAIN_MISSING",
@@ -195,7 +195,7 @@ export const computeSection112aCapitalGain = ({
 			"Use an analysis scope that supports a gain outside section 112A.",
 		],
 	] as const) {
-		const value = valueOf(facts, factKey);
+		const value = factValueOf(facts, factKey);
 		if (typeof value !== "boolean") return blocked(code, factKey, label);
 		if (!value) {
 			return {
@@ -209,7 +209,7 @@ export const computeSection112aCapitalGain = ({
 		}
 	}
 
-	const saleConsideration = valueOf(facts, FACT_KEYS.saleConsideration);
+	const saleConsideration = factValueOf(facts, FACT_KEYS.saleConsideration);
 	if (typeof saleConsideration !== "string") {
 		return blocked(
 			"FACT_SECTION112A_SALE_CONSIDERATION_MISSING",
@@ -217,7 +217,7 @@ export const computeSection112aCapitalGain = ({
 			"the total sale consideration",
 		);
 	}
-	const costOfAcquisition = valueOf(facts, FACT_KEYS.costOfAcquisition);
+	const costOfAcquisition = factValueOf(facts, FACT_KEYS.costOfAcquisition);
 	if (typeof costOfAcquisition !== "string") {
 		return blocked(
 			"FACT_SECTION112A_COST_OF_ACQUISITION_MISSING",

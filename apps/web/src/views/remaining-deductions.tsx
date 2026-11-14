@@ -6,6 +6,7 @@ import {
 
 import { rupeeFormat } from "./computation-trace-view";
 import { FactLabel, IssueAlert } from "./plain-language";
+import { keyed } from "./keyed";
 
 const originLabel = (fact: RemainingDeductionFact): string =>
 	fact.origin.kind === "attested-answer"
@@ -52,10 +53,10 @@ export const RemainingDeductionsView = ({ computation }: Readonly<{ computation:
 							<section aria-label="New-regime remaining deductions" className="openitr-deduction-regime"><h3>New-regime deduction</h3><p>₹ {rupeeFormat(computation.newRegimeTotal)}</p><small>Only section 80CCH remains available here under the pinned new-regime rule.</small></section>
 						</div>
 						<details className="openitr-health-facts"><summary>Recorded facts and origins</summary><ul>
-							{computation.facts.map((fact, index) => <li key={`${String(fact.factKey)}:${index}`}><strong><FactLabel factKey={fact.factKey} /></strong>: {valueLabel(fact)}<small>{originLabel(fact)}</small></li>)}
+							{keyed(computation.facts, (fact) => String(fact.factKey)).map(({ key, item: fact }) => <li key={key}><strong><FactLabel factKey={fact.factKey} /></strong>: {valueLabel(fact)}<small>{originLabel(fact)}</small></li>)}
 						</ul></details>
 						{computation.trace.length === 0 ? null : <><p className="openitr-trace-heading">Cited computation trace</p><div className="openitr-trace-list">
-							{computation.trace.map((node, index) => <details className="openitr-trace-node" key={`${String(node.ruleId)}:${index}`}><summary><strong>{node.label}</strong><span className="openitr-trace-node-value">₹ {rupeeFormat(node.result)}</span></summary><dl className="openitr-trace-details"><dt>Rule</dt><dd>{node.ruleId}</dd><dt>Operation</dt><dd>{node.operation}</dd><dt>Inputs</dt><dd>{node.inputs.map(String).join(", ")}</dd></dl></details>)}
+							{keyed(computation.trace, (node) => String(node.ruleId)).map(({ key, item: node }) => <details className="openitr-trace-node" key={key}><summary><strong>{node.label}</strong><span className="openitr-trace-node-value">₹ {rupeeFormat(node.result)}</span></summary><dl className="openitr-trace-details"><dt>Rule</dt><dd>{node.ruleId}</dd><dt>Operation</dt><dd>{node.operation}</dd><dt>Inputs</dt><dd>{node.inputs.map(String).join(", ")}</dd></dl></details>)}
 						</div></>}
 					</>
 				)}

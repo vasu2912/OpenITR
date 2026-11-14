@@ -43,7 +43,7 @@ const validationMessage = (
 	if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(value)) {
 		return "Enter a non-negative amount using digits and an optional decimal point.";
 	}
-	let amount;
+	let amount: ReturnType<typeof parseExactMoney>;
 	try {
 		amount = parseExactMoney(value);
 	} catch {
