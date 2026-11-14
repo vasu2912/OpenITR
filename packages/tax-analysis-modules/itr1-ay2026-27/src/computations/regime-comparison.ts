@@ -1,9 +1,9 @@
+import type { ExactMoney } from "@openitr/model";
 import {
 	compareExactMoney,
 	exactMoneyFromWholeRupees,
 	subtractExactMoney,
 } from "@openitr/model";
-import type { ExactMoney } from "@openitr/model";
 
 import type { FactSetRevision } from "./fact-set-revision";
 import type { NewRegimeComputation } from "./new-regime";
@@ -52,17 +52,17 @@ export type ComparedRegime = Readonly<{
 
 export type RegimeComparison =
 	| Readonly<{
-		kind: "unavailable";
-		reason: "fact-set-revision-mismatch";
+			kind: "unavailable";
+			reason: "fact-set-revision-mismatch";
 	  }>
 	| Readonly<{
-		kind: "computed";
-		factSetRevision: FactSetRevision;
-		taxesPaid: ExactMoney;
-		oldRegime: ComparedRegime;
-		newRegime: ComparedRegime;
-		rows: readonly RegimeComparisonRow[];
-		balanceDifference: ExactAmountDifference;
+			kind: "computed";
+			factSetRevision: FactSetRevision;
+			taxesPaid: ExactMoney;
+			oldRegime: ComparedRegime;
+			newRegime: ComparedRegime;
+			rows: readonly RegimeComparisonRow[];
+			balanceDifference: ExactAmountDifference;
 	  }>;
 
 const differenceBetween = (

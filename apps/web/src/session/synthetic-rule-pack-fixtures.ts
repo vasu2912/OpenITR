@@ -1,17 +1,16 @@
-import { compileRulePack } from "@openitr/rulepack-compiler";
-import type {
-	RulePackManifest,
-	ScopeRulePack,
-} from "@openitr/model";
-
 import { createScopeRulePack } from "@openitr/itr1-ay2026-27";
+import type { RulePackManifest, ScopeRulePack } from "@openitr/model";
+import { compileRulePack } from "@openitr/rulepack-compiler";
 
 const SYNTHETIC_SOURCE_SHA256 = "a1".repeat(32);
 
 const syntheticManifest = ({
 	rulePackId,
 	packRevision,
-}: Readonly<{ rulePackId: string; packRevision: string }>): RulePackManifest => ({
+}: Readonly<{
+	rulePackId: string;
+	packRevision: string;
+}>): RulePackManifest => ({
 	rulePackId,
 	form: "ITR-1",
 	financialYear: "2025-26",
@@ -60,7 +59,10 @@ const syntheticManifest = ({
 export const createSyntheticRulePack = ({
 	rulePackId,
 	packRevision,
-}: Readonly<{ rulePackId: string; packRevision: string }>): Promise<ScopeRulePack> =>
+}: Readonly<{
+	rulePackId: string;
+	packRevision: string;
+}>): Promise<ScopeRulePack> =>
 	compileRulePack({
 		manifest: syntheticManifest({ rulePackId, packRevision }),
 	}).then((compiled) => createScopeRulePack({ compiled }));

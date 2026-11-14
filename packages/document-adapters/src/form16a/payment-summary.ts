@@ -10,7 +10,10 @@ import {
 	parseRuleId,
 } from "@openitr/model";
 
-import { SERIAL_NUMBER_PATTERN, TDS_AMOUNT_COLUMNS } from "../form26as/tds-part-one";
+import {
+	SERIAL_NUMBER_PATTERN,
+	TDS_AMOUNT_COLUMNS,
+} from "../form26as/tds-part-one";
 
 // The reviewed vocabulary of a machine-generated Form 16A certificate's
 // Summary of Payment(s) table, so the adapter and its fixtures cannot drift
@@ -28,8 +31,7 @@ export const FORM16A_COLUMN_HEADER_CELLS = Object.freeze([
 	"TDS Deposited",
 ]);
 
-export const FORM16A_DEDUCTOR_NAME_PREFIX =
-	"Name and address of the Deductor:";
+export const FORM16A_DEDUCTOR_NAME_PREFIX = "Name and address of the Deductor:";
 export const FORM16A_DEDUCTOR_TAN_PREFIX = "TAN of the Deductor:";
 
 // Rows print six cells separated by " | ". The separator survives PDF text
@@ -82,7 +84,10 @@ export const form16APaymentCategoryByCells = (
 type Form16AAmountColumnDefinition = Readonly<{
 	columnIndex: number;
 	columnHeader: string;
-	recordProperty: "amountPaidCreditedRaw" | "taxDeductedRaw" | "tdsDepositedRaw";
+	recordProperty:
+		| "amountPaidCreditedRaw"
+		| "taxDeductedRaw"
+		| "tdsDepositedRaw";
 	factKey: FactKey;
 	ruleId: ReturnType<typeof parseRuleId>;
 	description: string;
@@ -107,8 +112,7 @@ export const FORM16A_AMOUNT_COLUMNS = {
 		recordProperty: "taxDeductedRaw",
 		factKey: TDS_AMOUNT_COLUMNS.taxDeducted.factKey,
 		ruleId: parseRuleId("FORM16A-TDS-TAX-DEDUCTED"),
-		description:
-			"Form 16A summary record fact for the tax deducted at source.",
+		description: "Form 16A summary record fact for the tax deducted at source.",
 	}),
 	deposited: Object.freeze({
 		columnIndex: 5,
@@ -119,9 +123,7 @@ export const FORM16A_AMOUNT_COLUMNS = {
 		description:
 			"Form 16A summary record fact for the tax deposited with the government.",
 	}),
-} as const satisfies Readonly<
-	Record<string, Form16AAmountColumnDefinition>
->;
+} as const satisfies Readonly<Record<string, Form16AAmountColumnDefinition>>;
 
 export const FORM16A_SERIAL_NUMBER_PATTERN = SERIAL_NUMBER_PATTERN;
 export const FORM16A_TAN_PATTERN = /^[A-Z]{4}[0-9]{5}[A-Z]$/;

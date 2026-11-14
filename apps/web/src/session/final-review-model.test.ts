@@ -1,17 +1,16 @@
-import { exactMoneyFromWholeRupees, parseFactKey } from "@openitr/model";
-import type {
-	DocumentExtractionRecord,
-	SalaryObservation,
-} from "@openitr/model";
 import type {
 	AcceptedCanonicalFact,
 	FactResolution,
 } from "@openitr/fact-reconciliation";
+import type {
+	DocumentExtractionRecord,
+	SalaryObservation,
+} from "@openitr/model";
+import { exactMoneyFromWholeRupees, parseFactKey } from "@openitr/model";
 import type { AttestedAnswerFact } from "@openitr/question-engine";
 import { describe, expect, test } from "vitest";
-
-import { buildFinalReview } from "./final-review-model";
 import type { FinalReviewInput } from "./final-review-model";
+import { buildFinalReview } from "./final-review-model";
 
 const documentId = "a".repeat(64) as SalaryObservation["sourceDocumentId"];
 const salaryObservation: SalaryObservation = {

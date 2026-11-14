@@ -10,8 +10,8 @@ import type { AdapterIdentity } from "../extraction-support";
 import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
 import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import {
-	spreadsheetCellReference,
 	type SpreadsheetRow,
+	spreadsheetCellReference,
 } from "../spreadsheet/xlsx";
 import type { Form26AsSpreadsheetDocument } from "./form26as-excel-revision";
 import {
@@ -52,15 +52,17 @@ const isBlankRow = (row: SpreadsheetRow): boolean =>
 
 type ParsedAmountCell =
 	| Readonly<{ kind: "unknown" }>
-	| Readonly<{ kind: "value"; amount: GroupedRupeeAmount; originalValue: string }>
+	| Readonly<{
+			kind: "value";
+			amount: GroupedRupeeAmount;
+			originalValue: string;
+	  }>
 	| Readonly<{ kind: "malformed" }>;
 
 // An unknown amount is either a cell the export never printed or a printed
 // blank cell. Both stay unknown; only a printed value parses, keeping its
 // verbatim text as the raw value.
-const parseAmountCell = (
-	columnValue: string | undefined,
-): ParsedAmountCell => {
+const parseAmountCell = (columnValue: string | undefined): ParsedAmountCell => {
 	if (columnValue === undefined || columnValue.trim() === "") {
 		return { kind: "unknown" };
 	}
@@ -142,8 +144,7 @@ const parseTdsRecord = (
 		serialNumber,
 		deductorName,
 		deductorTan,
-		amountPaidCreditedRaw:
-			columns[TDS_AMOUNT_COLUMNS.paidCredited.columnIndex],
+		amountPaidCreditedRaw: columns[TDS_AMOUNT_COLUMNS.paidCredited.columnIndex],
 		taxDeductedRaw: columns[TDS_AMOUNT_COLUMNS.taxDeducted.columnIndex],
 		tdsDepositedRaw: columns[TDS_AMOUNT_COLUMNS.deposited.columnIndex],
 	};
@@ -176,7 +177,9 @@ export const extractForm26AsSpreadsheetTdsObservations = ({
 		(row) => row.rowNumber > sectionStart.rowNumber && !isBlankRow(row),
 	);
 	const headerColumns =
-		columnHeaderRow === undefined ? undefined : columnSnapshotOf(columnHeaderRow);
+		columnHeaderRow === undefined
+			? undefined
+			: columnSnapshotOf(columnHeaderRow);
 	const headerCellsMatch =
 		columnHeaderRow !== undefined &&
 		headerColumns !== undefined &&

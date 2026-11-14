@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import {
-	buildSyntheticPdf,
-	corruptSyntheticPdf,
-} from "./pdf-fixture-builder";
+import { buildSyntheticPdf, corruptSyntheticPdf } from "./pdf-fixture-builder";
 
 describe("synthetic PDF fixture builder", () => {
 	test("produces a PDF whose text layer extracts deterministically", async () => {

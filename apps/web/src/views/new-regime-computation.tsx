@@ -1,9 +1,8 @@
 import type { NewRegimeComputation } from "@openitr/itr1-ay2026-27";
-import {
-	Title,
-} from "@patternfly/react-core";
+import { Title } from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
+import { keyed } from "./keyed";
 import { IssueAlert } from "./plain-language";
 
 type ComputedNewRegime = Extract<NewRegimeComputation, { kind: "computed" }>;
@@ -78,9 +77,7 @@ const deductionLabels = Object.freeze({
 	remaining: "Remaining approved deductions",
 });
 
-const deductionRows = (
-	computation: ComputedNewRegime,
-): readonly SummaryRow[] =>
+const deductionRows = (computation: ComputedNewRegime): readonly SummaryRow[] =>
 	(Object.keys(deductionLabels) as (keyof typeof deductionLabels)[]).map(
 		(category) => {
 			const comparison = computation.deductionComparison[category];
@@ -158,53 +155,52 @@ export const NewRegimeComputationView = ({
 
 	return (
 		<section className="openitr-new-regime-card">
-				<Title headingLevel="h2" size="lg">
-					New-regime tax computation
-				</Title>
-				{computation.kind === "computed" ? (
-					<>
-						<section aria-labelledby="new-regime-income-heading">
-							<h3 id="new-regime-income-heading">Income reconciliation</h3>
-							<SummaryRows rows={incomeRows(computation)} />
-						</section>
-						<section aria-labelledby="new-regime-exclusions-heading">
-							<h3 id="new-regime-exclusions-heading">
-								Deductions excluded from new regime
-							</h3>
-							<p>
-								Each row compares the amount allowed by the completed old-regime
-								slice with the amount retained by the new-regime slice.
-							</p>
-							<SummaryRows rows={deductionRows(computation)} />
-						</section>
-						<section aria-labelledby="new-regime-taxable-income-heading">
-							<h3 id="new-regime-taxable-income-heading">
-								Taxable-income reconciliation
-							</h3>
-							<SummaryRows rows={taxableIncomeRows(computation)} />
-						</section>
-						<section aria-labelledby="new-regime-liability-heading">
-							<h3 id="new-regime-liability-heading">
-								Tax-liability reconciliation
-							</h3>
-							<SummaryRows rows={liabilityRows(computation)} />
-						</section>
-						<ComputationTraceList
-							nodes={computation.nodes}
-							targetPrefix="new"
-						/>
-					</>
-				) : (
-					<>
+			<Title headingLevel="h2" size="lg">
+				New-regime tax computation
+			</Title>
+			{computation.kind === "computed" ? (
+				<>
+					<section aria-labelledby="new-regime-income-heading">
+						<h3 id="new-regime-income-heading">Income reconciliation</h3>
+						<SummaryRows rows={incomeRows(computation)} />
+					</section>
+					<section aria-labelledby="new-regime-exclusions-heading">
+						<h3 id="new-regime-exclusions-heading">
+							Deductions excluded from new regime
+						</h3>
 						<p>
-							This result is blocked until every cited fact has accepted evidence
-							or a permitted recorded answer.
+							Each row compares the amount allowed by the completed old-regime
+							slice with the amount retained by the new-regime slice.
 						</p>
-						{computation.issues.map((issue, index) => (
-							<IssueAlert issue={issue} key={`${String(issue.code)}-${index}`} />
-						))}
-					</>
-				)}
+						<SummaryRows rows={deductionRows(computation)} />
+					</section>
+					<section aria-labelledby="new-regime-taxable-income-heading">
+						<h3 id="new-regime-taxable-income-heading">
+							Taxable-income reconciliation
+						</h3>
+						<SummaryRows rows={taxableIncomeRows(computation)} />
+					</section>
+					<section aria-labelledby="new-regime-liability-heading">
+						<h3 id="new-regime-liability-heading">
+							Tax-liability reconciliation
+						</h3>
+						<SummaryRows rows={liabilityRows(computation)} />
+					</section>
+					<ComputationTraceList nodes={computation.nodes} targetPrefix="new" />
+				</>
+			) : (
+				<>
+					<p>
+						This result is blocked until every cited fact has accepted evidence
+						or a permitted recorded answer.
+					</p>
+					{keyed(computation.issues, (issue) => String(issue.code)).map(
+						({ key, item: issue }) => (
+							<IssueAlert issue={issue} key={key} />
+						),
+					)}
+				</>
+			)}
 		</section>
 	);
 };

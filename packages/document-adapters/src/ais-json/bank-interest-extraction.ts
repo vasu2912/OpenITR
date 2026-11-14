@@ -1,9 +1,4 @@
 import type { DocumentReviewIssue, Sha256Digest } from "@openitr/model";
-
-import type { AisJsonRevisionDocument } from "./ais-json-revision";
-import { isRecordObject } from "../extraction-support";
-import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
-import type { AdapterIdentity } from "../extraction-support";
 import type {
 	BankInterestCategoryDefinition,
 	BankInterestExtraction,
@@ -18,6 +13,10 @@ import {
 	bankInterestSectionMissingIssue,
 	foldCanonicalBankInterestRecords,
 } from "../ais-bank-interest-canonical";
+import type { AdapterIdentity } from "../extraction-support";
+import { isRecordObject } from "../extraction-support";
+import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
+import type { AisJsonRevisionDocument } from "./ais-json-revision";
 
 export type { BankInterestCategoryDefinition, BankInterestExtraction };
 export { BANK_INTEREST_CATEGORY_DEFINITIONS };
@@ -119,9 +118,7 @@ export const extractBankInterestObservations = ({
 			continue;
 		}
 		if (outcome.kind === "malformed") {
-			parsedIssues.push(
-				bankInterestRecordMalformedIssue(outcome.factKey),
-			);
+			parsedIssues.push(bankInterestRecordMalformedIssue(outcome.factKey));
 			continue;
 		}
 		canonicalRecords.push(outcome.record);

@@ -1,5 +1,5 @@
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { join, resolve } from "node:path";
 
 const dist = resolve(process.argv[2] ?? "apps/web/dist");
 const origin = "https://openitr.vasu-kandagatla.workers.dev";
@@ -9,7 +9,7 @@ const externalArrow =
 const preview = Boolean(
 	process.env.WORKERS_CI_BRANCH && process.env.WORKERS_CI_BRANCH !== "main",
 );
-const escape = (text) =>
+const escapeHtml = (text) =>
 	text
 		.replaceAll("&", "&amp;")
 		.replaceAll('"', "&quot;")
@@ -68,9 +68,9 @@ const bodies = {
 function render(page, body, noindex = preview) {
 	const structured =
 		page.path === "/"
-			? `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "SoftwareApplication", name: "OpenITR", url: origin + "/", description: page.description, applicationCategory: "FinanceApplication", operatingSystem: "Web browser", isAccessibleForFree: true, license: repo + "/blob/main/LICENSE", sameAs: repo, offers: { "@type": "Offer", price: "0", priceCurrency: "INR" } })}</script>`
+			? `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "SoftwareApplication", name: "OpenITR", url: `${origin}/`, description: page.description, applicationCategory: "FinanceApplication", operatingSystem: "Web browser", isAccessibleForFree: true, license: `${repo}/blob/main/LICENSE`, sameAs: repo, offers: { "@type": "Offer", price: "0", priceCurrency: "INR" } })}</script>`
 			: "";
-	return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escape(page.title)}</title><meta name="description" content="${escape(page.description)}"><meta name="robots" content="${noindex ? "noindex, follow" : "index, follow"}"><link rel="canonical" href="${origin}${page.path}"><meta property="og:type" content="website"><meta property="og:site_name" content="OpenITR"><meta property="og:title" content="${escape(page.title)}"><meta property="og:description" content="${escape(page.description)}"><meta property="og:url" content="${origin}${page.path}"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="${escape(page.title)}"><meta name="twitter:description" content="${escape(page.description)}"><meta name="theme-color" content="#14232c"><link rel="stylesheet" href="/public-site.css">${structured}</head><body><a class="skip" href="#main">Skip to content</a><header><div class="nav"><a class="brand" href="/" aria-label="OpenITR home"><span class="mark">O/</span> OpenITR</a><nav aria-label="Main navigation">${nav}</nav><a class="nav-cta" href="/app/">Open app ${externalArrow}</a></div></header><main id="main" class="${page.path === "/" ? "home" : "reference"}">${body}</main><footer><div class="footer-inner"><div><a class="brand" href="/">OpenITR</a><p>Independent. Open source. Educational.</p></div><div><p>${limitation}</p><p><a href="${repo}">GitHub</a> · <a href="${repo}/blob/main/LICENSE">MIT license</a> · <a href="/faq/">Privacy and FAQ</a></p></div></div></footer></body></html>`;
+	return `<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(page.title)}</title><meta name="description" content="${escapeHtml(page.description)}"><meta name="robots" content="${noindex ? "noindex, follow" : "index, follow"}"><link rel="canonical" href="${origin}${page.path}"><meta property="og:type" content="website"><meta property="og:site_name" content="OpenITR"><meta property="og:title" content="${escapeHtml(page.title)}"><meta property="og:description" content="${escapeHtml(page.description)}"><meta property="og:url" content="${origin}${page.path}"><meta name="twitter:card" content="summary"><meta name="twitter:title" content="${escapeHtml(page.title)}"><meta name="twitter:description" content="${escapeHtml(page.description)}"><meta name="theme-color" content="#14232c"><link rel="stylesheet" href="/public-site.css">${structured}</head><body><a class="skip" href="#main">Skip to content</a><header><div class="nav"><a class="brand" href="/" aria-label="OpenITR home"><span class="mark">O/</span> OpenITR</a><nav aria-label="Main navigation">${nav}</nav><a class="nav-cta" href="/app/">Open app ${externalArrow}</a></div></header><main id="main" class="${page.path === "/" ? "home" : "reference"}">${body}</main><footer><div class="footer-inner"><div><a class="brand" href="/">OpenITR</a><p>Independent. Open source. Educational.</p></div><div><p>${limitation}</p><p><a href="${repo}">GitHub</a> · <a href="${repo}/blob/main/LICENSE">MIT license</a> · <a href="/faq/">Privacy and FAQ</a></p></div></div></footer></body></html>`;
 }
 
 mkdirSync(join(dist, "app"), { recursive: true });

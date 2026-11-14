@@ -3,7 +3,11 @@ import { createContext, useContext } from "react";
 
 import { type FactLabeler, humanizeKey } from "./fact-labels";
 
-export { createFactLabeler, type FactLabeler, humanizeKey } from "./fact-labels";
+export {
+	createFactLabeler,
+	type FactLabeler,
+	humanizeKey,
+} from "./fact-labels";
 
 const FactLabelContext = createContext<FactLabeler>(humanizeKey);
 

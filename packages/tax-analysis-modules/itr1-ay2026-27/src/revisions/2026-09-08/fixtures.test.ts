@@ -28,8 +28,7 @@ describe("2026-09-08 agricultural-income rule pack", () => {
 			itr1Ay202627CompiledRulePack20260908.taxConstants?.agriculturalIncome,
 		).toEqual({
 			itr1LimitWholeRupees: 5_000,
-			exemptReportingRuleId:
-				"ITR1-AGRICULTURAL-INCOME-EXEMPT-REPORTING",
+			exemptReportingRuleId: "ITR1-AGRICULTURAL-INCOME-EXEMPT-REPORTING",
 			itr1LimitRuleId: "ITR1-AGRICULTURAL-INCOME-LIMIT",
 		});
 		expect(

@@ -77,9 +77,7 @@ export const itr1Ay202627RulePackManifest20260908 = Object.freeze({
 		...priorScope,
 		facts: Object.freeze([...priorScope.facts, agriculturePresenceFact]),
 		rules: Object.freeze(
-			priorScope.rules.filter(
-				(rule) => rule.id !== "ITR1-SCOPE-AGRICULTURE",
-			),
+			priorScope.rules.filter((rule) => rule.id !== "ITR1-SCOPE-AGRICULTURE"),
 		),
 		questions: Object.freeze(
 			priorScope.questions.map((question) =>

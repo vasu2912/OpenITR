@@ -4,16 +4,15 @@ import {
 } from "@openitr/itr1-ay2026-27";
 import { parseRulePackId } from "@openitr/model";
 import { describe, expect, test } from "vitest";
-
+import { EDUCATIONAL_LIMITATIONS } from "./analysis-readiness";
+import { inProcessInspectionFacility } from "./in-process-inspection-facility";
+import type { SessionCommand } from "./session-orchestrator";
+import { createSessionOrchestrator } from "./session-orchestrator";
 import {
 	createSyntheticRulePack,
 	firstSyntheticRevision,
 	secondSyntheticRevision,
 } from "./synthetic-rule-pack-fixtures";
-import { EDUCATIONAL_LIMITATIONS } from "./analysis-readiness";
-import { createSessionOrchestrator } from "./session-orchestrator";
-import type { SessionCommand } from "./session-orchestrator";
-import { inProcessInspectionFacility } from "./in-process-inspection-facility";
 
 const fixedAnswerTime = "2026-08-22T00:00:00.000Z";
 const createSession = () =>
@@ -282,9 +281,14 @@ describe("ITR-1 full scope workflow", () => {
 			rulePack: itr1Ay202627RulePack20260903,
 			documents: inProcessInspectionFacility(),
 		});
-	const answerRequiredScopeFacts = (session: ReturnType<typeof createFullScopeSession>) => {
+	const answerRequiredScopeFacts = (
+		session: ReturnType<typeof createFullScopeSession>,
+	) => {
 		const snapshot = session.getSnapshot();
-		if (snapshot.kind !== "scope-check-complete" || snapshot.analysisScope === undefined) {
+		if (
+			snapshot.kind !== "scope-check-complete" ||
+			snapshot.analysisScope === undefined
+		) {
 			throw new Error("Expected a full-scope completion snapshot");
 		}
 		for (const question of snapshot.analysisScope.questions) {
@@ -320,8 +324,14 @@ describe("ITR-1 full scope workflow", () => {
 		expect(snapshot.kind).toBe("scope-check-complete");
 		if (snapshot.kind === "scope-check-complete") {
 			expect(snapshot.analysisScope?.kind).toBe("unknown");
-			expect(snapshot.analysisScope?.questions.map((question) => question.id)).toContain("scope-total-income");
-			expect(snapshot.analysisScope?.decisions.find((decision) => decision.rule.id === "ITR1-SCOPE-TOTAL-INCOME-50-LAKH")?.explanation).toContain("Missing fact key: scope.total-income");
+			expect(
+				snapshot.analysisScope?.questions.map((question) => question.id),
+			).toContain("scope-total-income");
+			expect(
+				snapshot.analysisScope?.decisions.find(
+					(decision) => decision.rule.id === "ITR1-SCOPE-TOTAL-INCOME-50-LAKH",
+				)?.explanation,
+			).toContain("Missing fact key: scope.total-income");
 		}
 		session.stop();
 	});
@@ -343,7 +353,11 @@ describe("ITR-1 full scope workflow", () => {
 		let snapshot = session.getSnapshot();
 		expect(snapshot.kind).toBe("scope-check-complete");
 		if (snapshot.kind === "scope-check-complete") {
-			expect(snapshot.analysisScope?.decisions.find((decision) => decision.rule.id === "ITR1-SCOPE-TOTAL-INCOME-50-LAKH")?.kind).toBe("supported");
+			expect(
+				snapshot.analysisScope?.decisions.find(
+					(decision) => decision.rule.id === "ITR1-SCOPE-TOTAL-INCOME-50-LAKH",
+				)?.kind,
+			).toBe("supported");
 		}
 		session.send({
 			kind: "answer-analysis-scope-question",
@@ -353,7 +367,11 @@ describe("ITR-1 full scope workflow", () => {
 		});
 		snapshot = session.getSnapshot();
 		if (snapshot.kind === "scope-check-complete") {
-			expect(snapshot.analysisScope?.decisions.find((decision) => decision.rule.id === "ITR1-SCOPE-TOTAL-INCOME-50-LAKH")?.kind).toBe("unsupported");
+			expect(
+				snapshot.analysisScope?.decisions.find(
+					(decision) => decision.rule.id === "ITR1-SCOPE-TOTAL-INCOME-50-LAKH",
+				)?.kind,
+			).toBe("unsupported");
 		}
 		session.stop();
 	});
@@ -369,16 +387,27 @@ describe("ITR-1 full scope workflow", () => {
 		answerRequiredScopeFacts(session);
 		const snapshot = session.getSnapshot();
 		expect(snapshot.kind).toBe("scope-check-complete");
-		if (snapshot.kind === "scope-check-complete" && snapshot.analysisScope !== undefined) {
+		if (
+			snapshot.kind === "scope-check-complete" &&
+			snapshot.analysisScope !== undefined
+		) {
 			expect(snapshot.analysisScope.kind).toBe("supported");
-			expect(snapshot.analysisScope.questions.map((question) => question.id)).toEqual([
+			expect(
+				snapshot.analysisScope.questions.map((question) => question.id),
+			).toEqual([
 				"scope-salary-pension",
 				"scope-bank-interest",
 				"scope-other-sources",
 			]);
-			expect(snapshot.analysisScope.checklist.map((item) => item.id)).toContain("salary-and-pension-evidence");
-			expect(snapshot.analysisScope.checklist.map((item) => item.id)).toContain("bank-interest-evidence");
-			expect(snapshot.analysisScope.checklist.map((item) => item.id)).not.toContain("tax-payment-evidence");
+			expect(snapshot.analysisScope.checklist.map((item) => item.id)).toContain(
+				"salary-and-pension-evidence",
+			);
+			expect(snapshot.analysisScope.checklist.map((item) => item.id)).toContain(
+				"bank-interest-evidence",
+			);
+			expect(
+				snapshot.analysisScope.checklist.map((item) => item.id),
+			).not.toContain("tax-payment-evidence");
 		}
 		session.stop();
 	});
@@ -523,9 +552,7 @@ describe("rule-pack revision pinning", () => {
 
 		expect(activeSnapshot.kind).toBe("scope-check-complete");
 		expect(newSnapshot.kind).toBe("scope-check-complete");
-		expect(activeSnapshot.rulePackId).toBe(
-			firstSyntheticRevision.rulePackId,
-		);
+		expect(activeSnapshot.rulePackId).toBe(firstSyntheticRevision.rulePackId);
 		expect(newSnapshot.rulePackId).toBe(secondSyntheticRevision.rulePackId);
 		if (activeSnapshot.kind === "scope-check-complete") {
 			expect(activeSnapshot.result.title).toBe(

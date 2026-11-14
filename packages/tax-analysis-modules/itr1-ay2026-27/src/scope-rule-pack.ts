@@ -56,7 +56,9 @@ export const createScopeRulePack = ({
 	return Object.freeze({
 		...base,
 		analysisScope,
-		evaluateAnalysisScope: ({ facts }: Readonly<{ facts: readonly import("@openitr/model").ScopeFact[] }>) =>
+		evaluateAnalysisScope: ({
+			facts,
+		}: Readonly<{ facts: readonly import("@openitr/model").ScopeFact[] }>) =>
 			evaluateItr1AnalysisScope({
 				catalog: analysisScope,
 				rulePackIdentity: compiled.identity,

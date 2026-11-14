@@ -17,12 +17,8 @@ test.describe("OpenITR session lifecycle", () => {
 		await expect(
 			page.getByRole("heading", { name: "Residential status" }),
 		).toBeVisible();
-		await expect(
-			page.locator("[data-current-scope-question]"),
-		).toHaveCount(0);
-		await expect(
-			page.getByRole("radio", { name: "Yes" }),
-		).not.toBeChecked();
+		await expect(page.locator("[data-current-scope-question]")).toHaveCount(0);
+		await expect(page.getByRole("radio", { name: "Yes" })).not.toBeChecked();
 	});
 
 	test("confirmed reset returns the application to an empty scope check", async ({
@@ -48,12 +44,8 @@ test.describe("OpenITR session lifecycle", () => {
 		await expect(
 			page.getByRole("heading", { name: "Residential status" }),
 		).toBeVisible();
-		await expect(
-			page.locator("[data-current-scope-question]"),
-		).toHaveCount(0);
-		await expect(
-			page.getByRole("radio", { name: "No" }),
-		).not.toBeChecked();
+		await expect(page.locator("[data-current-scope-question]")).toHaveCount(0);
+		await expect(page.getByRole("radio", { name: "No" })).not.toBeChecked();
 	});
 
 	test("canceling the reset confirmation keeps the current session", async ({
@@ -76,6 +68,8 @@ test.describe("OpenITR session lifecycle", () => {
 
 		await expect(confirmationDialog).toHaveCount(0);
 		await expectInitialScopeAnswer({ page, answer: "Yes" });
-		await expect(page.locator('[data-scope-question="scope-individual"]')).toContainText("Recorded answer: Yes");
+		await expect(
+			page.locator('[data-scope-question="scope-individual"]'),
+		).toContainText("Recorded answer: Yes");
 	});
 });

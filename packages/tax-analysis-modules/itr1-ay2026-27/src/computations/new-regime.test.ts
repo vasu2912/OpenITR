@@ -1,15 +1,14 @@
-import { describe, expect, it } from "vitest";
-
 import {
 	exactMoneyFromWholeRupees,
 	parseFactKey,
-	parseIssueCode,
 	parseIsoTimestamp,
+	parseIssueCode,
 } from "@openitr/model";
+import { describe, expect, it } from "vitest";
 
 import { itr1Ay202627RulePack20260915 as rulePack } from "../revisions/2026-09-15/rule-pack";
-import { computeNewRegime } from "./new-regime";
 import type { NewRegimeAcceptedAmounts } from "./new-regime";
+import { computeNewRegime } from "./new-regime";
 
 const money = exactMoneyFromWholeRupees;
 const factSetRevision = "fact-set-1" as const;
@@ -102,9 +101,7 @@ describe("complete new-regime computation", () => {
 		});
 		if (result.kind !== "computed") throw new Error("Expected computation");
 		expect(
-			result.nodes.every(
-				(node) => node.rulePackRevision === "2026-09-15",
-			),
+			result.nodes.every((node) => node.rulePackRevision === "2026-09-15"),
 		).toBe(true);
 		expect(result.nodes.map((node) => node.operation)).toEqual(
 			expect.arrayContaining([
@@ -286,9 +283,7 @@ describe("complete new-regime computation", () => {
 					{
 						code: parseIssueCode("FACT_OTHER_SOURCES_DIVIDENDS_MISSING"),
 						severity: "blocking",
-						affectedFacts: [
-							parseFactKey("non-salary-income.dividends"),
-						],
+						affectedFacts: [parseFactKey("non-salary-income.dividends")],
 						recoveryAction: "Supply the cited other-source amount.",
 					},
 				],

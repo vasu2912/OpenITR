@@ -1,10 +1,6 @@
-import {
-	mkdirSync,
-	rmSync,
-	writeFileSync,
-} from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
@@ -17,7 +13,10 @@ const createSyntheticWorkspace = (
 	packages: Record<string, Record<string, unknown>>,
 ): string => {
 	const createdRoot = mkdirSync(
-		join(tmpdir(), `openitr-license-audit-${Date.now()}-${Math.random().toString(36).slice(2)}`),
+		join(
+			tmpdir(),
+			`openitr-license-audit-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		),
 		{ recursive: true },
 	);
 	if (createdRoot === undefined) {

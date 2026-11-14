@@ -39,7 +39,8 @@ const rules = Object.freeze({
 		citation:
 			"Notification No. 45/2026, Form ITR-1 Part D, tax computation is expressed in whole rupees",
 		sourceId: "cbdt-notification-45-2026",
-		sourceLocation: "Form ITR-1 Part D and whole-rupee instruction, Gazette pages 17 to 18",
+		sourceLocation:
+			"Form ITR-1 Part D and whole-rupee instruction, Gazette pages 17 to 18",
 	}),
 });
 

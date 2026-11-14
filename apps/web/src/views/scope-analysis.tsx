@@ -3,21 +3,17 @@ import type {
 	ScopeFact,
 	ScopeQuestion,
 } from "@openitr/model";
-import {
-	Alert,
-	Button,
-	Title,
-} from "@patternfly/react-core";
-import { useState } from "react";
+import { Alert, Button, Title } from "@patternfly/react-core";
 import type { FormEvent } from "react";
+import { useState } from "react";
 
 import type { SessionOrchestrator } from "../session/session-orchestrator";
+import { FactLabel } from "./plain-language";
 import {
-	QuestionChoiceList,
 	type QuestionChoice,
+	QuestionChoiceList,
 	yesNoQuestionChoices,
 } from "./question-choice-list";
-import { FactLabel } from "./plain-language";
 
 const housePropertyCountChoices: readonly QuestionChoice[] = Object.freeze([
 	{ label: "No properties", value: "0" },
@@ -264,7 +260,9 @@ const decisionLabel = (
 
 type ScopeAnalysisSection = "questions" | "decisions" | "evidence";
 
-const sectionTitle: Readonly<Record<Exclude<ScopeAnalysisSection, "questions">, string>> = {
+const sectionTitle: Readonly<
+	Record<Exclude<ScopeAnalysisSection, "questions">, string>
+> = {
 	decisions: "Scope decision",
 	evidence: "Evidence needed",
 };
@@ -296,7 +294,10 @@ export const ScopeAnalysisView = ({
 
 	if (section === "questions") {
 		return (
-			<section aria-label="Current scope question" className="openitr-scope-question-workspace">
+			<section
+				aria-label="Current scope question"
+				className="openitr-scope-question-workspace"
+			>
 				{currentQuestion === undefined ? (
 					<p>No unresolved scope questions</p>
 				) : (
@@ -313,8 +314,7 @@ export const ScopeAnalysisView = ({
 								{...(evaluation.questions.length > 1 &&
 								onDeferQuestion !== undefined
 									? {
-											onAnswerLater: () =>
-												onDeferQuestion(currentQuestion.id),
+											onAnswerLater: () => onDeferQuestion(currentQuestion.id),
 										}
 									: {})}
 								progressLabel={remainingQuestionLabel}
@@ -347,90 +347,97 @@ export const ScopeAnalysisView = ({
 	}
 
 	return (
-	<section className="openitr-scope-analysis-card">
+		<section className="openitr-scope-analysis-card">
 			<Title headingLevel="h2" size="lg">
 				{sectionTitle[section]}
 			</Title>
-			{section === "decisions" ? <Alert
-				aria-live="polite"
-				isInline
-				title={
-					evaluation.kind === "supported"
-						? "The approved scope facts are supported"
-						: evaluation.kind === "unknown"
-							? "More scope facts are needed"
-							: evaluation.kind === "blocked"
-								? "The scope check is blocked"
-								: "At least one scope fact is outside this analysis"
-				}
-				variant={evaluation.kind === "supported" ? "success" : "warning"}
-			>
-				Scope support does not mean that calculations, evidence review, filing
-				eligibility, or portal acceptance is complete.
-			</Alert> : null}
+			{section === "decisions" ? (
+				<Alert
+					aria-live="polite"
+					isInline
+					title={
+						evaluation.kind === "supported"
+							? "The approved scope facts are supported"
+							: evaluation.kind === "unknown"
+								? "More scope facts are needed"
+								: evaluation.kind === "blocked"
+									? "The scope check is blocked"
+									: "At least one scope fact is outside this analysis"
+					}
+					variant={evaluation.kind === "supported" ? "success" : "warning"}
+				>
+					Scope support does not mean that calculations, evidence review, filing
+					eligibility, or portal acceptance is complete.
+				</Alert>
+			) : null}
 
-			{section === "decisions" ? <section aria-labelledby="scope-decisions-heading">
-				<h3 id="scope-decisions-heading">Scope decisions</h3>
-				<ul className="openitr-scope-analysis-decision-list">
-					{evaluation.decisions.map((decision) => (
-						<li id={`scope-decision-${decision.id}`} key={decision.id}>
-							<strong>{decisionLabel(decision.kind)}</strong>:{" "}
-							{decision.explanation}
-							<small>
-								<FactLabel factKey={decision.factKey} /> · State{" "}
-								<code>{decision.fact.state}</code> · Value{" "}
-								<code>{displayFactValue(decision.fact)}</code> · Rule{" "}
-								<code>{String(decision.rule.id)}</code> · Pinned revision{" "}
-								<code>{decision.rulePackIdentity.revision}</code>
-								<br />
-								Provenance: {factProvenance(decision.fact)} · Location:{" "}
-								{decision.rule.sourceLocation}
-								<br />
-								<a
-									href={decision.rule.sourceUrl}
-									rel="noreferrer"
-									target="_blank"
-								>
-									{decision.rule.citation}
-								</a>
-							</small>
-							{decision.recoveryAction === undefined ? null : (
-								<p>
-									<strong>Next action:</strong> {decision.recoveryAction}
-								</p>
-							)}
-						</li>
-					))}
-				</ul>
-			</section> : null}
-
-			{section === "evidence" ? <section aria-labelledby="scope-checklist-heading">
-				<h3 id="scope-checklist-heading">Evidence checklist</h3>
-				{evaluation.checklist.length === 0 ? (
-					<p>
-						No additional evidence is requested by the currently known
-						composition.
-					</p>
-				) : (
-					<ul className="openitr-scope-analysis-checklist">
-						{evaluation.checklist.map((item) =>
-							item.status === "not-needed" ? null : (
-								<li key={item.id} data-status={item.status}>
-									<strong>
-										{item.status === "satisfied"
-											? "Evidence supplied"
-											: "Needed"}
-										:
-									</strong>{" "}
-									{item.label}. {item.detail}
-								</li>
-							),
-						)}
+			{section === "decisions" ? (
+				<section aria-labelledby="scope-decisions-heading">
+					<h3 id="scope-decisions-heading">Scope decisions</h3>
+					<ul className="openitr-scope-analysis-decision-list">
+						{evaluation.decisions.map((decision) => (
+							<li id={`scope-decision-${decision.id}`} key={decision.id}>
+								<strong>{decisionLabel(decision.kind)}</strong>:{" "}
+								{decision.explanation}
+								<small>
+									<FactLabel factKey={decision.factKey} /> · State{" "}
+									<code>{decision.fact.state}</code> · Value{" "}
+									<code>{displayFactValue(decision.fact)}</code> · Rule{" "}
+									<code>{String(decision.rule.id)}</code> · Pinned revision{" "}
+									<code>{decision.rulePackIdentity.revision}</code>
+									<br />
+									Provenance: {factProvenance(decision.fact)} · Location:{" "}
+									{decision.rule.sourceLocation}
+									<br />
+									<a
+										href={decision.rule.sourceUrl}
+										rel="noreferrer"
+										target="_blank"
+									>
+										{decision.rule.citation}
+									</a>
+								</small>
+								{decision.recoveryAction === undefined ? null : (
+									<p>
+										<strong>Next action:</strong> {decision.recoveryAction}
+									</p>
+								)}
+							</li>
+						))}
 					</ul>
-				)}
-			</section> : null}
+				</section>
+			) : null}
 
-			{section !== "evidence" || evaluation.calculationLimitations.length === 0 ? null : (
+			{section === "evidence" ? (
+				<section aria-labelledby="scope-checklist-heading">
+					<h3 id="scope-checklist-heading">Evidence checklist</h3>
+					{evaluation.checklist.length === 0 ? (
+						<p>
+							No additional evidence is requested by the currently known
+							composition.
+						</p>
+					) : (
+						<ul className="openitr-scope-analysis-checklist">
+							{evaluation.checklist.map((item) =>
+								item.status === "not-needed" ? null : (
+									<li key={item.id} data-status={item.status}>
+										<strong>
+											{item.status === "satisfied"
+												? "Evidence supplied"
+												: "Needed"}
+											:
+										</strong>{" "}
+										{item.label}. {item.detail}
+									</li>
+								),
+							)}
+						</ul>
+					)}
+				</section>
+			) : null}
+
+			{section !== "evidence" ||
+			evaluation.calculationLimitations.length === 0 ? null : (
 				<section aria-labelledby="scope-calculation-limits-heading">
 					<h3 id="scope-calculation-limits-heading">
 						Current calculation limits
@@ -448,6 +455,6 @@ export const ScopeAnalysisView = ({
 					{evaluation.educationalLimitations.join(" ")}
 				</p>
 			) : null}
-	</section>
+		</section>
 	);
 };

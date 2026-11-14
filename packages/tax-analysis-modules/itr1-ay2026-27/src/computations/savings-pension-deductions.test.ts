@@ -34,7 +34,9 @@ const completeFacts = (
 		"deductions.savings-pension-proof-available": false,
 		...overrides,
 	};
-	return Object.entries(values).map(([factKey, value]) => attested(factKey, value));
+	return Object.entries(values).map(([factKey, value]) =>
+		attested(factKey, value),
+	);
 };
 
 describe("savings and pension-contribution deductions", () => {
@@ -68,7 +70,10 @@ describe("savings and pension-contribution deductions", () => {
 					category: "80C",
 					claimedAmount: "100000",
 					applicablePerson: "taxpayer-or-eligible-family",
-					origin: { kind: "attested-answer", answerId: "answer:deductions.80c" },
+					origin: {
+						kind: "attested-answer",
+						answerId: "answer:deductions.80c",
+					},
 				}),
 				expect.objectContaining({
 					category: "80CCD(2)-OTHER-EMPLOYER",
@@ -130,9 +135,10 @@ describe("savings and pension-contribution deductions", () => {
 			newRegime: { sharedAllowed: "0", section80ccd1bAllowed: "0" },
 		});
 		if (result.kind === "computed") {
-			expect(result.claims.find((claim) => claim.category === "80CCD(1B)")?.claimedAmount).toBe(
-				"60000",
-			);
+			expect(
+				result.claims.find((claim) => claim.category === "80CCD(1B)")
+					?.claimedAmount,
+			).toBe("60000");
 		}
 	});
 
@@ -166,12 +172,12 @@ describe("savings and pension-contribution deductions", () => {
 		const facts = completeFacts().map((fact) =>
 			fact.factKey === parseFactKey("deductions.80c")
 				? {
-					...fact,
-					origin: {
-						kind: "accepted-evidence" as const,
-						sourceDocumentIds: ["source-document-sha256"] as const,
-					},
-				}
+						...fact,
+						origin: {
+							kind: "accepted-evidence" as const,
+							sourceDocumentIds: ["source-document-sha256"] as const,
+						},
+					}
 				: fact,
 		);
 		const result = computeSavingsPensionDeductions({
@@ -179,7 +185,9 @@ describe("savings and pension-contribution deductions", () => {
 			facts,
 		});
 		if (result.kind !== "computed") throw new Error("Expected computation");
-		expect(result.claims.find((claim) => claim.category === "80C")?.origin).toEqual({
+		expect(
+			result.claims.find((claim) => claim.category === "80C")?.origin,
+		).toEqual({
 			kind: "accepted-evidence",
 			sourceDocumentIds: ["source-document-sha256"],
 		});

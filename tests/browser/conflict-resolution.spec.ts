@@ -5,8 +5,8 @@ import {
 	createForm26AsTextFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
 	candidateRow,
@@ -68,7 +68,9 @@ const selectSalaryAisAndStatement = async (
 };
 
 const waitUntilAllExtracted = async (page: Page): Promise<void> => {
-	await expect(candidateRow(page, "openitr-sentinel-26as-export.txt")).toContainText("Identified", {
+	await expect(
+		candidateRow(page, "openitr-sentinel-26as-export.txt"),
+	).toContainText("Identified", {
 		timeout: 30_000,
 	});
 };
@@ -83,9 +85,9 @@ test.describe("cross-source conflict resolution", () => {
 		await openTaxComparison(page);
 
 		const estimateSection = page.locator(".openitr-estimate-card");
-		await expect(
-			estimateSection.getByText("₹ 53,569.15").first(),
-		).toBeVisible({ timeout: 30_000 });
+		await expect(estimateSection.getByText("₹ 53,569.15").first()).toBeVisible({
+			timeout: 30_000,
+		});
 		await openReviewFacts(page);
 		await expect(page.locator(".openitr-conflicts-card")).toHaveCount(0);
 	});
@@ -100,10 +102,16 @@ test.describe("cross-source conflict resolution", () => {
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
-			conflictsCard.getByText("1 unresolved conflict blocking affected results below"),
+			conflictsCard.getByText(
+				"1 unresolved conflict blocking affected results below",
+			),
 		).toBeVisible({ timeout: 30_000 });
 		await expect(
-			conflictsCard.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
+			conflictsCard
+				.getByText(
+					"How much savings-account interest did you receive in FY 2025-26?",
+				)
+				.first(),
 		).toBeVisible();
 		await expect(conflictsCard.getByText(/Affects:/)).toContainText(
 			"Estimated refund or amount payable",
@@ -135,19 +143,23 @@ test.describe("cross-source conflict resolution", () => {
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
-			conflictsCard.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
+			conflictsCard
+				.getByText(
+					"How much savings-account interest did you receive in FY 2025-26?",
+				)
+				.first(),
 		).toBeVisible({ timeout: 30_000 });
 
 		// Submitting without a reason is refused inline.
 		await conflictsCard
-			.getByRole("radio", { name: /₹ 7,890\.25 — openitr-sentinel-ais-export\.json/ })
+			.getByRole("radio", {
+				name: /₹ 7,890\.25 — openitr-sentinel-ais-export\.json/,
+			})
 			.check();
 		await conflictsCard
 			.getByRole("button", { name: "Record resolution" })
 			.click();
-		await expect(
-			conflictsCard.getByText(/reason is required/i),
-		).toBeVisible();
+		await expect(conflictsCard.getByText(/reason is required/i)).toBeVisible();
 
 		await conflictsCard
 			.getByLabel("Reason for this resolution")
@@ -162,13 +174,15 @@ test.describe("cross-source conflict resolution", () => {
 		await expect(
 			conflictsCard.getByText(/The JSON export matches the bank statement/),
 		).toBeVisible();
-		await expect(conflictsCard.getByText(/Original evidence retained/)).toBeVisible();
+		await expect(
+			conflictsCard.getByText(/Original evidence retained/),
+		).toBeVisible();
 
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await openTaxComparison(page);
-		await expect(
-			estimateSection.getByText("₹ 53,569.15").first(),
-		).toBeVisible({ timeout: 30_000 });
+		await expect(estimateSection.getByText("₹ 53,569.15").first()).toBeVisible({
+			timeout: 30_000,
+		});
 
 		// Both original savings observations remain listed as evidence.
 		await openReviewFacts(page);
@@ -189,7 +203,11 @@ test.describe("cross-source conflict resolution", () => {
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
-			conflictsCard.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
+			conflictsCard
+				.getByText(
+					"How much savings-account interest did you receive in FY 2025-26?",
+				)
+				.first(),
 		).toBeVisible({ timeout: 30_000 });
 
 		await conflictsCard
@@ -211,12 +229,10 @@ test.describe("cross-source conflict resolution", () => {
 
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await openTaxComparison(page);
-		await expect(
-			estimateSection.getByText("₹ 53,678.9").first(),
-		).toBeVisible({ timeout: 30_000 });
-		await expect(
-			estimateSection.getByText(/Attested by you/),
-		).toBeVisible();
+		await expect(estimateSection.getByText("₹ 53,678.9").first()).toBeVisible({
+			timeout: 30_000,
+		});
+		await expect(estimateSection.getByText(/Attested by you/)).toBeVisible();
 	});
 
 	test("the conflict form stays usable on a mobile viewport", async ({
@@ -230,7 +246,11 @@ test.describe("cross-source conflict resolution", () => {
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
-			conflictsCard.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
+			conflictsCard
+				.getByText(
+					"How much savings-account interest did you receive in FY 2025-26?",
+				)
+				.first(),
 		).toBeVisible({ timeout: 30_000 });
 		await expect(
 			conflictsCard.getByRole("radio", {

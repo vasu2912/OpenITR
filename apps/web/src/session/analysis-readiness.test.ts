@@ -3,27 +3,28 @@ import { describe, expect, test } from "vitest";
 
 import { buildAnalysisReadiness } from "./analysis-readiness";
 
-const result = (
-	kind: "computed" | "blocked",
-) => ({
-	id: "estimated-balance",
-	label: "Estimated refund or amount payable",
-	limitation: "Uses only accepted FY 2025-26 facts.",
-	computation:
-		kind === "computed"
-			? { kind }
-			: {
-					kind,
-					issues: [
-						{
-							code: "FACT_BANK_INTEREST_MISSING",
-							severity: "blocking" as const,
-							affectedFactKeys: [parseFactKey("bank-interest.savings-account")],
-							recoveryAction: "Supply the missing bank-interest fact.",
-						},
-					],
-				},
-} as const);
+const result = (kind: "computed" | "blocked") =>
+	({
+		id: "estimated-balance",
+		label: "Estimated refund or amount payable",
+		limitation: "Uses only accepted FY 2025-26 facts.",
+		computation:
+			kind === "computed"
+				? { kind }
+				: {
+						kind,
+						issues: [
+							{
+								code: "FACT_BANK_INTEREST_MISSING",
+								severity: "blocking" as const,
+								affectedFactKeys: [
+									parseFactKey("bank-interest.savings-account"),
+								],
+								recoveryAction: "Supply the missing bank-interest fact.",
+							},
+						],
+					},
+	}) as const;
 
 describe("analysis readiness", () => {
 	test("blocks unavailable requested results and names their exact facts", () => {

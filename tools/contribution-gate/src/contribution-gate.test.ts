@@ -1,17 +1,17 @@
-import { compileRulePack, canonicalJson } from "@openitr/rulepack-compiler";
-import {
-	createRulePackRevisionRegistry,
-	parseRulePackId,
-	parseSha256Digest,
-	parseSourceId,
-	parseRuleId,
-	parseTaxAnalysisModuleId,
-} from "@openitr/model";
 import type {
 	RulePackIdentity,
 	RulePackManifest,
 	TaxAnalysisModuleArtifact,
 } from "@openitr/model";
+import {
+	createRulePackRevisionRegistry,
+	parseRuleId,
+	parseRulePackId,
+	parseSha256Digest,
+	parseSourceId,
+	parseTaxAnalysisModuleId,
+} from "@openitr/model";
+import { canonicalJson, compileRulePack } from "@openitr/rulepack-compiler";
 import { describe, expect, test } from "vitest";
 
 import { auditTaxAnalysisModuleContribution } from "./contribution-gate";
@@ -32,7 +32,10 @@ const syntheticSourceRecord = {
 const syntheticManifest = ({
 	rulePackId,
 	packRevision,
-}: Readonly<{ rulePackId: string; packRevision: string }>): RulePackManifest => ({
+}: Readonly<{
+	rulePackId: string;
+	packRevision: string;
+}>): RulePackManifest => ({
 	rulePackId,
 	form: "ITR-1",
 	financialYear: "2098-99",
@@ -74,7 +77,10 @@ type FixtureRevisionEntry = {
 
 const registerArtifact = async (
 	manifests: readonly RulePackManifest[],
-): Promise<{ artifact: TaxAnalysisModuleArtifact; identities: RulePackIdentity[] }> => {
+): Promise<{
+	artifact: TaxAnalysisModuleArtifact;
+	identities: RulePackIdentity[];
+}> => {
 	const revisions: FixtureRevisionEntry[] = [];
 	const identities: RulePackIdentity[] = [];
 	for (const manifest of manifests) {
@@ -362,9 +368,7 @@ describe("contribution gate", () => {
 	});
 
 	test("exposes parsed source and rule identifiers for documentation examples", () => {
-		expect(parseSourceId(syntheticSourceRecord.id)).toBe(
-			"synthetic-source-a",
-		);
+		expect(parseSourceId(syntheticSourceRecord.id)).toBe("synthetic-source-a");
 		expect(parseRuleId("TEST-EXAMPLE-RULE")).toBe("TEST-EXAMPLE-RULE");
 	});
 });

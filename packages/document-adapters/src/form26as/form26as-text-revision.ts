@@ -1,5 +1,5 @@
-import { parseAssessmentYear } from "@openitr/model";
 import type { AssessmentYear } from "@openitr/model";
+import { parseAssessmentYear } from "@openitr/model";
 
 const FORM26AS_SUPPORTED_ASSESSMENT_YEAR = "2026-27";
 
@@ -33,8 +33,8 @@ export const parseForm26AsTextRevision = (
 ): Form26AsTextRevisionParseOutcome => {
 	const lines = splitLogicalLines(text);
 	if (
-		(lines[0]?.trim() !== FORM26AS_TITLE_LINE) ||
-		(lines[1]?.trim() !== FORM26AS_SUBTITLE_LINE)
+		lines[0]?.trim() !== FORM26AS_TITLE_LINE ||
+		lines[1]?.trim() !== FORM26AS_SUBTITLE_LINE
 	) {
 		return { kind: "unsupported" };
 	}

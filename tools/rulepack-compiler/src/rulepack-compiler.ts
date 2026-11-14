@@ -1,36 +1,18 @@
-import {
-	parseAssessmentYear,
-	parseDocumentKind,
-	parseFactKey,
-	parseFinancialYear,
-	parseIssueCode,
-	parseIsoDate,
-	parseQuestionId,
-	parseRuleId,
-	parseRulePackId,
-	parseSha256Digest,
-	parseSourceId,
-	parseTaxFormId,
-} from "@openitr/model";
-import {
-	compareExactMoney,
-	exactMoneyFromWholeRupees,
-	parseExactMoney,
-} from "@openitr/model";
 import type {
-	CompiledHousePropertyTaxConstants,
+	AnalysisScopeCatalog,
 	CompiledAgriculturalIncomeTaxConstants,
-	CompiledHealthDisabilityDeductionTaxConstants,
-	CompiledLoanInterestDeductionTaxConstants,
 	CompiledDonationDeductionTaxConstants,
-	CompiledRemainingDeductionTaxConstants,
+	CompiledHealthDisabilityDeductionTaxConstants,
+	CompiledHousePropertyTaxConstants,
+	CompiledLoanInterestDeductionTaxConstants,
 	CompiledNewRegimeTaxConstants,
 	CompiledOldRegimeTaxConstants,
 	CompiledOtherSourcesTaxConstants,
+	CompiledRemainingDeductionTaxConstants,
+	CompiledRulePack,
 	CompiledSavingsPensionDeductionTaxConstants,
 	CompiledSection112aCapitalGainTaxConstants,
 	CompiledSelfOccupiedHousePropertyTaxConstants,
-	CompiledRulePack,
 	EligibilityAnswerValue,
 	EligibilityQuestion,
 	FactAnswerSchema,
@@ -39,17 +21,33 @@ import type {
 	RuleCitation,
 	RuleId,
 	RulePackManifest,
+	RulePackManifestAnalysisScopeRecord,
 	RulePackManifestFactQuestionRecord,
 	RulePackManifestRuleRecord,
 	RulePackManifestSourceRecord,
 	RulePackSlabBand,
 	ScopeCheckResult,
-	SourceId,
-	AnalysisScopeCatalog,
-	RulePackManifestAnalysisScopeRecord,
 	ScopeFactSchema,
 	ScopeQuestionAnswerSchema,
 	ScopeRuleCondition,
+	SourceId,
+} from "@openitr/model";
+import {
+	compareExactMoney,
+	exactMoneyFromWholeRupees,
+	parseAssessmentYear,
+	parseDocumentKind,
+	parseExactMoney,
+	parseFactKey,
+	parseFinancialYear,
+	parseIsoDate,
+	parseIssueCode,
+	parseQuestionId,
+	parseRuleId,
+	parseRulePackId,
+	parseSha256Digest,
+	parseSourceId,
+	parseTaxFormId,
 } from "@openitr/model";
 
 const compareStrings = (left: string, right: string): number => {
@@ -61,19 +59,14 @@ const compareStrings = (left: string, right: string): number => {
 
 const isNonEmpty = (value: string): boolean => value.trim().length > 0;
 
-const requireNonEmpty = (
-	value: string,
-	description: string,
-): string => {
+const requireNonEmpty = (value: string, description: string): string => {
 	if (!isNonEmpty(value)) {
 		throw new Error(`Missing ${description}`);
 	}
 	return value;
 };
 
-const supportedEngineContractVersions: readonly string[] = Object.freeze([
-	"1",
-]);
+const supportedEngineContractVersions: readonly string[] = Object.freeze(["1"]);
 
 const isIsoCalendarDate = (value: string): boolean => {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -210,18 +203,21 @@ const compileSlabBands = <
 		previousUpperBound = upperBound;
 	}
 	const finalBand = bands[bands.length - 1];
-	if (
-		finalBand === undefined ||
-		finalBand.upperBoundWholeRupees !== null
-	) {
+	if (finalBand === undefined || finalBand.upperBoundWholeRupees !== null) {
 		throw new Error("The last slab band must be open-ended");
 	}
 	return bands;
 };
 
 const compileSurchargeTiers = (
-	tiers: readonly { exceedsTotalIncomeWholeRupees: number; ratePercent: number }[],
-): readonly { exceedsTotalIncomeWholeRupees: number; ratePercent: number }[] => {
+	tiers: readonly {
+		exceedsTotalIncomeWholeRupees: number;
+		ratePercent: number;
+	}[],
+): readonly {
+	exceedsTotalIncomeWholeRupees: number;
+	ratePercent: number;
+}[] => {
 	let previousThreshold = 0;
 	for (const [index, tier] of tiers.entries()) {
 		const label = `Surcharge tier ${index + 1}`;
@@ -246,10 +242,7 @@ const compileSupportedRule = (
 ): CompiledRule => {
 	const id = parseRuleId(record.id);
 	requireNonEmpty(record.citation, `citation for rule "${id}"`);
-	requireNonEmpty(
-		record.sourceLocation,
-		`source location for rule "${id}"`,
-	);
+	requireNonEmpty(record.sourceLocation, `source location for rule "${id}"`);
 	const source = sourcesById.get(record.sourceId);
 	if (source === undefined) {
 		throw new Error(
@@ -322,9 +315,7 @@ const compileMissingFactQuestions = ({
 	for (const record of records) {
 		const id = parseQuestionId(record.id);
 		if (seenQuestionIds.has(id)) {
-			throw new Error(
-				`Duplicate missing-fact question identifier: "${id}"`,
-			);
+			throw new Error(`Duplicate missing-fact question identifier: "${id}"`);
 		}
 		seenQuestionIds.add(id);
 
@@ -464,9 +455,13 @@ const compileMissingFactQuestions = ({
 	return questions;
 };
 
-const compileScopeFactSchema = (
-	{ schema, description }: Readonly<{ schema: ScopeFactSchema; description: string; }>,
-): ScopeFactSchema => {
+const compileScopeFactSchema = ({
+	schema,
+	description,
+}: Readonly<{
+	schema: ScopeFactSchema;
+	description: string;
+}>): ScopeFactSchema => {
 	switch (schema.kind) {
 		case "boolean":
 			return deepFreeze({ kind: "boolean" });
@@ -531,9 +526,13 @@ const compileScopeFactSchema = (
 	}
 };
 
-const compileScopeQuestionSchema = (
-	{ schema, description }: Readonly<{ schema: ScopeQuestionAnswerSchema; description: string; }>,
-): ScopeQuestionAnswerSchema => {
+const compileScopeQuestionSchema = ({
+	schema,
+	description,
+}: Readonly<{
+	schema: ScopeQuestionAnswerSchema;
+	description: string;
+}>): ScopeQuestionAnswerSchema => {
 	switch (schema.kind) {
 		case "boolean":
 			return deepFreeze({ kind: "boolean" });
@@ -550,9 +549,13 @@ const compileScopeQuestionSchema = (
 	}
 };
 
-const scopeSchemasAreCompatible = (
-	{ factSchema, questionSchema }: Readonly<{ factSchema: ScopeFactSchema; questionSchema: ScopeQuestionAnswerSchema; }>,
-): boolean => {
+const scopeSchemasAreCompatible = ({
+	factSchema,
+	questionSchema,
+}: Readonly<{
+	factSchema: ScopeFactSchema;
+	questionSchema: ScopeQuestionAnswerSchema;
+}>): boolean => {
 	if (factSchema.kind !== questionSchema.kind) {
 		return false;
 	}
@@ -560,9 +563,14 @@ const scopeSchemasAreCompatible = (
 		return true;
 	}
 	if (factSchema.kind === "choice" && questionSchema.kind === "choice") {
-		return questionSchema.values.every((value) => factSchema.values.includes(value));
+		return questionSchema.values.every((value) =>
+			factSchema.values.includes(value),
+		);
 	}
-	if (factSchema.kind === "exact-money" && questionSchema.kind === "exact-money") {
+	if (
+		factSchema.kind === "exact-money" &&
+		questionSchema.kind === "exact-money"
+	) {
 		const minimumCompatible =
 			compareExactMoney(
 				exactMoneyFromWholeRupees(questionSchema.minimumWholeRupees),
@@ -574,11 +582,15 @@ const scopeSchemasAreCompatible = (
 				questionSchema.maximumWholeRupees <= factSchema.maximumWholeRupees);
 		return minimumCompatible && maximumCompatible;
 	}
-	if (factSchema.kind === "whole-number" && questionSchema.kind === "whole-number") {
+	if (
+		factSchema.kind === "whole-number" &&
+		questionSchema.kind === "whole-number"
+	) {
 		return (
 			questionSchema.minimum >= factSchema.minimum &&
 			(factSchema.maximum === null ||
-				(questionSchema.maximum !== null && questionSchema.maximum <= factSchema.maximum))
+				(questionSchema.maximum !== null &&
+					questionSchema.maximum <= factSchema.maximum))
 		);
 	}
 	return false;
@@ -596,7 +608,10 @@ const compileAnalysisScope = ({
 	const facts = record.facts.map((fact) => ({
 		key: parseFactKey(fact.key),
 		label: requireNonEmpty(fact.label, `scope fact label for "${fact.key}"`),
-		schema: compileScopeFactSchema({ schema: fact.schema, description: `scope fact "${fact.key}"` }),
+		schema: compileScopeFactSchema({
+			schema: fact.schema,
+			description: `scope fact "${fact.key}"`,
+		}),
 	}));
 	const factsByKey = new Map(facts.map((fact) => [fact.key, fact]));
 	if (factsByKey.size !== facts.length) {
@@ -624,7 +639,10 @@ const compileAnalysisScope = ({
 				`Unknown source reference: scope rule "${id}" cites undeclared source "${rule.sourceId}"`,
 			);
 		}
-		const citation = requireNonEmpty(rule.citation, `citation for scope rule "${id}"`);
+		const citation = requireNonEmpty(
+			rule.citation,
+			`citation for scope rule "${id}"`,
+		);
 		const sourceLocation = requireNonEmpty(
 			rule.sourceLocation,
 			`source location for scope rule "${id}"`,
@@ -644,7 +662,8 @@ const compileAnalysisScope = ({
 		}
 		const factSchemaKind = fact.schema.kind;
 		const conditionSchemaKind =
-			rule.condition.kind === "must-be-true" || rule.condition.kind === "must-be-false"
+			rule.condition.kind === "must-be-true" ||
+			rule.condition.kind === "must-be-false"
 				? "boolean"
 				: rule.condition.kind === "at-most-exact-money"
 					? "exact-money"
@@ -679,10 +698,10 @@ const compileAnalysisScope = ({
 							`Scope rule "${id}" condition limit is incompatible with fact "${rule.factKey}" schema`,
 						);
 					}
-				condition = {
-					kind: "at-most-exact-money",
-					limit,
-				};
+					condition = {
+						kind: "at-most-exact-money",
+						limit,
+					};
 				}
 				break;
 			case "at-most-whole-number":
@@ -700,10 +719,10 @@ const compileAnalysisScope = ({
 							`Scope rule "${id}" condition limit is incompatible with fact "${rule.factKey}" schema`,
 						);
 					}
-				condition = {
-					kind: "at-most-whole-number",
-					limit,
-				};
+					condition = {
+						kind: "at-most-whole-number",
+						limit,
+					};
 				}
 				break;
 			default: {
@@ -718,23 +737,46 @@ const compileAnalysisScope = ({
 			citation: deepFreeze({
 				id,
 				citation,
-					sourceId: source.id,
-					sourceUrl: source.url,
-					sourceLocation,
+				sourceId: source.id,
+				sourceUrl: source.url,
+				sourceLocation,
 			}),
-			supportedTitle: requireNonEmpty(rule.supportedTitle, `supported title for scope rule "${id}"`),
-			supportedExplanation: requireNonEmpty(rule.supportedExplanation, `supported explanation for scope rule "${id}"`),
-			unsupportedTitle: requireNonEmpty(rule.unsupportedTitle, `unsupported title for scope rule "${id}"`),
-			unsupportedExplanation: requireNonEmpty(rule.unsupportedExplanation, `unsupported explanation for scope rule "${id}"`),
-			unknownExplanation: requireNonEmpty(rule.unknownExplanation, `unknown explanation for scope rule "${id}"`),
-			blockedExplanation: requireNonEmpty(rule.blockedExplanation, `blocked explanation for scope rule "${id}"`),
-			recoveryAction: requireNonEmpty(rule.recoveryAction, `recovery action for scope rule "${id}"`),
+			supportedTitle: requireNonEmpty(
+				rule.supportedTitle,
+				`supported title for scope rule "${id}"`,
+			),
+			supportedExplanation: requireNonEmpty(
+				rule.supportedExplanation,
+				`supported explanation for scope rule "${id}"`,
+			),
+			unsupportedTitle: requireNonEmpty(
+				rule.unsupportedTitle,
+				`unsupported title for scope rule "${id}"`,
+			),
+			unsupportedExplanation: requireNonEmpty(
+				rule.unsupportedExplanation,
+				`unsupported explanation for scope rule "${id}"`,
+			),
+			unknownExplanation: requireNonEmpty(
+				rule.unknownExplanation,
+				`unknown explanation for scope rule "${id}"`,
+			),
+			blockedExplanation: requireNonEmpty(
+				rule.blockedExplanation,
+				`blocked explanation for scope rule "${id}"`,
+			),
+			recoveryAction: requireNonEmpty(
+				rule.recoveryAction,
+				`recovery action for scope rule "${id}"`,
+			),
 		});
 	});
 	const rulesByScopeId = new Map<string, (typeof rules)[number]>();
 	for (const rule of rules) {
 		if (rulesByScopeId.has(rule.id)) {
-			throw new Error(`Duplicate full analysis-scope rule identifier: ${rule.id}`);
+			throw new Error(
+				`Duplicate full analysis-scope rule identifier: ${rule.id}`,
+			);
 		}
 		rulesByScopeId.set(rule.id, rule);
 	}
@@ -763,21 +805,36 @@ const compileAnalysisScope = ({
 				`Scope question "${id}" refers to undeclared fact "${question.factKey}"`,
 			);
 		}
-		const answerSchema = compileScopeQuestionSchema(
-			{ schema: question.answerSchema, description: `scope question "${id}" answer schema` },
-		);
-		if (!scopeSchemasAreCompatible({ factSchema: fact.schema, questionSchema: answerSchema })) {
+		const answerSchema = compileScopeQuestionSchema({
+			schema: question.answerSchema,
+			description: `scope question "${id}" answer schema`,
+		});
+		if (
+			!scopeSchemasAreCompatible({
+				factSchema: fact.schema,
+				questionSchema: answerSchema,
+			})
+		) {
 			throw new Error(
 				`Scope question "${id}" answer schema ${question.answerSchema.kind} is incompatible with fact "${question.factKey}" schema ${fact.schema.kind}`,
 			);
 		}
 		return deepFreeze({
 			id,
-			prompt: requireNonEmpty(question.prompt, `scope question prompt for "${id}"`),
-			helpText: requireNonEmpty(question.helpText, `scope question help text for "${id}"`),
+			prompt: requireNonEmpty(
+				question.prompt,
+				`scope question prompt for "${id}"`,
+			),
+			helpText: requireNonEmpty(
+				question.helpText,
+				`scope question help text for "${id}"`,
+			),
 			factKey,
 			...(ruleId === undefined ? {} : { requiresRuleId: ruleId }),
-			whyRequired: requireNonEmpty(question.whyRequired, `scope question rationale for "${id}"`),
+			whyRequired: requireNonEmpty(
+				question.whyRequired,
+				`scope question rationale for "${id}"`,
+			),
 			answerSchema,
 			...(rule === undefined
 				? {}
@@ -792,32 +849,47 @@ const compileAnalysisScope = ({
 	const seenQuestionIds = new Set<string>();
 	for (const question of questions) {
 		if (seenQuestionIds.has(question.id)) {
-			throw new Error(`Duplicate full analysis-scope question identifier: ${question.id}`);
+			throw new Error(
+				`Duplicate full analysis-scope question identifier: ${question.id}`,
+			);
 		}
 		seenQuestionIds.add(question.id);
 	}
 
-	const documentExpectations = record.documentExpectations.map((expectation) => {
-		const id = requireNonEmpty(expectation.id, "scope document expectation ID");
-		const documentKinds = expectation.documentKinds.map((kind) => parseDocumentKind(kind));
-		const factKeys = expectation.factKeys.map((factKey) => {
-			const parsed = parseFactKey(factKey);
-			if (!factsByKey.has(parsed)) {
-				throw new Error(
-					`Unknown fact reference: scope document expectation "${id}" refers to "${factKey}"`,
-				);
-			}
-			return parsed;
-		});
-		return deepFreeze({
-			id,
-			label: requireNonEmpty(expectation.label, `scope document expectation label for "${id}"`),
-			documentKinds: deepFreeze([...documentKinds]),
-			factKeys: deepFreeze([...factKeys]),
-			parserSupport: expectation.parserSupport,
-			purpose: requireNonEmpty(expectation.purpose, `scope document expectation purpose for "${id}"`),
-		});
-	});
+	const documentExpectations = record.documentExpectations.map(
+		(expectation) => {
+			const id = requireNonEmpty(
+				expectation.id,
+				"scope document expectation ID",
+			);
+			const documentKinds = expectation.documentKinds.map((kind) =>
+				parseDocumentKind(kind),
+			);
+			const factKeys = expectation.factKeys.map((factKey) => {
+				const parsed = parseFactKey(factKey);
+				if (!factsByKey.has(parsed)) {
+					throw new Error(
+						`Unknown fact reference: scope document expectation "${id}" refers to "${factKey}"`,
+					);
+				}
+				return parsed;
+			});
+			return deepFreeze({
+				id,
+				label: requireNonEmpty(
+					expectation.label,
+					`scope document expectation label for "${id}"`,
+				),
+				documentKinds: deepFreeze([...documentKinds]),
+				factKeys: deepFreeze([...factKeys]),
+				parserSupport: expectation.parserSupport,
+				purpose: requireNonEmpty(
+					expectation.purpose,
+					`scope document expectation purpose for "${id}"`,
+				),
+			});
+		},
+	);
 	const documentExpectationIds = new Set<string>();
 	for (const expectation of documentExpectations) {
 		if (documentExpectationIds.has(expectation.id)) {
@@ -886,9 +958,7 @@ export const compileRulePack = async ({
 	for (const record of manifest.supportedRules) {
 		const compiledRule = compileSupportedRule(record, sourcesById);
 		if (rulesById.has(compiledRule.citation.id)) {
-			throw new Error(
-				`Duplicate rule identifier: ${compiledRule.citation.id}`,
-			);
+			throw new Error(`Duplicate rule identifier: ${compiledRule.citation.id}`);
 		}
 		rulesById.set(compiledRule.citation.id, compiledRule);
 	}
@@ -954,9 +1024,7 @@ export const compileRulePack = async ({
 
 	const supportedResult = scopeCheck.supportedResult;
 	const unsupportedResult = scopeCheck.unsupportedResult;
-	const results = deepFreeze<
-		Record<EligibilityAnswerValue, ScopeCheckResult>
-	>({
+	const results = deepFreeze<Record<EligibilityAnswerValue, ScopeCheckResult>>({
 		yes: {
 			kind: "supported",
 			title: requireNonEmpty(supportedResult.title, "supported result title"),
@@ -1003,8 +1071,8 @@ export const compileRulePack = async ({
 					compileMissingFactQuestions({
 						records: manifest.missingFactQuestions,
 						rulesById,
-				}),
-			);
+					}),
+				);
 	for (const question of compiledQuestions ?? []) {
 		if (question.id === questionId) {
 			throw new Error(
@@ -1018,10 +1086,7 @@ export const compileRulePack = async ({
 		}
 	}
 
-	const resolveConstantRule = (
-		ruleId: string,
-		description: string,
-	): RuleId => {
+	const resolveConstantRule = (ruleId: string, description: string): RuleId => {
 		const parsed = parseRuleId(ruleId);
 		if (!rulesById.has(parsed)) {
 			throw new Error(
@@ -1038,10 +1103,7 @@ export const compileRulePack = async ({
 		const authoredCompleteNewRegime = authored.completeComputation;
 		const newRegime: CompiledNewRegimeTaxConstants = {
 			slabBands: compileSlabBands(authored.slabBands),
-			slabRuleId: resolveConstantRule(
-				authored.slabRuleId,
-				"The slab schedule",
-			),
+			slabRuleId: resolveConstantRule(authored.slabRuleId, "The slab schedule"),
 			standardDeductionWholeRupees: requireNonNegativeWholeRupees(
 				authored.standardDeductionWholeRupees,
 				"The standard deduction",
@@ -1075,10 +1137,7 @@ export const compileRulePack = async ({
 				authored.cessRatePercent,
 				"The cess rate",
 			),
-			cessRuleId: resolveConstantRule(
-				authored.cessRuleId,
-				"The cess rate",
-			),
+			cessRuleId: resolveConstantRule(authored.cessRuleId, "The cess rate"),
 			totalIncomeRoundingBaseWholeRupees: requirePositiveWholeRupees(
 				authored.totalIncomeRoundingBaseWholeRupees,
 				"The total-income rounding base",
@@ -1099,11 +1158,10 @@ export const compileRulePack = async ({
 				? {}
 				: {
 						completeComputation: {
-							itr1NormalRateIncomeLimitWholeRupees:
-								requirePositiveWholeRupees(
-									authoredCompleteNewRegime.itr1NormalRateIncomeLimitWholeRupees,
-									"The ITR-1 normal-rate income limit",
-								),
+							itr1NormalRateIncomeLimitWholeRupees: requirePositiveWholeRupees(
+								authoredCompleteNewRegime.itr1NormalRateIncomeLimitWholeRupees,
+								"The ITR-1 normal-rate income limit",
+							),
 							itr1NormalRateIncomeLimitRuleId: resolveConstantRule(
 								authoredCompleteNewRegime.itr1NormalRateIncomeLimitRuleId,
 								"The ITR-1 normal-rate income limit rule",
@@ -1130,33 +1188,108 @@ export const compileRulePack = async ({
 				resolveConstantRule(id, description);
 			oldRegime = {
 				slabBandsByAge: Object.freeze({
-					"under-60": compileSlabBands(authoredOldRegime.slabBandsByAge["under-60"]),
-					"60-to-79": compileSlabBands(authoredOldRegime.slabBandsByAge["60-to-79"]),
-					"80-or-older": compileSlabBands(authoredOldRegime.slabBandsByAge["80-or-older"]),
+					"under-60": compileSlabBands(
+						authoredOldRegime.slabBandsByAge["under-60"],
+					),
+					"60-to-79": compileSlabBands(
+						authoredOldRegime.slabBandsByAge["60-to-79"],
+					),
+					"80-or-older": compileSlabBands(
+						authoredOldRegime.slabBandsByAge["80-or-older"],
+					),
 				}),
-				slabRuleId: rule(authoredOldRegime.slabRuleId, "The old-regime slab rule"),
-				standardDeductionWholeRupees: requirePositiveWholeRupees(authoredOldRegime.standardDeductionWholeRupees, "The old-regime standard deduction"),
-				standardDeductionRuleId: rule(authoredOldRegime.standardDeductionRuleId, "The old-regime standard-deduction rule"),
-				housePropertyLossSetoffLimitWholeRupees: requirePositiveWholeRupees(authoredOldRegime.housePropertyLossSetoffLimitWholeRupees, "The house-property loss set-off limit"),
-				housePropertyLossSetoffRuleId: rule(authoredOldRegime.housePropertyLossSetoffRuleId, "The house-property loss set-off rule"),
-				itr1TotalIncomeLimitWholeRupees: requirePositiveWholeRupees(authoredOldRegime.itr1TotalIncomeLimitWholeRupees, "The ITR-1 total-income limit"),
-				itr1TotalIncomeLimitRuleId: rule(authoredOldRegime.itr1TotalIncomeLimitRuleId, "The ITR-1 total-income limit rule"),
-				rebateMaxTotalIncomeWholeRupees: requirePositiveWholeRupees(authoredOldRegime.rebateMaxTotalIncomeWholeRupees, "The old-regime rebate income limit"),
-				rebateMaxAmountWholeRupees: requirePositiveWholeRupees(authoredOldRegime.rebateMaxAmountWholeRupees, "The old-regime rebate amount"),
-				rebateRuleId: rule(authoredOldRegime.rebateRuleId, "The old-regime rebate rule"),
-				surchargeThresholdWholeRupees: requirePositiveWholeRupees(authoredOldRegime.surchargeThresholdWholeRupees, "The old-regime surcharge threshold"),
-				surchargeRuleId: rule(authoredOldRegime.surchargeRuleId, "The old-regime surcharge rule"),
-				surchargeMarginalReliefRuleId: rule(authoredOldRegime.surchargeMarginalReliefRuleId, "The old-regime surcharge marginal-relief rule"),
-				cessRatePercent: requireWholePercentage(authoredOldRegime.cessRatePercent, "The old-regime cess rate"),
-				cessRuleId: rule(authoredOldRegime.cessRuleId, "The old-regime cess rule"),
-				totalIncomeRoundingBaseWholeRupees: requirePositiveWholeRupees(authoredOldRegime.totalIncomeRoundingBaseWholeRupees, "The total-income rounding base"),
-				totalIncomeRoundingRuleId: rule(authoredOldRegime.totalIncomeRoundingRuleId, "The total-income rounding rule"),
-				taxRoundingBaseWholeRupees: requirePositiveWholeRupees(authoredOldRegime.taxRoundingBaseWholeRupees, "The tax rounding base"),
-				taxRoundingRuleId: rule(authoredOldRegime.taxRoundingRuleId, "The tax rounding rule"),
-				incomeAggregationRuleId: rule(authoredOldRegime.incomeAggregationRuleId, "The old-regime income aggregation rule"),
-				deductionLimitRuleId: rule(authoredOldRegime.deductionLimitRuleId, "The Chapter VI-A deduction limit rule"),
-				section112aTaxRuleId: rule(authoredOldRegime.section112aTaxRuleId, "The section 112A tax rule"),
-				agriculturalIncomeRuleId: rule(authoredOldRegime.agriculturalIncomeRuleId, "The agricultural-income rule"),
+				slabRuleId: rule(
+					authoredOldRegime.slabRuleId,
+					"The old-regime slab rule",
+				),
+				standardDeductionWholeRupees: requirePositiveWholeRupees(
+					authoredOldRegime.standardDeductionWholeRupees,
+					"The old-regime standard deduction",
+				),
+				standardDeductionRuleId: rule(
+					authoredOldRegime.standardDeductionRuleId,
+					"The old-regime standard-deduction rule",
+				),
+				housePropertyLossSetoffLimitWholeRupees: requirePositiveWholeRupees(
+					authoredOldRegime.housePropertyLossSetoffLimitWholeRupees,
+					"The house-property loss set-off limit",
+				),
+				housePropertyLossSetoffRuleId: rule(
+					authoredOldRegime.housePropertyLossSetoffRuleId,
+					"The house-property loss set-off rule",
+				),
+				itr1TotalIncomeLimitWholeRupees: requirePositiveWholeRupees(
+					authoredOldRegime.itr1TotalIncomeLimitWholeRupees,
+					"The ITR-1 total-income limit",
+				),
+				itr1TotalIncomeLimitRuleId: rule(
+					authoredOldRegime.itr1TotalIncomeLimitRuleId,
+					"The ITR-1 total-income limit rule",
+				),
+				rebateMaxTotalIncomeWholeRupees: requirePositiveWholeRupees(
+					authoredOldRegime.rebateMaxTotalIncomeWholeRupees,
+					"The old-regime rebate income limit",
+				),
+				rebateMaxAmountWholeRupees: requirePositiveWholeRupees(
+					authoredOldRegime.rebateMaxAmountWholeRupees,
+					"The old-regime rebate amount",
+				),
+				rebateRuleId: rule(
+					authoredOldRegime.rebateRuleId,
+					"The old-regime rebate rule",
+				),
+				surchargeThresholdWholeRupees: requirePositiveWholeRupees(
+					authoredOldRegime.surchargeThresholdWholeRupees,
+					"The old-regime surcharge threshold",
+				),
+				surchargeRuleId: rule(
+					authoredOldRegime.surchargeRuleId,
+					"The old-regime surcharge rule",
+				),
+				surchargeMarginalReliefRuleId: rule(
+					authoredOldRegime.surchargeMarginalReliefRuleId,
+					"The old-regime surcharge marginal-relief rule",
+				),
+				cessRatePercent: requireWholePercentage(
+					authoredOldRegime.cessRatePercent,
+					"The old-regime cess rate",
+				),
+				cessRuleId: rule(
+					authoredOldRegime.cessRuleId,
+					"The old-regime cess rule",
+				),
+				totalIncomeRoundingBaseWholeRupees: requirePositiveWholeRupees(
+					authoredOldRegime.totalIncomeRoundingBaseWholeRupees,
+					"The total-income rounding base",
+				),
+				totalIncomeRoundingRuleId: rule(
+					authoredOldRegime.totalIncomeRoundingRuleId,
+					"The total-income rounding rule",
+				),
+				taxRoundingBaseWholeRupees: requirePositiveWholeRupees(
+					authoredOldRegime.taxRoundingBaseWholeRupees,
+					"The tax rounding base",
+				),
+				taxRoundingRuleId: rule(
+					authoredOldRegime.taxRoundingRuleId,
+					"The tax rounding rule",
+				),
+				incomeAggregationRuleId: rule(
+					authoredOldRegime.incomeAggregationRuleId,
+					"The old-regime income aggregation rule",
+				),
+				deductionLimitRuleId: rule(
+					authoredOldRegime.deductionLimitRuleId,
+					"The Chapter VI-A deduction limit rule",
+				),
+				section112aTaxRuleId: rule(
+					authoredOldRegime.section112aTaxRuleId,
+					"The section 112A tax rule",
+				),
+				agriculturalIncomeRuleId: rule(
+					authoredOldRegime.agriculturalIncomeRuleId,
+					"The agricultural-income rule",
+				),
 			};
 		}
 		const authoredHouseProperty =
@@ -1208,7 +1341,10 @@ export const compileRulePack = async ({
 					authoredCompleteHouseProperty.selfOccupiedBasicInterestLimitWholeRupees,
 					"The basic self-occupied interest limit",
 				);
-			if (selfOccupiedBasicInterestLimitWholeRupees > selfOccupiedEnhancedInterestLimitWholeRupees) {
+			if (
+				selfOccupiedBasicInterestLimitWholeRupees >
+				selfOccupiedEnhancedInterestLimitWholeRupees
+			) {
 				throw new Error(
 					"The basic self-occupied interest limit must not exceed the enhanced limit",
 				);
@@ -1220,28 +1356,78 @@ export const compileRulePack = async ({
 					authoredCompleteHouseProperty.letOutStandardDeductionPercent,
 					"The let-out standard-deduction rate",
 				),
-				selfOccupiedAnnualValueRuleId: resolveConstantRule(authoredCompleteHouseProperty.selfOccupiedAnnualValueRuleId, "The self-occupied annual-value rule"),
-				selfOccupiedOldRegimeInterestRuleId: resolveConstantRule(authoredCompleteHouseProperty.selfOccupiedOldRegimeInterestRuleId, "The old-regime self-occupied interest rule"),
-				selfOccupiedNewRegimeInterestRuleId: resolveConstantRule(authoredCompleteHouseProperty.selfOccupiedNewRegimeInterestRuleId, "The new-regime self-occupied interest rule"),
-				letOutGrossAnnualValueRuleId: resolveConstantRule(authoredCompleteHouseProperty.letOutGrossAnnualValueRuleId, "The let-out gross annual-value rule"),
-				letOutMunicipalTaxRuleId: resolveConstantRule(authoredCompleteHouseProperty.letOutMunicipalTaxRuleId, "The let-out municipal-tax rule"),
-				letOutStandardDeductionRuleId: resolveConstantRule(authoredCompleteHouseProperty.letOutStandardDeductionRuleId, "The let-out standard-deduction rule"),
-				letOutInterestRuleId: resolveConstantRule(authoredCompleteHouseProperty.letOutInterestRuleId, "The let-out interest rule"),
+				selfOccupiedAnnualValueRuleId: resolveConstantRule(
+					authoredCompleteHouseProperty.selfOccupiedAnnualValueRuleId,
+					"The self-occupied annual-value rule",
+				),
+				selfOccupiedOldRegimeInterestRuleId: resolveConstantRule(
+					authoredCompleteHouseProperty.selfOccupiedOldRegimeInterestRuleId,
+					"The old-regime self-occupied interest rule",
+				),
+				selfOccupiedNewRegimeInterestRuleId: resolveConstantRule(
+					authoredCompleteHouseProperty.selfOccupiedNewRegimeInterestRuleId,
+					"The new-regime self-occupied interest rule",
+				),
+				letOutGrossAnnualValueRuleId: resolveConstantRule(
+					authoredCompleteHouseProperty.letOutGrossAnnualValueRuleId,
+					"The let-out gross annual-value rule",
+				),
+				letOutMunicipalTaxRuleId: resolveConstantRule(
+					authoredCompleteHouseProperty.letOutMunicipalTaxRuleId,
+					"The let-out municipal-tax rule",
+				),
+				letOutStandardDeductionRuleId: resolveConstantRule(
+					authoredCompleteHouseProperty.letOutStandardDeductionRuleId,
+					"The let-out standard-deduction rule",
+				),
+				letOutInterestRuleId: resolveConstantRule(
+					authoredCompleteHouseProperty.letOutInterestRuleId,
+					"The let-out interest rule",
+				),
 			};
 		}
 		const authoredOtherSources = authoredTaxConstants.otherSources;
 		let otherSources: CompiledOtherSourcesTaxConstants | undefined;
 		if (authoredOtherSources !== undefined) {
 			otherSources = {
-				familyPensionDeductionDivisor: requirePositiveWholeRupees(authoredOtherSources.familyPensionDeductionDivisor, "The family-pension deduction divisor"),
-				oldRegimeFamilyPensionDeductionLimitWholeRupees: requirePositiveWholeRupees(authoredOtherSources.oldRegimeFamilyPensionDeductionLimitWholeRupees, "The old-regime family-pension deduction limit"),
-				newRegimeFamilyPensionDeductionLimitWholeRupees: requirePositiveWholeRupees(authoredOtherSources.newRegimeFamilyPensionDeductionLimitWholeRupees, "The new-regime family-pension deduction limit"),
-				dividendRuleId: resolveConstantRule(authoredOtherSources.dividendRuleId, "The dividend income rule"),
-				interestRuleId: resolveConstantRule(authoredOtherSources.interestRuleId, "The other-interest income rule"),
-				familyPensionIncomeRuleId: resolveConstantRule(authoredOtherSources.familyPensionIncomeRuleId, "The family-pension income rule"),
-				oldRegimeFamilyPensionDeductionRuleId: resolveConstantRule(authoredOtherSources.oldRegimeFamilyPensionDeductionRuleId, "The old-regime family-pension deduction rule"),
-				newRegimeFamilyPensionDeductionRuleId: resolveConstantRule(authoredOtherSources.newRegimeFamilyPensionDeductionRuleId, "The new-regime family-pension deduction rule"),
-				totalRuleId: resolveConstantRule(authoredOtherSources.totalRuleId, "The other-source total rule"),
+				familyPensionDeductionDivisor: requirePositiveWholeRupees(
+					authoredOtherSources.familyPensionDeductionDivisor,
+					"The family-pension deduction divisor",
+				),
+				oldRegimeFamilyPensionDeductionLimitWholeRupees:
+					requirePositiveWholeRupees(
+						authoredOtherSources.oldRegimeFamilyPensionDeductionLimitWholeRupees,
+						"The old-regime family-pension deduction limit",
+					),
+				newRegimeFamilyPensionDeductionLimitWholeRupees:
+					requirePositiveWholeRupees(
+						authoredOtherSources.newRegimeFamilyPensionDeductionLimitWholeRupees,
+						"The new-regime family-pension deduction limit",
+					),
+				dividendRuleId: resolveConstantRule(
+					authoredOtherSources.dividendRuleId,
+					"The dividend income rule",
+				),
+				interestRuleId: resolveConstantRule(
+					authoredOtherSources.interestRuleId,
+					"The other-interest income rule",
+				),
+				familyPensionIncomeRuleId: resolveConstantRule(
+					authoredOtherSources.familyPensionIncomeRuleId,
+					"The family-pension income rule",
+				),
+				oldRegimeFamilyPensionDeductionRuleId: resolveConstantRule(
+					authoredOtherSources.oldRegimeFamilyPensionDeductionRuleId,
+					"The old-regime family-pension deduction rule",
+				),
+				newRegimeFamilyPensionDeductionRuleId: resolveConstantRule(
+					authoredOtherSources.newRegimeFamilyPensionDeductionRuleId,
+					"The new-regime family-pension deduction rule",
+				),
+				totalRuleId: resolveConstantRule(
+					authoredOtherSources.totalRuleId,
+					"The other-source total rule",
+				),
 			};
 		}
 		const authoredSection112a = authoredTaxConstants.section112aCapitalGain;
@@ -1273,11 +1459,26 @@ export const compileRulePack = async ({
 					authoredSection112a.taxRoundingBaseWholeRupees,
 					"The section 112A tax rounding base",
 				),
-				classificationRuleId: resolveConstantRule(authoredSection112a.classificationRuleId, "The section 112A classification rule"),
-				gainRuleId: resolveConstantRule(authoredSection112a.gainRuleId, "The section 112A gain rule"),
-				itr1LimitRuleId: resolveConstantRule(authoredSection112a.itr1LimitRuleId, "The ITR-1 section 112A limit rule"),
-				taxRuleId: resolveConstantRule(authoredSection112a.taxRuleId, "The section 112A tax rule"),
-				taxRoundingRuleId: resolveConstantRule(authoredSection112a.taxRoundingRuleId, "The section 112A tax rounding rule"),
+				classificationRuleId: resolveConstantRule(
+					authoredSection112a.classificationRuleId,
+					"The section 112A classification rule",
+				),
+				gainRuleId: resolveConstantRule(
+					authoredSection112a.gainRuleId,
+					"The section 112A gain rule",
+				),
+				itr1LimitRuleId: resolveConstantRule(
+					authoredSection112a.itr1LimitRuleId,
+					"The ITR-1 section 112A limit rule",
+				),
+				taxRuleId: resolveConstantRule(
+					authoredSection112a.taxRuleId,
+					"The section 112A tax rule",
+				),
+				taxRoundingRuleId: resolveConstantRule(
+					authoredSection112a.taxRoundingRuleId,
+					"The section 112A tax rounding rule",
+				),
 			};
 		}
 		const authoredAgriculturalIncome = authoredTaxConstants.agriculturalIncome;
@@ -1298,7 +1499,8 @@ export const compileRulePack = async ({
 				),
 			};
 		}
-		const authoredSavingsPension = authoredTaxConstants.savingsPensionDeductions;
+		const authoredSavingsPension =
+			authoredTaxConstants.savingsPensionDeductions;
 		let savingsPensionDeductions:
 			| CompiledSavingsPensionDeductionTaxConstants
 			| undefined;
@@ -1334,18 +1536,46 @@ export const compileRulePack = async ({
 					authoredSavingsPension.newRegimeEmployerSalaryPercent,
 					"The new-regime employer contribution percentage",
 				),
-				sharedLimitRuleId: rule(authoredSavingsPension.sharedLimitRuleId, "The shared deduction-limit rule"),
-				section80ccd1EmployeeLimitRuleId: rule(authoredSavingsPension.section80ccd1EmployeeLimitRuleId, "The employee section 80CCD(1) limit rule"),
-				section80ccd1OtherLimitRuleId: rule(authoredSavingsPension.section80ccd1OtherLimitRuleId, "The non-employee section 80CCD(1) limit rule"),
-				section80ccd1bLimitRuleId: rule(authoredSavingsPension.section80ccd1bLimitRuleId, "The section 80CCD(1B) limit rule"),
-				oldRegimeGovernmentEmployerLimitRuleId: rule(authoredSavingsPension.oldRegimeGovernmentEmployerLimitRuleId, "The old-regime government-employer contribution rule"),
-				oldRegimeOtherEmployerLimitRuleId: rule(authoredSavingsPension.oldRegimeOtherEmployerLimitRuleId, "The old-regime other-employer contribution rule"),
-				newRegimeEmployerLimitRuleId: rule(authoredSavingsPension.newRegimeEmployerLimitRuleId, "The new-regime employer contribution rule"),
-				newRegimeExclusionRuleId: rule(authoredSavingsPension.newRegimeExclusionRuleId, "The new-regime Chapter VI-A exclusion rule"),
-				proofRuleId: rule(authoredSavingsPension.proofRuleId, "The supporting-detail rule"),
+				sharedLimitRuleId: rule(
+					authoredSavingsPension.sharedLimitRuleId,
+					"The shared deduction-limit rule",
+				),
+				section80ccd1EmployeeLimitRuleId: rule(
+					authoredSavingsPension.section80ccd1EmployeeLimitRuleId,
+					"The employee section 80CCD(1) limit rule",
+				),
+				section80ccd1OtherLimitRuleId: rule(
+					authoredSavingsPension.section80ccd1OtherLimitRuleId,
+					"The non-employee section 80CCD(1) limit rule",
+				),
+				section80ccd1bLimitRuleId: rule(
+					authoredSavingsPension.section80ccd1bLimitRuleId,
+					"The section 80CCD(1B) limit rule",
+				),
+				oldRegimeGovernmentEmployerLimitRuleId: rule(
+					authoredSavingsPension.oldRegimeGovernmentEmployerLimitRuleId,
+					"The old-regime government-employer contribution rule",
+				),
+				oldRegimeOtherEmployerLimitRuleId: rule(
+					authoredSavingsPension.oldRegimeOtherEmployerLimitRuleId,
+					"The old-regime other-employer contribution rule",
+				),
+				newRegimeEmployerLimitRuleId: rule(
+					authoredSavingsPension.newRegimeEmployerLimitRuleId,
+					"The new-regime employer contribution rule",
+				),
+				newRegimeExclusionRuleId: rule(
+					authoredSavingsPension.newRegimeExclusionRuleId,
+					"The new-regime Chapter VI-A exclusion rule",
+				),
+				proofRuleId: rule(
+					authoredSavingsPension.proofRuleId,
+					"The supporting-detail rule",
+				),
 			};
 		}
-		const authoredHealthDisability = authoredTaxConstants.healthDisabilityDeductions;
+		const authoredHealthDisability =
+			authoredTaxConstants.healthDisabilityDeductions;
 		let healthDisabilityDeductions:
 			| CompiledHealthDisabilityDeductionTaxConstants
 			| undefined;
@@ -1355,29 +1585,98 @@ export const compileRulePack = async ({
 			const rule = (id: string, description: string): RuleId =>
 				resolveConstantRule(id, description);
 			healthDisabilityDeductions = {
-				healthRegularGroupLimitWholeRupees: money(authoredHealthDisability.healthRegularGroupLimitWholeRupees, "The regular section 80D group limit"),
-				healthSeniorGroupLimitWholeRupees: money(authoredHealthDisability.healthSeniorGroupLimitWholeRupees, "The senior-citizen section 80D group limit"),
-				healthPreventiveSharedLimitWholeRupees: money(authoredHealthDisability.healthPreventiveSharedLimitWholeRupees, "The shared section 80D preventive-checkup limit"),
-				healthOverallLimitWholeRupees: money(authoredHealthDisability.healthOverallLimitWholeRupees, "The overall section 80D limit"),
-				dependentDisabilityAmountWholeRupees: money(authoredHealthDisability.dependentDisabilityAmountWholeRupees, "The section 80DD disability amount"),
-				dependentSevereDisabilityAmountWholeRupees: money(authoredHealthDisability.dependentSevereDisabilityAmountWholeRupees, "The section 80DD severe-disability amount"),
-				specifiedDiseaseLimitWholeRupees: money(authoredHealthDisability.specifiedDiseaseLimitWholeRupees, "The section 80DDB limit"),
-				specifiedDiseaseSeniorLimitWholeRupees: money(authoredHealthDisability.specifiedDiseaseSeniorLimitWholeRupees, "The senior-citizen section 80DDB limit"),
-				taxpayerDisabilityAmountWholeRupees: money(authoredHealthDisability.taxpayerDisabilityAmountWholeRupees, "The section 80U disability amount"),
-				taxpayerSevereDisabilityAmountWholeRupees: money(authoredHealthDisability.taxpayerSevereDisabilityAmountWholeRupees, "The section 80U severe-disability amount"),
-				healthGroupLimitsRuleId: rule(authoredHealthDisability.healthGroupLimitsRuleId, "The section 80D group-limit rule"),
-				healthPreventiveLimitRuleId: rule(authoredHealthDisability.healthPreventiveLimitRuleId, "The section 80D preventive-checkup rule"),
-				healthDetailsRuleId: rule(authoredHealthDisability.healthDetailsRuleId, "The section 80D details rule"),
-				healthNewRegimeExclusionRuleId: rule(authoredHealthDisability.healthNewRegimeExclusionRuleId, "The new-regime section 80D exclusion rule"),
-				dependentDisabilityRuleId: rule(authoredHealthDisability.dependentDisabilityRuleId, "The section 80DD fixed-deduction rule"),
-				dependentDisabilityDetailsRuleId: rule(authoredHealthDisability.dependentDisabilityDetailsRuleId, "The section 80DD details rule"),
-				dependentDisabilityNewRegimeExclusionRuleId: rule(authoredHealthDisability.dependentDisabilityNewRegimeExclusionRuleId, "The new-regime section 80DD exclusion rule"),
-				specifiedDiseaseRuleId: rule(authoredHealthDisability.specifiedDiseaseRuleId, "The section 80DDB limit rule"),
-				specifiedDiseaseDetailsRuleId: rule(authoredHealthDisability.specifiedDiseaseDetailsRuleId, "The section 80DDB details rule"),
-				specifiedDiseaseNewRegimeExclusionRuleId: rule(authoredHealthDisability.specifiedDiseaseNewRegimeExclusionRuleId, "The new-regime section 80DDB exclusion rule"),
-				taxpayerDisabilityRuleId: rule(authoredHealthDisability.taxpayerDisabilityRuleId, "The section 80U fixed-deduction rule"),
-				taxpayerDisabilityDetailsRuleId: rule(authoredHealthDisability.taxpayerDisabilityDetailsRuleId, "The section 80U details rule"),
-				taxpayerDisabilityNewRegimeExclusionRuleId: rule(authoredHealthDisability.taxpayerDisabilityNewRegimeExclusionRuleId, "The new-regime section 80U exclusion rule"),
+				healthRegularGroupLimitWholeRupees: money(
+					authoredHealthDisability.healthRegularGroupLimitWholeRupees,
+					"The regular section 80D group limit",
+				),
+				healthSeniorGroupLimitWholeRupees: money(
+					authoredHealthDisability.healthSeniorGroupLimitWholeRupees,
+					"The senior-citizen section 80D group limit",
+				),
+				healthPreventiveSharedLimitWholeRupees: money(
+					authoredHealthDisability.healthPreventiveSharedLimitWholeRupees,
+					"The shared section 80D preventive-checkup limit",
+				),
+				healthOverallLimitWholeRupees: money(
+					authoredHealthDisability.healthOverallLimitWholeRupees,
+					"The overall section 80D limit",
+				),
+				dependentDisabilityAmountWholeRupees: money(
+					authoredHealthDisability.dependentDisabilityAmountWholeRupees,
+					"The section 80DD disability amount",
+				),
+				dependentSevereDisabilityAmountWholeRupees: money(
+					authoredHealthDisability.dependentSevereDisabilityAmountWholeRupees,
+					"The section 80DD severe-disability amount",
+				),
+				specifiedDiseaseLimitWholeRupees: money(
+					authoredHealthDisability.specifiedDiseaseLimitWholeRupees,
+					"The section 80DDB limit",
+				),
+				specifiedDiseaseSeniorLimitWholeRupees: money(
+					authoredHealthDisability.specifiedDiseaseSeniorLimitWholeRupees,
+					"The senior-citizen section 80DDB limit",
+				),
+				taxpayerDisabilityAmountWholeRupees: money(
+					authoredHealthDisability.taxpayerDisabilityAmountWholeRupees,
+					"The section 80U disability amount",
+				),
+				taxpayerSevereDisabilityAmountWholeRupees: money(
+					authoredHealthDisability.taxpayerSevereDisabilityAmountWholeRupees,
+					"The section 80U severe-disability amount",
+				),
+				healthGroupLimitsRuleId: rule(
+					authoredHealthDisability.healthGroupLimitsRuleId,
+					"The section 80D group-limit rule",
+				),
+				healthPreventiveLimitRuleId: rule(
+					authoredHealthDisability.healthPreventiveLimitRuleId,
+					"The section 80D preventive-checkup rule",
+				),
+				healthDetailsRuleId: rule(
+					authoredHealthDisability.healthDetailsRuleId,
+					"The section 80D details rule",
+				),
+				healthNewRegimeExclusionRuleId: rule(
+					authoredHealthDisability.healthNewRegimeExclusionRuleId,
+					"The new-regime section 80D exclusion rule",
+				),
+				dependentDisabilityRuleId: rule(
+					authoredHealthDisability.dependentDisabilityRuleId,
+					"The section 80DD fixed-deduction rule",
+				),
+				dependentDisabilityDetailsRuleId: rule(
+					authoredHealthDisability.dependentDisabilityDetailsRuleId,
+					"The section 80DD details rule",
+				),
+				dependentDisabilityNewRegimeExclusionRuleId: rule(
+					authoredHealthDisability.dependentDisabilityNewRegimeExclusionRuleId,
+					"The new-regime section 80DD exclusion rule",
+				),
+				specifiedDiseaseRuleId: rule(
+					authoredHealthDisability.specifiedDiseaseRuleId,
+					"The section 80DDB limit rule",
+				),
+				specifiedDiseaseDetailsRuleId: rule(
+					authoredHealthDisability.specifiedDiseaseDetailsRuleId,
+					"The section 80DDB details rule",
+				),
+				specifiedDiseaseNewRegimeExclusionRuleId: rule(
+					authoredHealthDisability.specifiedDiseaseNewRegimeExclusionRuleId,
+					"The new-regime section 80DDB exclusion rule",
+				),
+				taxpayerDisabilityRuleId: rule(
+					authoredHealthDisability.taxpayerDisabilityRuleId,
+					"The section 80U fixed-deduction rule",
+				),
+				taxpayerDisabilityDetailsRuleId: rule(
+					authoredHealthDisability.taxpayerDisabilityDetailsRuleId,
+					"The section 80U details rule",
+				),
+				taxpayerDisabilityNewRegimeExclusionRuleId: rule(
+					authoredHealthDisability.taxpayerDisabilityNewRegimeExclusionRuleId,
+					"The new-regime section 80U exclusion rule",
+				),
 			};
 		}
 		const authoredLoanInterest = authoredTaxConstants.loanInterestDeductions;
@@ -1397,40 +1696,122 @@ export const compileRulePack = async ({
 				}
 			};
 			loanInterestDeductions = {
-				section80eEarliestFirstInterestPaymentDate: date(authoredLoanInterest.section80eEarliestFirstInterestPaymentDate, "The section 80E earliest first-interest-payment date"),
-				section80eCurrentFinancialYearEndDate: date(authoredLoanInterest.section80eCurrentFinancialYearEndDate, "The section 80E current financial-year end date"),
-				section80eeSanctionStartDate: date(authoredLoanInterest.section80eeSanctionStartDate, "The section 80EE sanction start date"),
-				section80eeSanctionEndDate: date(authoredLoanInterest.section80eeSanctionEndDate, "The section 80EE sanction end date"),
-				section80eeLimitWholeRupees: money(authoredLoanInterest.section80eeLimitWholeRupees, "The section 80EE deduction limit"),
-				section80eeLoanLimitWholeRupees: money(authoredLoanInterest.section80eeLoanLimitWholeRupees, "The section 80EE loan limit"),
-				section80eePropertyValueLimitWholeRupees: money(authoredLoanInterest.section80eePropertyValueLimitWholeRupees, "The section 80EE property-value limit"),
-				section80eeaSanctionStartDate: date(authoredLoanInterest.section80eeaSanctionStartDate, "The section 80EEA sanction start date"),
-				section80eeaSanctionEndDate: date(authoredLoanInterest.section80eeaSanctionEndDate, "The section 80EEA sanction end date"),
-				section80eeaLimitWholeRupees: money(authoredLoanInterest.section80eeaLimitWholeRupees, "The section 80EEA deduction limit"),
-				section80eeaStampValueLimitWholeRupees: money(authoredLoanInterest.section80eeaStampValueLimitWholeRupees, "The section 80EEA stamp-value limit"),
-				section80eebSanctionStartDate: date(authoredLoanInterest.section80eebSanctionStartDate, "The section 80EEB sanction start date"),
-				section80eebSanctionEndDate: date(authoredLoanInterest.section80eebSanctionEndDate, "The section 80EEB sanction end date"),
-				section80eebLimitWholeRupees: money(authoredLoanInterest.section80eebLimitWholeRupees, "The section 80EEB deduction limit"),
-				section80eEligibilityRuleId: rule(authoredLoanInterest.section80eEligibilityRuleId, "The section 80E eligibility rule"),
-				section80ePeriodRuleId: rule(authoredLoanInterest.section80ePeriodRuleId, "The section 80E period rule"),
-				section80eDetailsRuleId: rule(authoredLoanInterest.section80eDetailsRuleId, "The section 80E details rule"),
-				section80eeEligibilityRuleId: rule(authoredLoanInterest.section80eeEligibilityRuleId, "The section 80EE eligibility rule"),
-				section80eeLimitRuleId: rule(authoredLoanInterest.section80eeLimitRuleId, "The section 80EE limit rule"),
-				section80eeDetailsRuleId: rule(authoredLoanInterest.section80eeDetailsRuleId, "The section 80EE details rule"),
-				section80eeaEligibilityRuleId: rule(authoredLoanInterest.section80eeaEligibilityRuleId, "The section 80EEA eligibility rule"),
-				section80eeaLimitRuleId: rule(authoredLoanInterest.section80eeaLimitRuleId, "The section 80EEA limit rule"),
-				section80eeaDetailsRuleId: rule(authoredLoanInterest.section80eeaDetailsRuleId, "The section 80EEA details rule"),
-				section80eeMutualExclusionRuleId: rule(authoredLoanInterest.section80eeMutualExclusionRuleId, "The sections 80EE and 80EEA mutual-exclusion rule"),
-				section80eebEligibilityRuleId: rule(authoredLoanInterest.section80eebEligibilityRuleId, "The section 80EEB eligibility rule"),
-				section80eebLimitRuleId: rule(authoredLoanInterest.section80eebLimitRuleId, "The section 80EEB limit rule"),
-				section80eebDetailsRuleId: rule(authoredLoanInterest.section80eebDetailsRuleId, "The section 80EEB details rule"),
-				newRegimeExclusionRuleId: rule(authoredLoanInterest.newRegimeExclusionRuleId, "The new-regime loan-interest exclusion rule"),
+				section80eEarliestFirstInterestPaymentDate: date(
+					authoredLoanInterest.section80eEarliestFirstInterestPaymentDate,
+					"The section 80E earliest first-interest-payment date",
+				),
+				section80eCurrentFinancialYearEndDate: date(
+					authoredLoanInterest.section80eCurrentFinancialYearEndDate,
+					"The section 80E current financial-year end date",
+				),
+				section80eeSanctionStartDate: date(
+					authoredLoanInterest.section80eeSanctionStartDate,
+					"The section 80EE sanction start date",
+				),
+				section80eeSanctionEndDate: date(
+					authoredLoanInterest.section80eeSanctionEndDate,
+					"The section 80EE sanction end date",
+				),
+				section80eeLimitWholeRupees: money(
+					authoredLoanInterest.section80eeLimitWholeRupees,
+					"The section 80EE deduction limit",
+				),
+				section80eeLoanLimitWholeRupees: money(
+					authoredLoanInterest.section80eeLoanLimitWholeRupees,
+					"The section 80EE loan limit",
+				),
+				section80eePropertyValueLimitWholeRupees: money(
+					authoredLoanInterest.section80eePropertyValueLimitWholeRupees,
+					"The section 80EE property-value limit",
+				),
+				section80eeaSanctionStartDate: date(
+					authoredLoanInterest.section80eeaSanctionStartDate,
+					"The section 80EEA sanction start date",
+				),
+				section80eeaSanctionEndDate: date(
+					authoredLoanInterest.section80eeaSanctionEndDate,
+					"The section 80EEA sanction end date",
+				),
+				section80eeaLimitWholeRupees: money(
+					authoredLoanInterest.section80eeaLimitWholeRupees,
+					"The section 80EEA deduction limit",
+				),
+				section80eeaStampValueLimitWholeRupees: money(
+					authoredLoanInterest.section80eeaStampValueLimitWholeRupees,
+					"The section 80EEA stamp-value limit",
+				),
+				section80eebSanctionStartDate: date(
+					authoredLoanInterest.section80eebSanctionStartDate,
+					"The section 80EEB sanction start date",
+				),
+				section80eebSanctionEndDate: date(
+					authoredLoanInterest.section80eebSanctionEndDate,
+					"The section 80EEB sanction end date",
+				),
+				section80eebLimitWholeRupees: money(
+					authoredLoanInterest.section80eebLimitWholeRupees,
+					"The section 80EEB deduction limit",
+				),
+				section80eEligibilityRuleId: rule(
+					authoredLoanInterest.section80eEligibilityRuleId,
+					"The section 80E eligibility rule",
+				),
+				section80ePeriodRuleId: rule(
+					authoredLoanInterest.section80ePeriodRuleId,
+					"The section 80E period rule",
+				),
+				section80eDetailsRuleId: rule(
+					authoredLoanInterest.section80eDetailsRuleId,
+					"The section 80E details rule",
+				),
+				section80eeEligibilityRuleId: rule(
+					authoredLoanInterest.section80eeEligibilityRuleId,
+					"The section 80EE eligibility rule",
+				),
+				section80eeLimitRuleId: rule(
+					authoredLoanInterest.section80eeLimitRuleId,
+					"The section 80EE limit rule",
+				),
+				section80eeDetailsRuleId: rule(
+					authoredLoanInterest.section80eeDetailsRuleId,
+					"The section 80EE details rule",
+				),
+				section80eeaEligibilityRuleId: rule(
+					authoredLoanInterest.section80eeaEligibilityRuleId,
+					"The section 80EEA eligibility rule",
+				),
+				section80eeaLimitRuleId: rule(
+					authoredLoanInterest.section80eeaLimitRuleId,
+					"The section 80EEA limit rule",
+				),
+				section80eeaDetailsRuleId: rule(
+					authoredLoanInterest.section80eeaDetailsRuleId,
+					"The section 80EEA details rule",
+				),
+				section80eeMutualExclusionRuleId: rule(
+					authoredLoanInterest.section80eeMutualExclusionRuleId,
+					"The sections 80EE and 80EEA mutual-exclusion rule",
+				),
+				section80eebEligibilityRuleId: rule(
+					authoredLoanInterest.section80eebEligibilityRuleId,
+					"The section 80EEB eligibility rule",
+				),
+				section80eebLimitRuleId: rule(
+					authoredLoanInterest.section80eebLimitRuleId,
+					"The section 80EEB limit rule",
+				),
+				section80eebDetailsRuleId: rule(
+					authoredLoanInterest.section80eebDetailsRuleId,
+					"The section 80EEB details rule",
+				),
+				newRegimeExclusionRuleId: rule(
+					authoredLoanInterest.newRegimeExclusionRuleId,
+					"The new-regime loan-interest exclusion rule",
+				),
 			};
 		}
 		const authoredDonations = authoredTaxConstants.donationDeductions;
-		let donationDeductions:
-			| CompiledDonationDeductionTaxConstants
-			| undefined;
+		let donationDeductions: CompiledDonationDeductionTaxConstants | undefined;
 		if (authoredDonations !== undefined) {
 			const rule = (id: string, description: string): RuleId =>
 				resolveConstantRule(id, description);
@@ -1478,28 +1859,71 @@ export const compileRulePack = async ({
 			};
 		}
 		const authoredRemaining = authoredTaxConstants.remainingDeductions;
-		let remainingDeductions:
-			| CompiledRemainingDeductionTaxConstants
-			| undefined;
+		let remainingDeductions: CompiledRemainingDeductionTaxConstants | undefined;
 		if (authoredRemaining !== undefined) {
 			const rule = (id: string, description: string): RuleId =>
 				resolveConstantRule(id, description);
 			remainingDeductions = {
-				section80ttaLimitWholeRupees: requirePositiveWholeRupees(authoredRemaining.section80ttaLimitWholeRupees, "The section 80TTA limit"),
-				section80ttbLimitWholeRupees: requirePositiveWholeRupees(authoredRemaining.section80ttbLimitWholeRupees, "The section 80TTB limit"),
-				section80cchSalaryLimitBasisPoints: requireBasisPointRate(authoredRemaining.section80cchSalaryLimitBasisPoints, "The section 80CCH salary limit"),
-				section80ggAnnualLimitWholeRupees: requirePositiveWholeRupees(authoredRemaining.section80ggAnnualLimitWholeRupees, "The section 80GG annual limit"),
-				section80ggRentReductionPercent: requireWholePercentage(authoredRemaining.section80ggRentReductionPercent, "The section 80GG rent reduction percentage"),
-				section80ggIncomeLimitPercent: requireWholePercentage(authoredRemaining.section80ggIncomeLimitPercent, "The section 80GG income limit percentage"),
-				section80ggaCashPaymentLimitWholeRupees: requirePositiveWholeRupees(authoredRemaining.section80ggaCashPaymentLimitWholeRupees, "The section 80GGA cash-payment limit"),
-				section80ttaRuleId: rule(authoredRemaining.section80ttaRuleId, "The section 80TTA rule"),
-				section80ttbRuleId: rule(authoredRemaining.section80ttbRuleId, "The section 80TTB rule"),
-				section80cchRuleId: rule(authoredRemaining.section80cchRuleId, "The section 80CCH rule"),
-				section80ggRuleId: rule(authoredRemaining.section80ggRuleId, "The section 80GG rule"),
-				section80ggaRuleId: rule(authoredRemaining.section80ggaRuleId, "The section 80GGA rule"),
-				section80ggcRuleId: rule(authoredRemaining.section80ggcRuleId, "The section 80GGC rule"),
-				newRegimeExclusionRuleId: rule(authoredRemaining.newRegimeExclusionRuleId, "The remaining-deduction new-regime exclusion rule"),
-				unsupportedOtherRuleId: rule(authoredRemaining.unsupportedOtherRuleId, "The unsupported other-deduction rule"),
+				section80ttaLimitWholeRupees: requirePositiveWholeRupees(
+					authoredRemaining.section80ttaLimitWholeRupees,
+					"The section 80TTA limit",
+				),
+				section80ttbLimitWholeRupees: requirePositiveWholeRupees(
+					authoredRemaining.section80ttbLimitWholeRupees,
+					"The section 80TTB limit",
+				),
+				section80cchSalaryLimitBasisPoints: requireBasisPointRate(
+					authoredRemaining.section80cchSalaryLimitBasisPoints,
+					"The section 80CCH salary limit",
+				),
+				section80ggAnnualLimitWholeRupees: requirePositiveWholeRupees(
+					authoredRemaining.section80ggAnnualLimitWholeRupees,
+					"The section 80GG annual limit",
+				),
+				section80ggRentReductionPercent: requireWholePercentage(
+					authoredRemaining.section80ggRentReductionPercent,
+					"The section 80GG rent reduction percentage",
+				),
+				section80ggIncomeLimitPercent: requireWholePercentage(
+					authoredRemaining.section80ggIncomeLimitPercent,
+					"The section 80GG income limit percentage",
+				),
+				section80ggaCashPaymentLimitWholeRupees: requirePositiveWholeRupees(
+					authoredRemaining.section80ggaCashPaymentLimitWholeRupees,
+					"The section 80GGA cash-payment limit",
+				),
+				section80ttaRuleId: rule(
+					authoredRemaining.section80ttaRuleId,
+					"The section 80TTA rule",
+				),
+				section80ttbRuleId: rule(
+					authoredRemaining.section80ttbRuleId,
+					"The section 80TTB rule",
+				),
+				section80cchRuleId: rule(
+					authoredRemaining.section80cchRuleId,
+					"The section 80CCH rule",
+				),
+				section80ggRuleId: rule(
+					authoredRemaining.section80ggRuleId,
+					"The section 80GG rule",
+				),
+				section80ggaRuleId: rule(
+					authoredRemaining.section80ggaRuleId,
+					"The section 80GGA rule",
+				),
+				section80ggcRuleId: rule(
+					authoredRemaining.section80ggcRuleId,
+					"The section 80GGC rule",
+				),
+				newRegimeExclusionRuleId: rule(
+					authoredRemaining.newRegimeExclusionRuleId,
+					"The remaining-deduction new-regime exclusion rule",
+				),
+				unsupportedOtherRuleId: rule(
+					authoredRemaining.unsupportedOtherRuleId,
+					"The unsupported other-deduction rule",
+				),
 			};
 		}
 		compiledTaxConstants = deepFreeze({
@@ -1533,9 +1957,9 @@ export const compileRulePack = async ({
 			? undefined
 			: compileAnalysisScope({
 					record: manifest.analysisScope,
-				rulesById,
-				sourcesById,
-			});
+					rulesById,
+					sourcesById,
+				});
 
 	const sourceManifestSha256 = parseSha256Digest(
 		await sha256Hex(canonicalJson(officialSources)),
@@ -1547,7 +1971,10 @@ export const compileRulePack = async ({
 	};
 
 	const hashedContents = {
-		identity: { ...identityWithSourceHashes, officialSourceRevisionIds: officialSources.map((source) => source.id) },
+		identity: {
+			...identityWithSourceHashes,
+			officialSourceRevisionIds: officialSources.map((source) => source.id),
+		},
 		officialSources,
 		supportedRuleIds,
 		ruleCitations,
@@ -1568,9 +1995,7 @@ export const compileRulePack = async ({
 	return deepFreeze({
 		identity: {
 			...identityWithSourceHashes,
-			officialSourceRevisionIds: officialSources.map(
-				(source) => source.id,
-			),
+			officialSourceRevisionIds: officialSources.map((source) => source.id),
 			sourceManifestSha256,
 			compiledPackSha256,
 		},

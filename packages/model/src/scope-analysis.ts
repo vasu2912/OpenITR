@@ -1,3 +1,6 @@
+import type { DocumentKind } from "./documents/inspection-outcome";
+import type { RulePackIdentity, RuleSourceReference } from "./index";
+import type { ExactMoney } from "./money/exact-money";
 import type {
 	FactKey,
 	IsoTimestamp,
@@ -7,9 +10,6 @@ import type {
 	Sha256Digest,
 	SourceId,
 } from "./primitives";
-import type { DocumentKind } from "./documents/inspection-outcome";
-import type { ExactMoney } from "./money/exact-money";
-import type { RulePackIdentity, RuleSourceReference } from "./index";
 
 // The full scope model is deliberately separate from the original one-question
 // scope check. Older packs can keep their original compiled representation,

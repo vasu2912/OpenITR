@@ -1,7 +1,5 @@
-import {
-	computeSourceDocumentIdentity,
-} from "@openitr/model";
 import type { Sha256Digest } from "@openitr/model";
+import { computeSourceDocumentIdentity } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -148,8 +146,14 @@ describe("Form 26AS spreadsheet TDS extraction", () => {
 			],
 		],
 		["a blank deductor name", ["1", "", "MUMA12345B", "10", "1", "1"]],
-		["a missing serial number cell", ["", "Name", "MUMA12345B", "10", "1", "1"]],
-		["a non-numeric serial number", ["x", "Name", "MUMA12345B", "10", "1", "1"]],
+		[
+			"a missing serial number cell",
+			["", "Name", "MUMA12345B", "10", "1", "1"],
+		],
+		[
+			"a non-numeric serial number",
+			["x", "Name", "MUMA12345B", "10", "1", "1"],
+		],
 		[
 			"a row with more cells than the reviewed column header",
 			["1", "Name", "MUMA12345B", "10", "1", "1", "extra"],
@@ -264,9 +268,7 @@ describe("Form 26AS spreadsheet TDS extraction", () => {
 			(observation) => observation.factKey === "tds.tds-deposited",
 		);
 		expect(
-			deposited.map((observation) =>
-				String(observation.normalizedValue),
-			),
+			deposited.map((observation) => String(observation.normalizedValue)),
 		).toEqual(["0"]);
 	});
 

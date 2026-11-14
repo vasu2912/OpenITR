@@ -39,9 +39,7 @@ const projectedDocumentOf = (
 		return undefined;
 	}
 	return {
-		...(isRecordObject(salaryInformation)
-			? { salaryInformation }
-			: {}),
+		...(isRecordObject(salaryInformation) ? { salaryInformation } : {}),
 		...(Array.isArray(tdsOnSalary) ? { tdsOnSalary } : {}),
 	};
 };

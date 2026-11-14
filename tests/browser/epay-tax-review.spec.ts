@@ -6,8 +6,8 @@ import {
 	EPAY_SENTINEL_BANK_REFERENCE,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
 	candidateRow,
@@ -182,8 +182,8 @@ test.describe("e-Pay Tax receipt review", () => {
 
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await openTaxComparison(page);
-		await expect(
-			estimateSection.getByText("₹ 1,06,920").first(),
-		).toBeVisible({ timeout: 30_000 });
+		await expect(estimateSection.getByText("₹ 1,06,920").first()).toBeVisible({
+			timeout: 30_000,
+		});
 	});
 });

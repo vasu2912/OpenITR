@@ -1,3 +1,10 @@
+import type {
+	AttestedAnswer,
+	ExactMoney,
+	FactKey,
+	IssueCode,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	addExactMoney,
 	compareExactMoney,
@@ -9,14 +16,11 @@ import {
 	roundToNearestMultipleOf,
 	subtractExactMoney,
 } from "@openitr/model";
+import type { FactSetRevision } from "./fact-set-revision";
 import type {
-	AttestedAnswer,
-	ExactMoney,
-	FactKey,
-	IssueCode,
-	ScopeRulePack,
-} from "@openitr/model";
-
+	ComputationNodeDraft,
+	ComputationTraceNode,
+} from "./new-regime-liability";
 import {
 	buildNewRegimeLiabilityNodes,
 	constantInput,
@@ -24,11 +28,6 @@ import {
 	nodeInput,
 	TOTAL_INCOME_ROUNDED_NODE_ID,
 } from "./new-regime-liability";
-import type {
-	ComputationNodeDraft,
-	ComputationTraceNode,
-} from "./new-regime-liability";
-import type { FactSetRevision } from "./fact-set-revision";
 
 const ZERO = exactMoneyFromWholeRupees(0);
 
@@ -72,14 +71,14 @@ export type NewRegimeComputationIssue = Readonly<{
 
 export type NewRegimeComputationInput =
 	| Readonly<{
-		kind: "blocked";
-		issues: readonly NewRegimeComputationIssue[];
-	}>
+			kind: "blocked";
+			issues: readonly NewRegimeComputationIssue[];
+	  }>
 	| Readonly<{
-		kind: "ready";
-		factSetRevision: FactSetRevision;
-		amounts: NewRegimeAcceptedAmounts;
-	}>;
+			kind: "ready";
+			factSetRevision: FactSetRevision;
+			amounts: NewRegimeAcceptedAmounts;
+	  }>;
 
 export type NewRegimeDeductionComparison = Readonly<
 	Record<
@@ -116,17 +115,17 @@ export type NewRegimeSummary = Readonly<{
 
 export type NewRegimeComputation =
 	| Readonly<{
-		kind: "blocked" | "unsupported";
-		issues: readonly NewRegimeComputationIssue[];
-	}>
+			kind: "blocked" | "unsupported";
+			issues: readonly NewRegimeComputationIssue[];
+	  }>
 	| Readonly<{
-		kind: "computed";
-		factSetRevision: FactSetRevision;
-		rulePackRevision: string;
-		nodes: readonly ComputationTraceNode[];
-		summary: NewRegimeSummary;
-		deductionComparison: NewRegimeDeductionComparison;
-	}>;
+			kind: "computed";
+			factSetRevision: FactSetRevision;
+			rulePackRevision: string;
+			nodes: readonly ComputationTraceNode[];
+			summary: NewRegimeSummary;
+			deductionComparison: NewRegimeDeductionComparison;
+	  }>;
 
 const nodeIds = Object.freeze({
 	salary: parseFactKey("derived.new-regime-salary-income"),
@@ -145,12 +144,8 @@ const nodeIds = Object.freeze({
 	loanInterestDeductions: parseFactKey(
 		"derived.new-regime-loan-interest-deductions",
 	),
-	donationDeductions: parseFactKey(
-		"derived.new-regime-donation-deductions",
-	),
-	remainingDeductions: parseFactKey(
-		"derived.new-regime-remaining-deductions",
-	),
+	donationDeductions: parseFactKey("derived.new-regime-donation-deductions"),
+	remainingDeductions: parseFactKey("derived.new-regime-remaining-deductions"),
 	deductionsAllowed: parseFactKey("derived.new-regime-deductions-allowed"),
 	normalRateIncome: parseFactKey("derived.new-regime-normal-rate-income"),
 	section112aTax: parseFactKey("derived.new-regime-section112a-tax"),
@@ -165,15 +160,14 @@ const deductionNodeIds: Readonly<Record<NewRegimeDeductionCategory, FactKey>> =
 		remaining: nodeIds.remainingDeductions,
 	});
 
-const deductionLabels: Readonly<
-	Record<NewRegimeDeductionCategory, string>
-> = Object.freeze({
-	savingsAndPension: "Savings and pension deductions",
-	healthAndDisability: "Health and disability deductions",
-	loanInterest: "Loan-interest deductions",
-	donations: "Donation deductions",
-	remaining: "Remaining approved deductions",
-});
+const deductionLabels: Readonly<Record<NewRegimeDeductionCategory, string>> =
+	Object.freeze({
+		savingsAndPension: "Savings and pension deductions",
+		healthAndDisability: "Health and disability deductions",
+		loanInterest: "Loan-interest deductions",
+		donations: "Donation deductions",
+		remaining: "Remaining approved deductions",
+	});
 
 const sum = (values: readonly ExactMoney[]): ExactMoney =>
 	values.reduce(addExactMoney, ZERO);
@@ -205,8 +199,7 @@ export const computeNewRegime = ({
 	const constants = rulePack.taxConstants?.newRegime;
 	const completeConstants = constants?.completeComputation;
 	const section112aConstants = rulePack.taxConstants?.section112aCapitalGain;
-	const agriculturalIncomeConstants =
-		rulePack.taxConstants?.agriculturalIncome;
+	const agriculturalIncomeConstants = rulePack.taxConstants?.agriculturalIncome;
 	if (
 		constants === undefined ||
 		completeConstants === undefined ||
@@ -250,9 +243,7 @@ export const computeNewRegime = ({
 			? amounts.houseProperty.amount
 			: ZERO;
 	const housePropertyLossExcluded =
-		amounts.houseProperty.kind === "loss"
-			? amounts.houseProperty.amount
-			: ZERO;
+		amounts.houseProperty.kind === "loss" ? amounts.houseProperty.amount : ZERO;
 	const ordinaryGrossIncome = sum([
 		salaryIncome,
 		housePropertyIncome,
@@ -305,9 +296,7 @@ export const computeNewRegime = ({
 	);
 	const totalIncome = roundToNearestMultipleOf(
 		totalIncomeBeforeRounding,
-		exactMoneyFromWholeRupees(
-			constants.totalIncomeRoundingBaseWholeRupees,
-		),
+		exactMoneyFromWholeRupees(constants.totalIncomeRoundingBaseWholeRupees),
 	);
 	const normalRateIncome = maxExactMoney(
 		ZERO,
@@ -359,8 +348,7 @@ export const computeNewRegime = ({
 		inputs: [nodeInput(nodeIds.section112a, amounts.section112aGain)],
 		unroundedValue: amounts.section112aTax,
 		roundedValue: amounts.section112aTax,
-		note:
-			"Section 112A tax remains separate from the normal-rate section 87A rebate.",
+		note: "Section 112A tax remains separate from the normal-rate section 87A rebate.",
 	};
 	const drafts: ComputationNodeDraft[] = [
 		{
@@ -405,8 +393,7 @@ export const computeNewRegime = ({
 			inputs: [],
 			unroundedValue: amounts.otherSources,
 			roundedValue: amounts.otherSources,
-			note:
-				"Permitted other-source income after the new-regime family-pension deduction.",
+			note: "Permitted other-source income after the new-regime family-pension deduction.",
 		},
 		{
 			nodeId: nodeIds.section112a,
@@ -415,8 +402,7 @@ export const computeNewRegime = ({
 			inputs: [],
 			unroundedValue: amounts.section112aGain,
 			roundedValue: amounts.section112aGain,
-			note:
-				"The supported section 112A gain is included in total income and kept outside normal slab tax.",
+			note: "The supported section 112A gain is included in total income and kept outside normal slab tax.",
 		},
 		{
 			nodeId: nodeIds.agriculturalIncome,
@@ -425,8 +411,7 @@ export const computeNewRegime = ({
 			inputs: [],
 			unroundedValue: amounts.agriculturalIncome,
 			roundedValue: ZERO,
-			note:
-				"Agricultural income inside the ITR-1 limit is reported as exempt and excluded from taxable income.",
+			note: "Agricultural income inside the ITR-1 limit is reported as exempt and excluded from taxable income.",
 		},
 		{
 			nodeId: nodeIds.grossTotalIncome,
@@ -459,8 +444,7 @@ export const computeNewRegime = ({
 				),
 			),
 			roundedValue: deductionsAllowed,
-			note:
-				"Allowed Chapter VI-A deductions cannot reduce the separately treated section 112A gain.",
+			note: "Allowed Chapter VI-A deductions cannot reduce the separately treated section 112A gain.",
 		},
 		{
 			nodeId: TOTAL_INCOME_ROUNDED_NODE_ID,
@@ -530,8 +514,7 @@ export const computeNewRegime = ({
 			deductionsAllowed,
 			totalIncome,
 			normalRateIncome,
-			incomeTaxBeforeAdjustments:
-				liability.summary.incomeTaxBeforeAdjustments,
+			incomeTaxBeforeAdjustments: liability.summary.incomeTaxBeforeAdjustments,
 			section112aTax: amounts.section112aTax,
 			rebateApplied: liability.summary.rebateApplied,
 			marginalReliefApplied: liability.summary.marginalReliefApplied,

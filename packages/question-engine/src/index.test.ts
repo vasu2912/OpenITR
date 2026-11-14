@@ -1,3 +1,9 @@
+import type {
+	CompletedScopeCheck,
+	FactQuestion,
+	RulePackIdentity,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	parseAssessmentYear,
 	parseFactKey,
@@ -11,20 +17,13 @@ import {
 	parseSourceId,
 	parseTaxFormId,
 } from "@openitr/model";
-import type {
-	CompletedScopeCheck,
-	FactQuestion,
-	RulePackIdentity,
-	ScopeRulePack,
-} from "@openitr/model";
 import { describe, expect, test } from "vitest";
-
+import type { AcceptedQuestionFact } from "./index";
 import {
 	deriveMissingFactQuestions,
 	evaluateFactAnswerAttempt,
 	removeFactAnswerAndDependents,
 } from "./index";
-import type { AcceptedQuestionFact } from "./index";
 
 // ---------------------------------------------------------------------------
 // Fixtures: a synthetic rule pack carrying two permitted missing-fact
@@ -99,7 +98,9 @@ const occupancyQuestion: FactQuestion = {
 	...ownershipQuestion,
 	id: parseQuestionId("house-property-self-occupied"),
 	prompt: "Was the property self-occupied throughout the year?",
-	suppliesFact: parseFactKey("house-property.self-occupied.used-throughout-year"),
+	suppliesFact: parseFactKey(
+		"house-property.self-occupied.used-throughout-year",
+	),
 	visibility: {
 		kind: "fact-boolean-equals",
 		factKey: ownershipQuestion.suppliesFact,
@@ -138,7 +139,9 @@ const syntheticRulePack = (options?: {
 			location: "Section 1",
 		},
 	},
-	questions: Object.freeze(options?.questions ?? [savingsQuestion, depositsQuestion]),
+	questions: Object.freeze(
+		options?.questions ?? [savingsQuestion, depositsQuestion],
+	),
 	taxConstants: undefined,
 	evaluate: () => {
 		throw new Error("The scope check is not exercised by these tests");
@@ -191,9 +194,7 @@ const completedScopeCheck = (
 				},
 });
 
-const observedFact = (
-	factKey: string,
-): AcceptedQuestionFact => ({
+const observedFact = (factKey: string): AcceptedQuestionFact => ({
 	factKey: parseFactKey(factKey),
 });
 
@@ -258,7 +259,9 @@ describe("deriveMissingFactQuestions", () => {
 	});
 	test("asks a permitted question while no evidence or answer supplies its fact, naming why and what it can affect", () => {
 		const questionnaire = deriveMissingFactQuestions(
-			derivationInput({ rulePack: syntheticRulePack({ questions: [savingsQuestion] }) }),
+			derivationInput({
+				rulePack: syntheticRulePack({ questions: [savingsQuestion] }),
+			}),
 		);
 
 		expect(questionnaire.rulePackId).toBe("test-module.2099-01-01");
@@ -412,9 +415,9 @@ describe("evaluateFactAnswerAttempt", () => {
 				rawValue,
 				answeredAt: FIXED_ANSWERED_AT,
 			});
-			expect(attempt.kind === "accepted" ? attempt.answer.value : undefined).toBe(
-				expected,
-			);
+			expect(
+				attempt.kind === "accepted" ? attempt.answer.value : undefined,
+			).toBe(expected);
 		}
 	});
 	test("accepts an in-range answer as a user-attested fact with time and question revision", () => {
@@ -443,7 +446,10 @@ describe("evaluateFactAnswerAttempt", () => {
 	test("records the revision of the pack the session pinned, not a latest revision", () => {
 		const attempt = evaluateFactAnswerAttempt({
 			...derivationInput({
-				rulePack: syntheticRulePack({ questions: [savingsQuestion], revision: "2099-02-02" }),
+				rulePack: syntheticRulePack({
+					questions: [savingsQuestion],
+					revision: "2099-02-02",
+				}),
 			}),
 			questionId: "bank-interest-savings-account-total",
 			rawValue: "10",
@@ -457,7 +463,9 @@ describe("evaluateFactAnswerAttempt", () => {
 	});
 
 	test("accepts only a real calendar date for an ISO-date question", () => {
-		const rulePack = syntheticRulePack({ questions: [loanSanctionDateQuestion] });
+		const rulePack = syntheticRulePack({
+			questions: [loanSanctionDateQuestion],
+		});
 		const accepted = evaluateFactAnswerAttempt({
 			...derivationInput({ rulePack }),
 			questionId: "loan-sanction-date",
@@ -508,7 +516,10 @@ describe("evaluateFactAnswerAttempt", () => {
 			answeredAt: FIXED_ANSWERED_AT,
 		});
 
-		expect(attempt).toMatchObject({ kind: "rejected", rejection: "value-out-of-range" });
+		expect(attempt).toMatchObject({
+			kind: "rejected",
+			rejection: "value-out-of-range",
+		});
 	});
 
 	test("rejects an out-of-range value below the schema minimum", () => {
@@ -531,7 +542,10 @@ describe("evaluateFactAnswerAttempt", () => {
 			answeredAt: FIXED_ANSWERED_AT,
 		});
 
-		expect(attempt).toMatchObject({ kind: "rejected", rejection: "value-out-of-range" });
+		expect(attempt).toMatchObject({
+			kind: "rejected",
+			rejection: "value-out-of-range",
+		});
 	});
 
 	test("accepts an exact amount when the schema has no maximum", () => {
@@ -565,7 +579,10 @@ describe("evaluateFactAnswerAttempt", () => {
 			answeredAt: FIXED_ANSWERED_AT,
 		});
 
-		expect(attempt).toMatchObject({ kind: "rejected", rejection: "question-not-defined" });
+		expect(attempt).toMatchObject({
+			kind: "rejected",
+			rejection: "question-not-defined",
+		});
 	});
 
 	test("refuses a question whose fact accepted evidence already supplies", () => {
@@ -578,7 +595,10 @@ describe("evaluateFactAnswerAttempt", () => {
 			answeredAt: FIXED_ANSWERED_AT,
 		});
 
-		expect(attempt).toMatchObject({ kind: "rejected", rejection: "question-not-applicable" });
+		expect(attempt).toMatchObject({
+			kind: "rejected",
+			rejection: "question-not-applicable",
+		});
 	});
 
 	test("refuses a question this session has already answered", () => {
@@ -598,7 +618,10 @@ describe("evaluateFactAnswerAttempt", () => {
 			answeredAt: parseIsoTimestamp("2099-01-01T00:06:00.000Z"),
 		});
 
-		expect(second).toMatchObject({ kind: "rejected", rejection: "question-not-applicable" });
+		expect(second).toMatchObject({
+			kind: "rejected",
+			rejection: "question-not-applicable",
+		});
 	});
 
 	test("yields the same answer identity for the same inputs", () => {
@@ -653,7 +676,10 @@ describe("evaluateFactAnswerAttempt", () => {
 		});
 		if (occupancy.kind !== "accepted") throw new Error("Expected occupancy");
 		const savings = evaluateFactAnswerAttempt({
-			...derivationInput({ rulePack, answers: [ownership.answer, occupancy.answer] }),
+			...derivationInput({
+				rulePack,
+				answers: [ownership.answer, occupancy.answer],
+			}),
 			questionId: savingsQuestion.id,
 			rawValue: "100",
 			answeredAt: FIXED_ANSWERED_AT,

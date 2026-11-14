@@ -1,10 +1,13 @@
+import {
+	exactMoneyFromWholeRupees,
+	parseFactKey,
+	parseIssueCode,
+} from "@openitr/model";
 import { describe, expect, it } from "vitest";
 
-import { exactMoneyFromWholeRupees, parseFactKey, parseIssueCode } from "@openitr/model";
-
 import { itr1Ay202627RulePack20260914 as rulePack } from "../revisions/2026-09-14/rule-pack";
-import { computeOldRegime } from "./old-regime";
 import type { OldRegimeAcceptedAmounts } from "./old-regime";
+import { computeOldRegime } from "./old-regime";
 
 const money = exactMoneyFromWholeRupees;
 const factSetRevision = "fact-set-1" as const;
@@ -32,7 +35,12 @@ describe("complete old-regime computation", () => {
 	it("reconciles every supported category to taxable income and liability", () => {
 		const result = computeOldRegime({
 			rulePack,
-			input: { kind: "ready", factSetRevision, ageCategory: "under-60", amounts: amounts() },
+			input: {
+				kind: "ready",
+				factSetRevision,
+				ageCategory: "under-60",
+				amounts: amounts(),
+			},
 		});
 
 		expect(result).toMatchObject({
@@ -58,7 +66,9 @@ describe("complete old-regime computation", () => {
 			},
 		});
 		if (result.kind !== "computed") throw new Error("Expected computation");
-		expect(result.nodes.every((node) => node.rulePackRevision === "2026-09-14")).toBe(true);
+		expect(
+			result.nodes.every((node) => node.rulePackRevision === "2026-09-14"),
+		).toBe(true);
 		expect(result.nodes.map((node) => node.operation)).toEqual(
 			expect.arrayContaining([
 				"limit-house-property-loss",
@@ -80,7 +90,9 @@ describe("complete old-regime computation", () => {
 				"derived.old-regime-remaining-deductions",
 			]),
 		);
-		expect(result.nodes.every((node) => String(node.ruleId).length > 0)).toBe(true);
+		expect(result.nodes.every((node) => String(node.ruleId).length > 0)).toBe(
+			true,
+		);
 	});
 
 	it("limits the rebate to normal-rate tax when total income is five lakh", () => {

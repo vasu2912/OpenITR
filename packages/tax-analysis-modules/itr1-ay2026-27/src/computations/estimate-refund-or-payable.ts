@@ -1,13 +1,3 @@
-import {
-	addExactMoney,
-	compareExactMoney,
-	exactMoneyFromWholeRupees,
-	parseFactKey,
-	parseIssueCode,
-	parseRuleId,
-	roundToNearestMultipleOf,
-	subtractExactMoney,
-} from "@openitr/model";
 import type {
 	AttestedAnswer,
 	BankInterestObservation,
@@ -19,8 +9,18 @@ import type {
 	TaxPaymentObservation,
 	TdsObservation,
 } from "@openitr/model";
-import { epayChallanReferenceOf } from "@openitr/model";
-
+import {
+	addExactMoney,
+	compareExactMoney,
+	epayChallanReferenceOf,
+	exactMoneyFromWholeRupees,
+	parseFactKey,
+	parseIssueCode,
+	parseRuleId,
+	roundToNearestMultipleOf,
+	subtractExactMoney,
+} from "@openitr/model";
+import type { ComputationTraceNode } from "./new-regime-liability";
 import {
 	buildNewRegimeLiabilityNodes,
 	constantInput,
@@ -29,15 +29,14 @@ import {
 	nodeInput,
 	TOTAL_INCOME_ROUNDED_NODE_ID,
 } from "./new-regime-liability";
-import type { ComputationTraceNode } from "./new-regime-liability";
-import {
-	computeNewRegimeSalaryScenario,
-	SALARY_ADJUSTED_INCOME_NODE_ID,
-} from "./new-regime-salary";
 import type {
 	AcceptedSalaryDocumentFacts,
 	NewRegimeSalaryComputation,
 	SalaryComputationRulePackInput,
+} from "./new-regime-salary";
+import {
+	computeNewRegimeSalaryScenario,
+	SALARY_ADJUSTED_INCOME_NODE_ID,
 } from "./new-regime-salary";
 
 const BANK_INTEREST_FACT_KEYS = [
@@ -52,23 +51,18 @@ const NON_SALARY_INCOME_FACT_KEYS = [
 
 const TDS_DEPOSITED_FACT_KEY = parseFactKey("tds.tds-deposited");
 
-const BANK_INTEREST_TOTAL_NODE_ID = parseFactKey(
-	"derived.bank-interest-total",
-);
+const BANK_INTEREST_TOTAL_NODE_ID = parseFactKey("derived.bank-interest-total");
 const NON_SALARY_INCOME_TOTAL_NODE_ID = parseFactKey(
 	"derived.non-salary-income-total",
 );
-const AGGREGATE_INCOME_NODE_ID = parseFactKey(
-	"derived.total-income-aggregate",
-);
+const AGGREGATE_INCOME_NODE_ID = parseFactKey("derived.total-income-aggregate");
 const TAXES_PAID_NODE_ID = parseFactKey("derived.taxes-paid-total");
 
 const ESTIMATE_RULE_IDS = Object.freeze({
 	incomeAggregation: parseRuleId("ITR1-INCOME-AGGREGATION-SECTION-14"),
 	interestIncome: parseRuleId("ITR1-INTEREST-INCOME-SECTION-56"),
 	tdsCredit: parseRuleId("ITR1-TDS-CREDIT-SECTION-199"),
-	taxPayments:
-		parseRuleId("ITR1-TAXES-PAID-SECTIONS-199-207-211-140A"),
+	taxPayments: parseRuleId("ITR1-TAXES-PAID-SECTIONS-199-207-211-140A"),
 });
 
 export const ESTIMATE_ISSUE_CODES = Object.freeze({
@@ -241,9 +235,7 @@ const byObservationOrder = (
 	return 0;
 };
 
-const sumObservations = <
-	TObservation extends { normalizedValue: ExactMoney },
->(
+const sumObservations = <TObservation extends { normalizedValue: ExactMoney }>(
 	observations: readonly TObservation[],
 ): ExactMoney =>
 	observations.reduce<ExactMoney>(
@@ -370,12 +362,23 @@ const collectSources = ({
 			});
 		return (
 			roleOrder[left.role] - roleOrder[right.role] ||
-			(left.factKey < right.factKey ? -1 : left.factKey > right.factKey ? 1 : 0) ||
-			(left.sourceDocumentId < right.sourceDocumentId ? -1 : left.sourceDocumentId > right.sourceDocumentId ? 1 : 0)
+			(left.factKey < right.factKey
+				? -1
+				: left.factKey > right.factKey
+					? 1
+					: 0) ||
+			(left.sourceDocumentId < right.sourceDocumentId
+				? -1
+				: left.sourceDocumentId > right.sourceDocumentId
+					? 1
+					: 0)
 		);
 	});
 	return references.map((reference) =>
-		Object.freeze({ ...reference, observationIds: Object.freeze([...reference.observationIds]) }),
+		Object.freeze({
+			...reference,
+			observationIds: Object.freeze([...reference.observationIds]),
+		}),
 	);
 };
 
@@ -452,11 +455,10 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	// deterministic trace.
 	const attestedContributions = (attestedFactContributions ?? [])
 		.map((contribution, index) => ({ contribution, index }))
-		.sort(
-			(left, right) =>
-				left.contribution.factKey < right.contribution.factKey
-					? -1
-					: left.contribution.factKey > right.contribution.factKey
+		.sort((left, right) =>
+			left.contribution.factKey < right.contribution.factKey
+				? -1
+				: left.contribution.factKey > right.contribution.factKey
 					? 1
 					: left.index - right.index,
 		)
@@ -541,8 +543,9 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 	const nonSalaryIncomeObservations = contributingNonSalaryDocuments.flatMap(
 		(document) => document.observations,
 	);
-	const sortedNonSalaryIncome =
-		[...nonSalaryIncomeObservations].sort(byObservationOrder);
+	const sortedNonSalaryIncome = [...nonSalaryIncomeObservations].sort(
+		byObservationOrder,
+	);
 	const nonSalaryIncomeTotal = sumObservations(sortedNonSalaryIncome);
 
 	// Only deposits feed taxes paid; the paid/credited and deducted columns
@@ -719,24 +722,24 @@ export const estimateRefundOrAmountPayableFromSalaryScenario = ({
 				unroundedValue: aggregateIncome,
 				roundedValue: totalIncome,
 			},
-		{
-			nodeId: TAXES_PAID_NODE_ID,
-			ruleId:
-				sortedTaxPayments.length > 0
-					? ESTIMATE_RULE_IDS.taxPayments
-					: ESTIMATE_RULE_IDS.tdsCredit,
-			operation: "sum-of-accepted-observations",
-			inputs: [...sortedTds, ...sortedTaxPayments].map((observation) =>
-				factInput(observation.factKey, observation.normalizedValue),
-			),
-			unroundedValue: taxesPaid,
-			roundedValue: taxesPaid,
-			...(sortedTaxPayments.length > 0
-				? {
-						note: "Accepted TDS deposits under section 199 plus paid challan receipts under sections 207 to 211 and 140A.",
-					}
-				: {}),
-		},
+			{
+				nodeId: TAXES_PAID_NODE_ID,
+				ruleId:
+					sortedTaxPayments.length > 0
+						? ESTIMATE_RULE_IDS.taxPayments
+						: ESTIMATE_RULE_IDS.tdsCredit,
+				operation: "sum-of-accepted-observations",
+				inputs: [...sortedTds, ...sortedTaxPayments].map((observation) =>
+					factInput(observation.factKey, observation.normalizedValue),
+				),
+				unroundedValue: taxesPaid,
+				roundedValue: taxesPaid,
+				...(sortedTaxPayments.length > 0
+					? {
+							note: "Accepted TDS deposits under section 199 plus paid challan receipts under sections 207 to 211 and 140A.",
+						}
+					: {}),
+			},
 			...liability.nodes,
 		],
 		revision,

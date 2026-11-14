@@ -7,10 +7,12 @@ import { createFactLabeler, humanizeKey } from "./fact-labels";
 
 describe("humanizeKey", () => {
 	it("turns a derived node id into a readable step name", () => {
-		expect(humanizeKey("derived.rebate-section-87a")).toBe("Rebate section 87A");
-		expect(humanizeKey("derived.total-tax-liability-rounded-section-288b")).toBe(
-			"Total tax liability rounded section 288B",
+		expect(humanizeKey("derived.rebate-section-87a")).toBe(
+			"Rebate section 87A",
 		);
+		expect(
+			humanizeKey("derived.total-tax-liability-rounded-section-288b"),
+		).toBe("Total tax liability rounded section 288B");
 	});
 
 	it("keeps tax acronyms in capitals", () => {
@@ -31,11 +33,15 @@ describe("createFactLabeler", async () => {
 	const labelOf = createFactLabeler(rulePack);
 
 	it("names a scope fact with its catalog label", () => {
-		expect(labelOf("scope.taxpayer-is-individual")).toBe("An individual taxpayer");
+		expect(labelOf("scope.taxpayer-is-individual")).toBe(
+			"An individual taxpayer",
+		);
 	});
 
 	it("names a fact the questionnaire asks for with the question prompt", () => {
-		expect(labelOf("deductions.savings-pension-present")).toMatch(/^Do you want to analyze/);
+		expect(labelOf("deductions.savings-pension-present")).toMatch(
+			/^Do you want to analyze/,
+		);
 	});
 
 	it("falls back to a readable key for facts no question asks for", () => {
@@ -43,7 +49,10 @@ describe("createFactLabeler", async () => {
 	});
 
 	it("names document fields with the wording printed on the document", () => {
-		const withForm16 = createFactLabeler(rulePack, FORM16_SALARY_FIELD_DEFINITIONS);
+		const withForm16 = createFactLabeler(
+			rulePack,
+			FORM16_SALARY_FIELD_DEFINITIONS,
+		);
 		expect(withForm16("salary.taxable-total")).toBe("Taxable salary");
 	});
 });

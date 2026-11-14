@@ -7,8 +7,8 @@ import { itr1Ay202627RulePack20260915 as rulePack } from "@openitr/itr1-ay2026-2
 import { afterEach, describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
-import { createSessionOrchestrator } from "./session-orchestrator";
 import type { SessionOrchestrator } from "./session-orchestrator";
+import { createSessionOrchestrator } from "./session-orchestrator";
 
 const answerTime = "2099-01-01T00:00:00.000Z";
 const sessions: SessionOrchestrator[] = [];
@@ -81,14 +81,16 @@ const startCompletedComparison = async (): Promise<SessionOrchestrator> => {
 			},
 		],
 	});
-	await expect.poll(() => {
-		const snapshot = session.getSnapshot();
-		return (
-			snapshot.kind === "document-intake" &&
-			snapshot.extractions.length === 2 &&
-			snapshot.extractions.every((record) => record.status === "done")
-		);
-	}).toBe(true);
+	await expect
+		.poll(() => {
+			const snapshot = session.getSnapshot();
+			return (
+				snapshot.kind === "document-intake" &&
+				snapshot.extractions.length === 2 &&
+				snapshot.extractions.every((record) => record.status === "done")
+			);
+		})
+		.toBe(true);
 
 	for (const [questionId, value] of [
 		["bank-interest-savings-account-total", "0"],
@@ -112,10 +114,14 @@ const startCompletedComparison = async (): Promise<SessionOrchestrator> => {
 	] as const) {
 		answer(session, questionId, value);
 	}
-	await expect.poll(() => {
-		const snapshot = session.getSnapshot();
-		return snapshot.kind === "document-intake" && snapshot.regimeComparison?.kind;
-	}).toBe("computed");
+	await expect
+		.poll(() => {
+			const snapshot = session.getSnapshot();
+			return (
+				snapshot.kind === "document-intake" && snapshot.regimeComparison?.kind
+			);
+		})
+		.toBe("computed");
 	return session;
 };
 
@@ -214,7 +220,7 @@ describe("regime comparison through the public session", () => {
 				(idea) =>
 					idea.horizon === "future-financial-year" &&
 					idea.currentYearEffect === "none",
-		),
+			),
 		).toBe(true);
 
 		session.send({ kind: "select-primary-regime", regime: "old" });
@@ -247,7 +253,8 @@ describe("regime comparison through the public session", () => {
 			(candidate) =>
 				candidate.questionId === "bank-interest-savings-account-total",
 		)?.answerId;
-		if (answerId === undefined) throw new Error("Expected bank-interest answer");
+		if (answerId === undefined)
+			throw new Error("Expected bank-interest answer");
 
 		session.send({ kind: "remove-missing-fact-answer", answerId });
 		snapshot = session.getSnapshot();
@@ -259,20 +266,24 @@ describe("regime comparison through the public session", () => {
 		expect(snapshot.primaryRegime).toBeUndefined();
 		expect(snapshot.analysisReport).toBeUndefined();
 
-		await expect.poll(() => {
-			const current = session.getSnapshot();
-			return current.kind === "document-intake"
-				? current.pendingRecomputation.kind
-				: "wrong-snapshot";
-		}).toBe("idle");
+		await expect
+			.poll(() => {
+				const current = session.getSnapshot();
+				return current.kind === "document-intake"
+					? current.pendingRecomputation.kind
+					: "wrong-snapshot";
+			})
+			.toBe("idle");
 		answer(session, "bank-interest-savings-account-total", "1");
-		await expect.poll(() => {
-			const current = session.getSnapshot();
-			return current.kind === "document-intake" &&
-				current.regimeComparison?.kind === "computed"
-				? current.regimeComparison.factSetRevision
-				: undefined;
-		}).not.toBe(revision);
+		await expect
+			.poll(() => {
+				const current = session.getSnapshot();
+				return current.kind === "document-intake" &&
+					current.regimeComparison?.kind === "computed"
+					? current.regimeComparison.factSetRevision
+					: undefined;
+			})
+			.not.toBe(revision);
 	});
 
 	test("explains excluded deductions and keeps their planning conditional", async () => {
@@ -306,12 +317,14 @@ describe("regime comparison through the public session", () => {
 		] as const) {
 			answer(session, questionId, value);
 		}
-		await expect.poll(() => {
-			const current = session.getSnapshot();
-			return current.kind === "document-intake"
-				? current.regimeComparison?.kind
-				: undefined;
-		}).toBe("computed");
+		await expect
+			.poll(() => {
+				const current = session.getSnapshot();
+				return current.kind === "document-intake"
+					? current.regimeComparison?.kind
+					: undefined;
+			})
+			.toBe("computed");
 		session.send({ kind: "select-primary-regime", regime: "new" });
 		snapshot = session.getSnapshot();
 		if (
@@ -326,8 +339,7 @@ describe("regime comparison through the public session", () => {
 		expect(excluded).toMatchObject({
 			affectedAmount: "160000",
 			rulePackRevision: "2026-09-15",
-			traceTargetId:
-				"trace-new-derived.new-regime-savings-pension-deductions",
+			traceTargetId: "trace-new-derived.new-regime-savings-pension-deductions",
 		});
 		expect(excluded?.evidenceTargetIds.length).toBeGreaterThan(0);
 		expect(
@@ -371,7 +383,8 @@ describe("regime comparison through the public session", () => {
 			(candidate) =>
 				candidate.questionId === "bank-interest-savings-account-total",
 		)?.answerId;
-		if (answerId === undefined) throw new Error("Expected bank-interest answer");
+		if (answerId === undefined)
+			throw new Error("Expected bank-interest answer");
 		session.send({ kind: "remove-missing-fact-answer", answerId });
 		snapshot = session.getSnapshot();
 		if (snapshot.kind !== "document-intake") throw new Error("Expected intake");

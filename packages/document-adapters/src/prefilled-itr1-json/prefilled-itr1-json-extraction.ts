@@ -1,6 +1,7 @@
 import type {
 	DocumentReviewIssue,
 	FactKey,
+	JsonTdsSourceRecord,
 	SalaryObservation,
 	Sha256Digest,
 	TdsObservation,
@@ -10,20 +11,18 @@ import {
 	PREFILLED_ITR1_TDS_RECORD_MALFORMED_RECOVERY_ACTION,
 	SALARY_FIELD_MALFORMED_RECOVERY_ACTION,
 } from "@openitr/model";
-
 import type { AdapterIdentity } from "../extraction-support";
 import { compareByCodepoint, isRecordObject } from "../extraction-support";
-import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
-import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import {
 	SERIAL_NUMBER_PATTERN,
 	TAN_PATTERN,
 	TDS_AMOUNT_COLUMNS,
 	tdsRecordMalformedIssue,
 } from "../form26as/tds-part-one";
-import type { PrefilledItr1JsonDocument } from "./prefilled-itr1-json-revision";
+import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
+import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import { PREFILLED_ITR1_SALARY_FIELD_DEFINITIONS } from "./prefilled-itr1-json-fields";
-import type { JsonTdsSourceRecord } from "@openitr/model";
+import type { PrefilledItr1JsonDocument } from "./prefilled-itr1-json-revision";
 
 const SALARY_SECTION_POINTER = "/salaryInformation";
 const TDS_SECTION_POINTER = "/tdsOnSalary";
@@ -42,9 +41,9 @@ type TdsAmountColumnBinding = Readonly<{
 	definition: (typeof TDS_AMOUNT_COLUMNS)[keyof typeof TDS_AMOUNT_COLUMNS];
 }>;
 
-const bindTdsAmountColumn = <
-	Key extends keyof typeof TDS_AMOUNT_COLUMNS,
->(columnKey: Key): TdsAmountColumnBinding => ({
+const bindTdsAmountColumn = <Key extends keyof typeof TDS_AMOUNT_COLUMNS>(
+	columnKey: Key,
+): TdsAmountColumnBinding => ({
 	columnKey,
 	propertyName: TDS_AMOUNT_PROPERTY_NAMES[columnKey],
 	definition: TDS_AMOUNT_COLUMNS[columnKey],
@@ -152,9 +151,7 @@ export const extractPrefilledItr1Observations = ({
 		tdsObservations,
 		issues: [...issues]
 			.map((issue) => ({ issue, key: issueOrderKey(issue) }))
-			.sort((first, second) =>
-				compareByCodepoint(first.key, second.key),
-			)
+			.sort((first, second) => compareByCodepoint(first.key, second.key))
 			.map((entry) => entry.issue),
 	};
 };
@@ -223,7 +220,11 @@ const collectSalaryObservations = ({
 	}
 
 	return observations.sort((first, second) =>
-		first.factKey < second.factKey ? -1 : first.factKey > second.factKey ? 1 : 0,
+		first.factKey < second.factKey
+			? -1
+			: first.factKey > second.factKey
+				? 1
+				: 0,
 	);
 };
 
@@ -335,9 +336,8 @@ const parseJsonTdsRecord = (
 	const rawOf = (
 		columnKey: keyof typeof TDS_AMOUNT_COLUMNS,
 	): string | undefined =>
-		parsedAmounts.find(
-			(entry) => entry.binding.columnKey === columnKey,
-		)?.outcome.raw;
+		parsedAmounts.find((entry) => entry.binding.columnKey === columnKey)
+			?.outcome.raw;
 
 	const facts: JsonTdsSourceRecord = {
 		medium: "json",

@@ -3,8 +3,8 @@ import { itr1Ay202627RulePack20260909 as rulePack } from "@openitr/itr1-ay2026-2
 import { afterEach, describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
-import { createSessionOrchestrator } from "./session-orchestrator";
 import type { SessionOrchestrator } from "./session-orchestrator";
+import { createSessionOrchestrator } from "./session-orchestrator";
 
 const answerTime = "2099-01-01T00:00:00.000Z";
 const sessions: SessionOrchestrator[] = [];
@@ -91,15 +91,21 @@ describe("savings and pension deductions through the public session", () => {
 	test("asks whether the deduction analysis applies and accepts an explicit no", async () => {
 		const session = await startDocuments();
 		expect(
-			snapshotOf(session).questionnaire.questions.map((question) => question.id),
+			snapshotOf(session).questionnaire.questions.map(
+				(question) => question.id,
+			),
 		).toContain("savings-pension-deductions-present");
-		expect(snapshotOf(session).savingsPensionDeductionComputation).toMatchObject({
+		expect(
+			snapshotOf(session).savingsPensionDeductionComputation,
+		).toMatchObject({
 			kind: "blocked",
 			issue: { code: "FACT_SAVINGS_PENSION_DEDUCTION_PRESENCE_MISSING" },
 		});
 
 		answer(session, "savings-pension-deductions-present", "no");
-		expect(snapshotOf(session).savingsPensionDeductionComputation).toMatchObject({
+		expect(
+			snapshotOf(session).savingsPensionDeductionComputation,
+		).toMatchObject({
 			kind: "computed",
 			claims: [],
 			oldRegime: { totalAllowed: "0" },
@@ -136,9 +142,7 @@ describe("savings and pension deductions through the public session", () => {
 			kind: "computed",
 			oldRegime: { totalAllowed: "440000" },
 			newRegime: { totalAllowed: "280000" },
-			issues: [
-				{ code: "ANALYSIS_SAVINGS_PENSION_PROOF_NOT_AVAILABLE" },
-			],
+			issues: [{ code: "ANALYSIS_SAVINGS_PENSION_PROOF_NOT_AVAILABLE" }],
 		});
 		expect(
 			snapshot.factAnswers.find(

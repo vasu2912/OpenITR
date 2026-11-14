@@ -1,11 +1,11 @@
-import {
-	computeSourceDocumentIdentity,
-	DOCUMENT_REVIEW_ISSUE_CODES,
-} from "@openitr/model";
 import type {
 	DocumentExtractionOutcome,
 	InspectableSourceDocument,
 	Sha256Digest,
+} from "@openitr/model";
+import {
+	computeSourceDocumentIdentity,
+	DOCUMENT_REVIEW_ISSUE_CODES,
 } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
@@ -48,7 +48,9 @@ describe("Form 16 Part A salary extraction", () => {
 			return;
 		}
 
-		const { contentSha256: identity } = await computeSourceDocumentIdentity({ bytes });
+		const { contentSha256: identity } = await computeSourceDocumentIdentity({
+			bytes,
+		});
 		expect(outcome.observations).toHaveLength(3);
 		expect(outcome.issues).toEqual([]);
 
@@ -185,9 +187,11 @@ describe("Form 16 Part A salary extraction", () => {
 		expect(outcome.kind).toBe("extracted");
 		if (outcome.kind === "extracted") {
 			expect(outcome.observations).not.toHaveLength(0);
-			expect(outcome.observations.every((observation) =>
-				observation.record.kind === "unidentified-document",
-			)).toBe(true);
+			expect(
+				outcome.observations.every(
+					(observation) => observation.record.kind === "unidentified-document",
+				),
+			).toBe(true);
 		}
 	});
 
@@ -204,9 +208,7 @@ describe("Form 16 Part A salary extraction", () => {
 		expect(outcome.kind).toBe("extracted");
 		if (outcome.kind === "extracted") {
 			expect(outcome.observations.map((o) => o.normalizedValue)).toEqual([
-				150000,
-				1200000,
-				1050000,
+				150000, 1200000, 1050000,
 			]);
 		}
 	});

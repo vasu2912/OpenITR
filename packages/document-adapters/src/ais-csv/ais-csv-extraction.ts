@@ -1,7 +1,4 @@
 import type { DocumentReviewIssue, Sha256Digest } from "@openitr/model";
-
-import type { AdapterIdentity } from "../extraction-support";
-import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import type {
 	BankInterestCategoryDefinition,
 	BankInterestExtraction,
@@ -15,6 +12,8 @@ import {
 	bankInterestSectionMissingIssue,
 	foldCanonicalBankInterestRecords,
 } from "../ais-bank-interest-canonical";
+import type { AdapterIdentity } from "../extraction-support";
+import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import type {
 	AisCsvRecordRow,
 	AisCsvRevisionDocument,

@@ -28,13 +28,11 @@ const extractFixture = async (
 	if (extract === undefined) {
 		throw new Error("the Form 16A adapter must support extraction");
 	}
-	return extract(
-		{
-			identity: identityOf("c"),
-			displayName: "tds-certificate.pdf",
-			bytes: copyBytes(bytes),
-		},
-	);
+	return extract({
+		identity: identityOf("c"),
+		displayName: "tds-certificate.pdf",
+		bytes: copyBytes(bytes),
+	});
 };
 
 const extractedOrThrow = async (
@@ -173,7 +171,9 @@ describe("Form 16A payment summary extraction", () => {
 
 		expect(outcome.pages).toHaveLength(1);
 		const lines = outcome.pages[0]?.lines ?? [];
-		expect(lines.map((line) => line.text)).toContain(FORM16A_DEDUCTOR_NAME_LINE);
+		expect(lines.map((line) => line.text)).toContain(
+			FORM16A_DEDUCTOR_NAME_LINE,
+		);
 		expect(lines.map((line) => line.text)).toContain(FORM16A_DEDUCTOR_TAN_LINE);
 	});
 
@@ -247,12 +247,17 @@ describe("Form 16A fail-closed extraction", () => {
 		// It also produces no tax-paid facts: crediting its deposits would
 		// count tax paid against income the model never recognized.
 		expect(
-			outcome.tdsObservations.filter(
-				(observation) => observation.record.serialNumber === "3",
-			).map((observation) => [observation.factKey, String(observation.normalizedValue)]),
+			outcome.tdsObservations
+				.filter((observation) => observation.record.serialNumber === "3")
+				.map((observation) => [
+					observation.factKey,
+					String(observation.normalizedValue),
+				]),
 		).toEqual([]);
 		expect(
-			outcome.tdsObservations.map((observation) => observation.record.serialNumber),
+			outcome.tdsObservations.map(
+				(observation) => observation.record.serialNumber,
+			),
 		).toEqual(["1", "1", "2"]);
 		expect(outcome.issues.map((issue) => String(issue.code))).toEqual([
 			"DOCUMENT_FORM16A_CATEGORY_UNKNOWN",
@@ -304,9 +309,7 @@ describe("Form 16A fail-closed extraction", () => {
 		expect(outcome.issues.map((issue) => String(issue.code))).toEqual([
 			"DOCUMENT_FORM16A_RECORD_AMBIGUOUS",
 		]);
-		expect(
-			outcome.issues[0]?.affectedFactKeys.map(String),
-		).toEqual([
+		expect(outcome.issues[0]?.affectedFactKeys.map(String)).toEqual([
 			"non-salary-income.interest-other-than-securities",
 			"tds.tax-deducted",
 			"tds.tds-deposited",
@@ -321,7 +324,12 @@ describe("Form 16A rejection classes stay closed at extraction", () => {
 			bytes: (): Uint8Array<ArrayBuffer> =>
 				buildSyntheticPdf({
 					pages: [
-						{ textLines: ["FORM 16A", "Certificate under section 203(2A) of the Income-tax Act, 1961"] },
+						{
+							textLines: [
+								"FORM 16A",
+								"Certificate under section 203(2A) of the Income-tax Act, 1961",
+							],
+						},
 					],
 					encryptionPassword: "openitr-synthetic-lock",
 				}),
@@ -338,17 +346,17 @@ describe("Form 16A rejection classes stay closed at extraction", () => {
 				buildSyntheticPdf({ pages: [{ imageOnly: true }] }),
 			rejection: "image-only",
 		},
-	])("rejects a %s certificate before extracting any fact", async ({
-		bytes,
-		rejection,
-	}) => {
-		const outcome = await extractFixture(bytes());
+	])(
+		"rejects a %s certificate before extracting any fact",
+		async ({ bytes, rejection }) => {
+			const outcome = await extractFixture(bytes());
 
-		expect(outcome.kind).toBe("rejected");
-		if (outcome.kind === "rejected") {
-			expect(outcome.rejection).toBe(rejection);
-		}
-	});
+			expect(outcome.kind).toBe("rejected");
+			if (outcome.kind === "rejected") {
+				expect(outcome.rejection).toBe(rejection);
+			}
+		},
+	);
 
 	test("rejects non-PDF bytes that no adapter claims", async () => {
 		const outcome = await extractFixture(utf8Bytes("not a pdf at all"));

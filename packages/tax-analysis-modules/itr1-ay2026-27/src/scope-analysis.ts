@@ -1,26 +1,26 @@
-import {
-	compareExactMoney,
-	exactMoneyFromWholeRupees,
-	parseExactMoney,
-	parseIsoTimestamp,
-	parseFactKey,
-	parseRuleId,
-} from "@openitr/model";
 import type {
 	AnalysisScopeCatalog,
 	AnalysisScopeEvaluation,
+	EvaluateAnalysisScopeInput,
 	ExactMoney,
 	FactKey,
+	RulePackId,
+	RulePackIdentity,
 	ScopeChecklistItem,
 	ScopeDecision,
 	ScopeFact,
 	ScopeFactValue,
+	ScopeQuestion,
 	ScopeRule,
 	ScopeRuleCondition,
-	ScopeQuestion,
-	RulePackId,
-	RulePackIdentity,
-	EvaluateAnalysisScopeInput,
+} from "@openitr/model";
+import {
+	compareExactMoney,
+	exactMoneyFromWholeRupees,
+	parseExactMoney,
+	parseFactKey,
+	parseIsoTimestamp,
+	parseRuleId,
 } from "@openitr/model";
 
 const zero = exactMoneyFromWholeRupees(0);
@@ -99,7 +99,7 @@ export const deriveItr1AnalysisScopeFacts = ({
 		explicitScopeFact.origin.kind === "derived"
 			? baseFacts.filter((fact) => fact.factKey !== SCOPE_BANK_INTEREST_FACT)
 			: explicitScopeFact?.state === "blocked" &&
-				  explicitAttestation !== undefined
+					explicitAttestation !== undefined
 				? baseFacts
 						.filter((fact) => fact.factKey !== SCOPE_BANK_INTEREST_FACT)
 						.concat(explicitAttestation)

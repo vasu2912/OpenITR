@@ -12,12 +12,13 @@ import { compareByCodepoint } from "../extraction-support";
 import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
 import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import type { PdfLineGeometry } from "../pdf/pdf-text-layer";
+import type { EpayTypeOfPaymentCategory } from "./receipt-layout";
 import {
-	EPAY_FIELD_SEPARATOR,
-	EPAY_PAYMENT_DATE_PATTERN,
-	EPAY_PAN_PATTERN,
 	EPAY_BSR_CODE_PATTERN,
 	EPAY_CHALLAN_SERIAL_PATTERN,
+	EPAY_FIELD_SEPARATOR,
+	EPAY_PAN_PATTERN,
+	EPAY_PAYMENT_DATE_PATTERN,
 	EPAY_STATUS_PAID,
 	EPAY_SUPPORTED_ASSESSMENT_YEAR,
 	epayRecordAmbiguousIssue,
@@ -28,7 +29,6 @@ import {
 	isCalendarDay,
 	isWellFormedTypeOfPayment,
 } from "./receipt-layout";
-import type { EpayTypeOfPaymentCategory } from "./receipt-layout";
 
 type PageLine = PdfLineGeometry & { readonly page: number };
 
@@ -104,9 +104,7 @@ const outcomeForOccurrences = <T>(
 	if (first === undefined) {
 		return { kind: "missing" };
 	}
-	const parsedValues = occurrences.map((occurrence) =>
-		parse(occurrence.value),
-	);
+	const parsedValues = occurrences.map((occurrence) => parse(occurrence.value));
 	const [firstParsed] = parsedValues;
 	if (
 		firstParsed === undefined ||
@@ -213,10 +211,10 @@ type ReceiptFields = Readonly<{
 const nonEmptyValue = (value: string): string | undefined =>
 	value.trim() === "" ? undefined : value;
 
-const matchingValue = (
-	pattern: RegExp,
-): ((value: string) => string | undefined) =>
-	(value) => (pattern.test(value) ? value : undefined);
+const matchingValue =
+	(pattern: RegExp): ((value: string) => string | undefined) =>
+	(value) =>
+		pattern.test(value) ? value : undefined;
 
 const buildReceiptFields = (
 	fieldsByLabel: ReadonlyMap<string, readonly ParsedFieldLine[]>,
@@ -224,7 +222,10 @@ const buildReceiptFields = (
 	const occurrencesOf = (label: string): readonly ParsedFieldLine[] =>
 		fieldsByLabel.get(label) ?? [];
 	return {
-		status: outcomeForOccurrences(occurrencesOf("Status of Payment"), nonEmptyValue),
+		status: outcomeForOccurrences(
+			occurrencesOf("Status of Payment"),
+			nonEmptyValue,
+		),
 		assessmentYear: outcomeForOccurrences(
 			occurrencesOf("Assessment Year"),
 			(value) => (isAssessmentYear(value) ? value : undefined),
@@ -241,8 +242,9 @@ const buildReceiptFields = (
 			occurrencesOf("BSR Code"),
 			matchingValue(EPAY_BSR_CODE_PATTERN),
 		),
-		paymentDate: outcomeForOccurrences(occurrencesOf("Date of Receipt (CIN)"), (value) =>
-			isPaymentDate(value) ? value : undefined,
+		paymentDate: outcomeForOccurrences(
+			occurrencesOf("Date of Receipt (CIN)"),
+			(value) => (isPaymentDate(value) ? value : undefined),
 		),
 		challanSerialNumber: outcomeForOccurrences(
 			occurrencesOf("Challan Serial Number"),
@@ -367,9 +369,8 @@ export const extractEpayTaxPayment = ({
 	}
 
 	const printedTypeOfPayment = okFieldOf(fields.typeOfPayment).parsed;
-	const category:
-		| EpayTypeOfPaymentCategory
-		| undefined = epayTypeOfPaymentByPrintedValue(printedTypeOfPayment);
+	const category: EpayTypeOfPaymentCategory | undefined =
+		epayTypeOfPaymentByPrintedValue(printedTypeOfPayment);
 	if (category === undefined) {
 		return {
 			taxPaymentObservations: [],

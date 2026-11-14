@@ -1,9 +1,15 @@
 import type { DocumentExtractionOutcome } from "@openitr/model";
-import { createExtractionRejectionOutcome } from "@openitr/model";
-import { parseDocumentKind, parseTemplateRevision } from "@openitr/model";
+import {
+	createExtractionRejectionOutcome,
+	parseDocumentKind,
+	parseTemplateRevision,
+} from "@openitr/model";
 
 import type { PdfLinesOutcome } from "../pdf/pdf-text-layer";
-import { extractPdfLines, normalizedTextContainsAll } from "../pdf/pdf-text-layer";
+import {
+	extractPdfLines,
+	normalizedTextContainsAll,
+} from "../pdf/pdf-text-layer";
 import type {
 	AdapterVerdict,
 	DocumentAdapterManifest,
@@ -32,12 +38,13 @@ const EXTRACTION_REJECTIONS = {
 // its own: the assessment year is part of the template identity, so a
 // receipt printed for another year is a changed template and fails
 // identification instead of surfacing as an extraction-time review issue.
-const isSupportedEpayRevision = (outcome: Extract<
-	PdfLinesOutcome,
-	{ outcome: "text" }
->): boolean =>
+const isSupportedEpayRevision = (
+	outcome: Extract<PdfLinesOutcome, { outcome: "text" }>,
+): boolean =>
 	normalizedTextContainsAll(
-		outcome.pages.map((lines) => lines.map((line) => line.text).join("\n")).join("\n"),
+		outcome.pages
+			.map((lines) => lines.map((line) => line.text).join("\n"))
+			.join("\n"),
 		[...EPAY_REQUIRED_MARKERS, EPAY_REVISION_MARKER],
 	);
 

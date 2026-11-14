@@ -72,7 +72,8 @@ const plainLanguageQuestions: Readonly<Record<string, QuestionCopy>> =
 		},
 		"scope-lottery": {
 			prompt: "Did you win money from a lottery in FY 2025-26?",
-			helpText: "Choose Yes even if tax was already deducted from the winnings.",
+			helpText:
+				"Choose Yes even if tax was already deducted from the winnings.",
 		},
 		"scope-racehorse": {
 			prompt: "Did you earn income from owning or maintaining racehorses?",
@@ -137,8 +138,7 @@ const plainLanguageQuestions: Readonly<Record<string, QuestionCopy>> =
 		"scope-194n": {
 			prompt:
 				"Did a bank or post office deduct TDS because you withdrew a large amount of cash?",
-			helpText:
-				"Your TDS record will identify this deduction as section 194N.",
+			helpText: "Your TDS record will identify this deduction as section 194N.",
 		},
 		"scope-deferred-esop": {
 			prompt:

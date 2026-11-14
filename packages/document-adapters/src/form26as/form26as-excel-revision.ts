@@ -1,5 +1,5 @@
-import { parseAssessmentYear } from "@openitr/model";
 import type { AssessmentYear } from "@openitr/model";
+import { parseAssessmentYear } from "@openitr/model";
 
 import {
 	parseXlsxGrid,
@@ -77,14 +77,14 @@ const headerRowMatches = (
 	const widestExpectedColumn = Math.max(
 		...expectations.map((expectation) => expectation.columnIndex),
 	);
-	if (
-		row.cells.some((cell) => cell.columnIndex > widestExpectedColumn)
-	) {
+	if (row.cells.some((cell) => cell.columnIndex > widestExpectedColumn)) {
 		return false;
 	}
 	return expectations.every((expectation) => {
 		const text = textAt(grid, rowNumber, expectation.columnIndex);
-		return expectation.text === undefined ? text !== undefined : text === expectation.text;
+		return expectation.text === undefined
+			? text !== undefined
+			: text === expectation.text;
 	});
 };
 

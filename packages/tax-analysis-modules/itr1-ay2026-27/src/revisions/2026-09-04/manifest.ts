@@ -74,10 +74,12 @@ export const itr1Ay202627RulePackManifest20260904 = Object.freeze({
 		}),
 		Object.freeze({
 			id: "house-property-interest-on-borrowed-capital",
-			prompt: "How much interest on borrowed capital was payable for this property in FY 2025-26?",
+			prompt:
+				"How much interest on borrowed capital was payable for this property in FY 2025-26?",
 			helpText: "Use the interest amount, not the principal repayment.",
 			requiresRuleId: oldRegimeInterestRule.id,
-			suppliesFactKey: "house-property.self-occupied.interest-on-borrowed-capital",
+			suppliesFactKey:
+				"house-property.self-occupied.interest-on-borrowed-capital",
 			whyRequired:
 				"Section 24(b) bases the old-regime deduction on eligible interest payable on borrowed capital.",
 			affectedResult: Object.freeze({
@@ -100,7 +102,8 @@ export const itr1Ay202627RulePackManifest20260904 = Object.freeze({
 				id: "house-property-loan-for-acquisition-or-construction",
 				prompt: "Was the loan used to acquire or construct the property?",
 				helpText: "Answer No for repair, renewal, or reconstruction borrowing.",
-				suppliesFactKey: "house-property.self-occupied.loan-for-acquisition-or-construction",
+				suppliesFactKey:
+					"house-property.self-occupied.loan-for-acquisition-or-construction",
 				visibility: {
 					kind: "fact-money-greater-than" as const,
 					factKey: "house-property.self-occupied.interest-on-borrowed-capital",
@@ -111,18 +114,23 @@ export const itr1Ay202627RulePackManifest20260904 = Object.freeze({
 				id: "house-property-loan-on-or-after-1999-04-01",
 				prompt: "Was the capital borrowed on or after 1 April 1999?",
 				helpText: "Check the loan sanction or first-disbursement records.",
-				suppliesFactKey: "house-property.self-occupied.loan-on-or-after-1999-04-01",
+				suppliesFactKey:
+					"house-property.self-occupied.loan-on-or-after-1999-04-01",
 				visibility: {
 					kind: "fact-boolean-equals" as const,
-					factKey: "house-property.self-occupied.loan-for-acquisition-or-construction",
+					factKey:
+						"house-property.self-occupied.loan-for-acquisition-or-construction",
 					value: true,
 				},
 			},
 			{
 				id: "house-property-completed-within-five-years",
-				prompt: "Was acquisition or construction completed within five years from the end of the financial year in which the capital was borrowed?",
-				helpText: "Use the completion or possession records and the original borrowing date.",
-				suppliesFactKey: "house-property.self-occupied.completed-within-five-years",
+				prompt:
+					"Was acquisition or construction completed within five years from the end of the financial year in which the capital was borrowed?",
+				helpText:
+					"Use the completion or possession records and the original borrowing date.",
+				suppliesFactKey:
+					"house-property.self-occupied.completed-within-five-years",
 				visibility: {
 					kind: "fact-boolean-equals" as const,
 					factKey: "house-property.self-occupied.loan-on-or-after-1999-04-01",
@@ -131,9 +139,12 @@ export const itr1Ay202627RulePackManifest20260904 = Object.freeze({
 			},
 			{
 				id: "house-property-interest-certificate-available",
-				prompt: "Do you have the lender's certificate for the interest payable?",
-				helpText: "The certificate should identify the interest payable on the borrowed capital.",
-				suppliesFactKey: "house-property.self-occupied.interest-certificate-available",
+				prompt:
+					"Do you have the lender's certificate for the interest payable?",
+				helpText:
+					"The certificate should identify the interest payable on the borrowed capital.",
+				suppliesFactKey:
+					"house-property.self-occupied.interest-certificate-available",
 				visibility: {
 					kind: "fact-boolean-equals" as const,
 					factKey: "house-property.self-occupied.completed-within-five-years",
@@ -159,7 +170,9 @@ export const itr1Ay202627RulePackManifest20260904 = Object.freeze({
 		newRegime:
 			itr1Ay202627RulePackManifest20260903.taxConstants?.newRegime ??
 			(() => {
-				throw new Error("The prior rule-pack revision has no new-regime constants");
+				throw new Error(
+					"The prior rule-pack revision has no new-regime constants",
+				);
 			})(),
 		selfOccupiedHouseProperty: Object.freeze({
 			enhancedInterestLimitWholeRupees: 200000,

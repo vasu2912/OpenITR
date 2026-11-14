@@ -41,9 +41,14 @@ test.describe("missing-fact questionnaire", () => {
 			questionnaire.getByText("18 missing facts can be answered"),
 		).toBeVisible({ timeout: 30_000 });
 		await questionnaire
-			.getByLabel("How much savings-account interest did you receive in FY 2025-26?")
+			.getByLabel(
+				"How much savings-account interest did you receive in FY 2025-26?",
+			)
 			.fill("4850.25");
-		await questionnaire.getByRole("button", { name: "Record answer" }).first().click();
+		await questionnaire
+			.getByRole("button", { name: "Record answer" })
+			.first()
+			.click();
 		const depositsInput = questionnaire.getByLabel(
 			"How much interest on deposits (fixed or recurring) did you receive in FY 2025-26?",
 		);
@@ -62,10 +67,15 @@ test.describe("missing-fact questionnaire", () => {
 		await page.clock.install({ time: new Date("2026-09-03T12:00:00Z") });
 		await page.clock.pauseAt(new Date("2026-09-03T12:00:01Z"));
 		await openReviewFacts(page);
-		await questionnaire.getByRole("button", { name: "Change answer" }).first().click();
+		await questionnaire
+			.getByRole("button", { name: "Change answer" })
+			.first()
+			.click();
 
 		await expect(
-			page.getByText("The previous estimate is hidden while the changed decision is applied."),
+			page.getByText(
+				"The previous estimate is hidden while the changed decision is applied.",
+			),
 		).toBeVisible();
 		await expect(page.locator(".openitr-estimate-card")).toHaveCount(0);
 		await page.clock.resume();
@@ -74,7 +84,10 @@ test.describe("missing-fact questionnaire", () => {
 			"How much savings-account interest did you receive in FY 2025-26?",
 		);
 		await replacement.fill("9000");
-		await questionnaire.getByRole("button", { name: "Record answer" }).first().click();
+		await questionnaire
+			.getByRole("button", { name: "Record answer" })
+			.first()
+			.click();
 		await openTaxComparison(page);
 		await expect(
 			page.locator(".openitr-estimate-card").getByText("₹ 21,000").first(),
@@ -98,9 +111,14 @@ test.describe("missing-fact questionnaire", () => {
 
 		const questionnaire = page.locator(".openitr-missing-facts-card");
 		await expect(
-			questionnaire.getByRole("heading", { name: "Missing facts", exact: true }),
+			questionnaire.getByRole("heading", {
+				name: "Missing facts",
+				exact: true,
+			}),
 		).toBeVisible({ timeout: 30_000 });
-		await expect(questionnaire.getByText("18 missing facts can be answered")).toBeVisible();
+		await expect(
+			questionnaire.getByText("18 missing facts can be answered"),
+		).toBeVisible();
 		await expect(
 			questionnaire.getByText("Why this is required", { exact: true }).first(),
 		).toBeVisible();
@@ -110,12 +128,16 @@ test.describe("missing-fact questionnaire", () => {
 			}),
 		).toBeVisible();
 		await expect(
-			questionnaire.getByText("Result this can affect", { exact: true }).first(),
+			questionnaire
+				.getByText("Result this can affect", { exact: true })
+				.first(),
 		).toBeVisible();
 		await expect(
-			questionnaire.getByText("Estimated refund or amount payable", {
-				exact: true,
-			}).first(),
+			questionnaire
+				.getByText("Estimated refund or amount payable", {
+					exact: true,
+				})
+				.first(),
 		).toBeVisible();
 
 		const savingsInput = questionnaire.getByLabel(
@@ -159,13 +181,23 @@ test.describe("missing-fact questionnaire", () => {
 			.getByRole("button", { name: "Record answer" })
 			.first()
 			.click();
-		await expect(questionnaire.getByText("17 missing facts can be answered")).toBeVisible();
 		await expect(
-			questionnaire.locator(".openitr-recorded-answers").getByText("How much savings-account interest did you receive in FY 2025-26?"),
+			questionnaire.getByText("17 missing facts can be answered"),
+		).toBeVisible();
+		await expect(
+			questionnaire
+				.locator(".openitr-recorded-answers")
+				.getByText(
+					"How much savings-account interest did you receive in FY 2025-26?",
+				),
 		).toBeVisible();
 		await openTaxComparison(page);
 		await expect(
-			page.getByText(/Code FACT_BANK_INTEREST_EVIDENCE_REQUIRED.*bank-interest\.deposits/).first(),
+			page
+				.getByText(
+					/Code FACT_BANK_INTEREST_EVIDENCE_REQUIRED.*bank-interest\.deposits/,
+				)
+				.first(),
 		).toBeAttached();
 		await openReviewFacts(page);
 
@@ -177,7 +209,9 @@ test.describe("missing-fact questionnaire", () => {
 			.locator("xpath=ancestor::form")
 			.getByRole("button", { name: "Record answer" })
 			.click();
-		await expect(questionnaire.getByText("16 missing facts can be answered")).toBeVisible();
+		await expect(
+			questionnaire.getByText("16 missing facts can be answered"),
+		).toBeVisible();
 		const deductionsPrompt =
 			"Do you want to analyze any section 80C, 80CCC, or 80CCD savings and pension contributions for FY 2025-26?";
 		const deductionsForm = questionnaire
@@ -187,7 +221,9 @@ test.describe("missing-fact questionnaire", () => {
 		await expect(
 			deductionsForm.getByRole("radio", { name: "Yes" }),
 		).toBeVisible();
-		await expect(deductionsForm.getByRole("radio", { name: "No" })).toBeVisible();
+		await expect(
+			deductionsForm.getByRole("radio", { name: "No" }),
+		).toBeVisible();
 		await expect(deductionsForm.getByRole("combobox")).toHaveCount(0);
 		await recordQuestionAnswer({
 			page,
@@ -238,7 +274,11 @@ test.describe("missing-fact questionnaire", () => {
 		await expect(
 			page
 				.locator(".openitr-review-card")
-				.getByText("How much savings-account interest did you receive in FY 2025-26?", { exact: true }).first(),
+				.getByText(
+					"How much savings-account interest did you receive in FY 2025-26?",
+					{ exact: true },
+				)
+				.first(),
 		).toBeVisible({ timeout: 30_000 });
 		const questionnaire = page.locator(".openitr-missing-facts-card");
 		await expect(

@@ -1,5 +1,5 @@
-import type { DocumentProcessingFacility } from "./session-orchestrator";
 import { createDocumentInspectionRegistry } from "@openitr/document-adapters";
+import type { DocumentProcessingFacility } from "./session-orchestrator";
 
 // Runs inspection and extraction on the current thread. Test support only;
 // the application processes documents through the worker facility.
@@ -25,9 +25,6 @@ export const inProcessInspectionFacility = (): DocumentProcessingFacility => {
 		inspect: (input, signal) =>
 			withAbortRace(() => registry.inspect(input, { signal }), signal),
 		extract: (input, signal) =>
-			withAbortRace(
-				() => registry.extractDocument(input, { signal }),
-				signal,
-			),
+			withAbortRace(() => registry.extractDocument(input, { signal }), signal),
 	};
 };

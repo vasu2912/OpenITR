@@ -1,15 +1,17 @@
-import { parseDocumentKind, parseTemplateRevision } from "@openitr/model";
 import type { DocumentExtractionOutcome } from "@openitr/model";
-import { createExtractionRejectionOutcome } from "@openitr/model";
-
+import {
+	createExtractionRejectionOutcome,
+	parseDocumentKind,
+	parseTemplateRevision,
+} from "@openitr/model";
+import { decodeUtf8Strict } from "../extraction-support";
 import type {
 	AdapterVerdict,
 	DocumentAdapterManifest,
 	SourceDocumentAdapter,
 } from "../registry";
-import { decodeUtf8Strict } from "../extraction-support";
-import { extractTdsObservations } from "./tds-extraction";
 import { parseForm26AsTextRevision } from "./form26as-text-revision";
+import { extractTdsObservations } from "./tds-extraction";
 
 export const FORM26AS_TEXT_MANIFEST: DocumentAdapterManifest = Object.freeze({
 	adapterId: "form26as-text",
@@ -40,17 +42,11 @@ export const createForm26AsTextAdapter = (): SourceDocumentAdapter => ({
 	extract: async (input): Promise<DocumentExtractionOutcome> => {
 		const decoded = decodeOrUndefined(input.bytes);
 		if (decoded === undefined) {
-			return createExtractionRejectionOutcome(
-				"unknown-format",
-				input.identity,
-			);
+			return createExtractionRejectionOutcome("unknown-format", input.identity);
 		}
 		const revision = parseForm26AsTextRevision(decoded);
 		if (revision.kind === "unsupported") {
-			return createExtractionRejectionOutcome(
-				"unknown-format",
-				input.identity,
-			);
+			return createExtractionRejectionOutcome("unknown-format", input.identity);
 		}
 
 		const { observations, issues } = extractTdsObservations({

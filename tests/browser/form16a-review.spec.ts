@@ -1,7 +1,7 @@
 import {
 	createAisJsonBankInterestFixture,
-	createForm16SalaryPdfFixture,
 	createForm16APdfFixture,
+	createForm16SalaryPdfFixture,
 	FORM16A_SENTINEL_INTEREST_GROSS,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
@@ -46,7 +46,9 @@ test.describe("Form 16A non-salary TDS review", () => {
 			incomeGroup.getByText("Non-salary income evidence"),
 		).toBeVisible();
 		await expect(
-			incomeGroup.getByText("How much permitted interest outside savings accounts and deposits did you receive in FY 2025-26?"),
+			incomeGroup.getByText(
+				"How much permitted interest outside savings accounts and deposits did you receive in FY 2025-26?",
+			),
 		).toBeVisible();
 		const interestCard = incomeGroup.locator(
 			'.openitr-observation[data-fact-key="non-salary-income.interest-other-than-securities"]',
@@ -100,11 +102,11 @@ test.describe("Form 16A non-salary TDS review", () => {
 		await expect(
 			estimateSection.getByText("Accepted non-salary income"),
 		).toBeVisible({ timeout: 30_000 });
+		await expect(estimateSection.getByText("₹ 1,45,000").first()).toBeVisible();
 		await expect(
-			estimateSection.getByText("₹ 1,45,000").first(),
-		).toBeVisible();
-		await expect(
-			estimateSection.getByText("Taxes paid (TDS deposits and challan payments)"),
+			estimateSection.getByText(
+				"Taxes paid (TDS deposits and challan payments)",
+			),
 		).toBeVisible();
 		await expect(estimateSection.getByText("₹ 12,000").first()).toBeVisible();
 	});

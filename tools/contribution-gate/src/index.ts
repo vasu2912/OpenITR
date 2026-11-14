@@ -1,6 +1,6 @@
 export {
-	auditTaxAnalysisModuleContribution,
 	type AuditTaxAnalysisModuleContributionInput,
+	auditTaxAnalysisModuleContribution,
 	type ContributionFinding,
 	type ContributionFindingCode,
 	type ReleasePin,

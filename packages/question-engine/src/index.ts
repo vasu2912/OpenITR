@@ -1,19 +1,19 @@
+import type {
+	CompletedScopeCheck,
+	ExactMoney,
+	FactKey,
+	IsoDate,
+	IsoTimestamp,
+	QuestionId,
+	RulePackId,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	compareExactMoney,
 	exactMoneyFromWholeRupees,
 	isIsoDate,
 	parseExactMoney,
 	parseIsoDate,
-} from "@openitr/model";
-import type {
-	CompletedScopeCheck,
-	ExactMoney,
-	FactKey,
-	IsoTimestamp,
-	IsoDate,
-	QuestionId,
-	RulePackId,
-	ScopeRulePack,
 } from "@openitr/model";
 
 export type AcceptedQuestionFact = Readonly<{
@@ -72,11 +72,12 @@ export type QuestionnaireInput = Readonly<{
 	answers: readonly AttestedAnswerFact[];
 }>;
 
-export type FactAnswerAttemptInput = QuestionnaireInput & Readonly<{
-	questionId: string;
-	rawValue: string;
-	answeredAt: IsoTimestamp;
-}>;
+export type FactAnswerAttemptInput = QuestionnaireInput &
+	Readonly<{
+		questionId: string;
+		rawValue: string;
+		answeredAt: IsoTimestamp;
+	}>;
 
 const suppliedFactKeysOf = (
 	acceptedFacts: readonly AcceptedQuestionFact[],
@@ -93,23 +94,21 @@ const scopePermitsQuestions = (
 	scopeCheck.answer.rulePackId === rulePack.identity.id &&
 	scopeCheck.result.kind === "supported";
 
-const isApplicable = (
-	{
-		question,
-		suppliedFactKeys,
-		answeredQuestionIds,
-		conflictedFactKeys,
-		applicableResultIds,
-		answersByFact,
-	}: Readonly<{
-		question: ScopeRulePack["questions"][number];
-		suppliedFactKeys: ReadonlySet<FactKey>;
-		answeredQuestionIds: ReadonlySet<QuestionId>;
-		conflictedFactKeys: ReadonlySet<FactKey>;
-		applicableResultIds: ReadonlySet<string>;
-		answersByFact: ReadonlyMap<FactKey, ExactMoney | IsoDate | boolean>;
-	}>,
-): boolean => {
+const isApplicable = ({
+	question,
+	suppliedFactKeys,
+	answeredQuestionIds,
+	conflictedFactKeys,
+	applicableResultIds,
+	answersByFact,
+}: Readonly<{
+	question: ScopeRulePack["questions"][number];
+	suppliedFactKeys: ReadonlySet<FactKey>;
+	answeredQuestionIds: ReadonlySet<QuestionId>;
+	conflictedFactKeys: ReadonlySet<FactKey>;
+	applicableResultIds: ReadonlySet<string>;
+	answersByFact: ReadonlyMap<FactKey, ExactMoney | IsoDate | boolean>;
+}>): boolean => {
 	const visibility = question.visibility ?? { kind: "always" as const };
 	let visible: boolean;
 	switch (visibility.kind) {
@@ -150,8 +149,7 @@ const answerIdOf = ({
 	questionId: QuestionId;
 	value: ExactMoney | IsoDate | boolean;
 	answeredAt: IsoTimestamp;
-}>): string =>
-	`fact-answer:${rulePackId}:${questionId}:${value}:${answeredAt}`;
+}>): string => `fact-answer:${rulePackId}:${questionId}:${value}:${answeredAt}`;
 
 // Derive the applicable missing-fact questions for one session state. Pure
 // and deterministic: the catalog order of the pinned pack decides question
@@ -262,9 +260,15 @@ export const evaluateFactAnswerAttempt = (
 			}
 			const { minimumWholeRupees, maximumWholeRupees } = question.answerSchema;
 			if (
-				compareExactMoney(value, exactMoneyFromWholeRupees(minimumWholeRupees)) < 0 ||
+				compareExactMoney(
+					value,
+					exactMoneyFromWholeRupees(minimumWholeRupees),
+				) < 0 ||
 				(maximumWholeRupees !== null &&
-					compareExactMoney(value, exactMoneyFromWholeRupees(maximumWholeRupees)) > 0)
+					compareExactMoney(
+						value,
+						exactMoneyFromWholeRupees(maximumWholeRupees),
+					) > 0)
 			) {
 				return Object.freeze({
 					kind: "rejected",

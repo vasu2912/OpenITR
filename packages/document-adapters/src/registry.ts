@@ -8,14 +8,13 @@ import {
 	type InspectableSourceDocument,
 	type TemplateRevision,
 } from "@openitr/model";
-
-import { createAisJsonAdapter } from "./ais-json/ais-json-adapter";
 import { createAisCsvAdapter } from "./ais-csv/ais-csv-adapter";
+import { createAisJsonAdapter } from "./ais-json/ais-json-adapter";
 import { createEpayTaxPdfAdapter } from "./epay-tax/epay-tax-pdf-adapter";
 import { createForm16PdfAdapter } from "./form16/form16-pdf-adapter";
-import { createForm26AsTextAdapter } from "./form26as/form26as-text-adapter";
-import { createForm26AsExcelAdapter } from "./form26as/form26as-excel-adapter";
 import { createForm16APdfAdapter } from "./form16a/form16a-pdf-adapter";
+import { createForm26AsExcelAdapter } from "./form26as/form26as-excel-adapter";
+import { createForm26AsTextAdapter } from "./form26as/form26as-text-adapter";
 import { createPrefilledItr1JsonAdapter } from "./prefilled-itr1-json/prefilled-itr1-json-adapter";
 import { createPrivateStatementDetector } from "./private-statements/private-statement-detector";
 
@@ -76,13 +75,12 @@ const defaultAdapters = (): readonly SourceDocumentAdapter[] => [
 	createForm26AsExcelAdapter(),
 ];
 
-const defaultPrivateTemplateDetectors = (): readonly PrivateTemplateDetector[] =>
-	[createPrivateStatementDetector()];
+const defaultPrivateTemplateDetectors =
+	(): readonly PrivateTemplateDetector[] => [createPrivateStatementDetector()];
 
 export const createDocumentInspectionRegistry = (
 	adapters: readonly SourceDocumentAdapter[] = defaultAdapters(),
-	privateTemplateDetectors: readonly PrivateTemplateDetector[] =
-		defaultPrivateTemplateDetectors(),
+	privateTemplateDetectors: readonly PrivateTemplateDetector[] = defaultPrivateTemplateDetectors(),
 ) => {
 	type AdapterMatch =
 		| Readonly<{ kind: "rejected"; rejection: AdapterFailure }>

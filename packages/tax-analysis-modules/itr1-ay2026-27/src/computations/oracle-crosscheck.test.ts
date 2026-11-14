@@ -1,19 +1,17 @@
 // Independent oracle: FY 2025-26 new regime implemented from scratch with
 // BigInt sub-paise fixed-point arithmetic (scale 1e-6 rupees). Shares no code
 // with the engine under test beyond the rule-pack constants it must read.
-import { describe, expect, test } from "vitest";
 
-import {
-	computeNewRegimeSalaryScenario,
-} from "./new-regime-salary";
-import type { NewRegimeSalaryComputation } from "./new-regime-salary";
-import { itr1Ay202627RulePack } from "../rule-pack";
 import {
 	parseFactKey,
 	parseIsoTimestamp,
 	parseQuestionId,
 	parseSha256Digest,
 } from "@openitr/model";
+import { describe, expect, test } from "vitest";
+import { itr1Ay202627RulePack } from "../rule-pack";
+import type { NewRegimeSalaryComputation } from "./new-regime-salary";
+import { computeNewRegimeSalaryScenario } from "./new-regime-salary";
 
 const SCALE = 1_000_000n; // sub-units per rupee
 const TEN_RUPEES = 10n * SCALE;
@@ -26,8 +24,7 @@ const toSub = (canonical: string): bigint => {
 		throw new Error(`non-canonical amount: ${canonical}`);
 	}
 	const value =
-		BigInt(wholePart) * SCALE +
-		BigInt(fraction.padEnd(6, "0").slice(0, 6));
+		BigInt(wholePart) * SCALE + BigInt(fraction.padEnd(6, "0").slice(0, 6));
 	return negative ? -value : value;
 };
 
@@ -105,16 +102,11 @@ const surchargeFor = (income: bigint, taxAfterAdjustments: bigint): bigint => {
 	if (activeIndex === -1) return 0n;
 	const active = thresholds[activeIndex]!;
 	const raw = exactPercent(taxAfterAdjustments, active.pct);
-	const previous =
-		activeIndex === 0 ? undefined : thresholds[activeIndex - 1];
+	const previous = activeIndex === 0 ? undefined : thresholds[activeIndex - 1];
 	const taxAtThreshold = slabTaxExact(active.above);
 	const surchargeAtPrevious =
 		previous === undefined ? 0n : exactPercent(taxAtThreshold, previous.pct);
-	const limit =
-		income -
-		active.above +
-		taxAtThreshold +
-		surchargeAtPrevious;
+	const limit = income - active.above + taxAtThreshold + surchargeAtPrevious;
 	return taxAfterAdjustments + raw > limit ? limit - taxAfterAdjustments : raw;
 };
 
@@ -132,16 +124,20 @@ const oracleSummary = (
 } => {
 	const afterExemptions = salaryWholeRupees * SCALE;
 	const deduction = 75000n * SCALE;
-	const beforeRounding = afterExemptions > deduction ? afterExemptions - deduction : 0n;
+	const beforeRounding =
+		afterExemptions > deduction ? afterExemptions - deduction : 0n;
 	const income = round288(beforeRounding);
 	const slab = slabTaxExact(income);
 	const rebateLimit = 1200000n * SCALE;
 	const withinRebate = resident && income <= rebateLimit;
-	const rebate = withinRebate ? (slab < 60000n * SCALE ? slab : 60000n * SCALE) : 0n;
+	const rebate = withinRebate
+		? slab < 60000n * SCALE
+			? slab
+			: 60000n * SCALE
+		: 0n;
 	const exceeds = income > rebateLimit;
 	const excess = exceeds ? income - rebateLimit : 0n;
-	const relief =
-		resident && exceeds && slab > excess ? slab - excess : 0n;
+	const relief = resident && exceeds && slab > excess ? slab - excess : 0n;
 	const afterAdjustments = slab - rebate - relief;
 	const surcharge = surchargeFor(income, afterAdjustments);
 	const cess = exactPercent(afterAdjustments + surcharge, 4n);
@@ -223,10 +219,10 @@ describe("independent BigInt oracle cross-check", () => {
 			resident: false,
 		})),
 		...[
-			75000, 475000, 475001, 475005, 874995, 875000, 1274999, 1275000,
-			1275005, 1675000, 2075000, 2475000, 5075000, 5075010, 10075000,
-			10075005, 10075010, 15075010, 20075000, 20075005, 20075010,
-			35075010, 50075000, 50075005, 50075010, 90075010,
+			75000, 475000, 475001, 475005, 874995, 875000, 1274999, 1275000, 1275005,
+			1675000, 2075000, 2475000, 5075000, 5075010, 10075000, 10075005, 10075010,
+			15075010, 20075000, 20075005, 20075010, 35075010, 50075000, 50075005,
+			50075010, 90075010,
 		].map((total) => ({ total, resident: true })),
 	];
 

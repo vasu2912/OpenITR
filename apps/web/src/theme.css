@@ -24,7 +24,9 @@ body,
 }
 
 .pf-v6-c-page {
-	--pf-v6-c-page--BackgroundColor: var(--pf-t--global--background--color--primary--default);
+	--pf-v6-c-page--BackgroundColor: var(
+		--pf-t--global--background--color--primary--default
+	);
 	--pf-v6-c-page__main-container--MarginInlineStart: 0;
 	--pf-v6-c-page__main-container--MarginInlineEnd: 0;
 	--pf-v6-c-page__main-container--MarginBlockStart: 0;
@@ -38,7 +40,9 @@ body,
 	--pf-v6-c-page__main-container--xs--BorderInlineStartWidth: 0;
 	--pf-v6-c-page__main-container--xs--BorderInlineEndWidth: 0;
 	--pf-v6-c-page__main-container--BoxShadow: none;
-	--pf-v6-c-page__sidebar--BackgroundColor: var(--pf-t--global--background--color--secondary--default);
+	--pf-v6-c-page__sidebar--BackgroundColor: var(
+		--pf-t--global--background--color--secondary--default
+	);
 }
 
 .pf-v6-c-masthead {
@@ -246,9 +250,6 @@ body,
 	padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
 }
 
-.openitr-question-choice:has(input:checked) {
-}
-
 .openitr-question-choice input {
 	accent-color: var(--pf-t--global--color--brand--default);
 	flex: 0 0 auto;
@@ -302,7 +303,6 @@ body,
 }
 
 @media (max-width: 48rem) {
-
 	.openitr-result-details {
 		grid-template-columns: 1fr;
 	}
@@ -937,7 +937,8 @@ body,
 }
 
 .openitr-property-item {
-	border-top: var(--pf-t--global--border--width--regular) solid var(--pf-t--global--border--color--default);
+	border-top: var(--pf-t--global--border--width--regular) solid
+		var(--pf-t--global--border--color--default);
 	min-width: 0;
 	padding-top: var(--pf-t--global--spacer--md);
 }
@@ -1205,7 +1206,8 @@ body,
 }
 
 .openitr-content.pf-v6-c-page__main-section {
-	padding-block: var(--pf-t--global--spacer--xl) var(--pf-t--global--spacer--3xl);
+	padding-block: var(--pf-t--global--spacer--xl)
+		var(--pf-t--global--spacer--3xl);
 }
 
 .pf-v6-c-page__sidebar-body:first-child {
@@ -1213,5 +1215,7 @@ body,
 }
 
 .pf-v6-c-masthead {
-	--pf-v6-c-masthead--BackgroundColor: var(--pf-t--global--background--color--primary--default);
+	--pf-v6-c-masthead--BackgroundColor: var(
+		--pf-t--global--background--color--primary--default
+	);
 }

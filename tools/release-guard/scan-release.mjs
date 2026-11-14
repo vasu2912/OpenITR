@@ -26,7 +26,8 @@ const FORBIDDEN_JS_PATTERNS = [
 	},
 	{
 		label: "worker constructed from a remote URL",
-		pattern: /\bnew\s+(?:Worker|SharedWorker|ServiceWorker)\s*\(\s*["'`]https?:/,
+		pattern:
+			/\bnew\s+(?:Worker|SharedWorker|ServiceWorker)\s*\(\s*["'`]https?:/,
 	},
 ];
 
@@ -45,8 +46,7 @@ const collectFiles = (dir, files = []) => {
 	return files;
 };
 
-const lineOf = (text, index) =>
-	text.slice(0, index).split("\n").length;
+const lineOf = (text, index) => text.slice(0, index).split("\n").length;
 
 export const scanRelease = ({ distDir }) => {
 	const violations = [];

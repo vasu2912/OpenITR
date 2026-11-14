@@ -106,7 +106,8 @@ const DOCUMENT_REJECTION_ISSUE_CODES: Readonly<
 	damaged: DOCUMENT_ISSUE_CODES.documentDamaged,
 	"image-only": DOCUMENT_ISSUE_CODES.documentImageOnly,
 	ambiguous: DOCUMENT_ISSUE_CODES.documentAmbiguousMatch,
-	"private-institution": DOCUMENT_ISSUE_CODES.documentPrivateInstitutionTemplate,
+	"private-institution":
+		DOCUMENT_ISSUE_CODES.documentPrivateInstitutionTemplate,
 	"unknown-format": DOCUMENT_ISSUE_CODES.documentUnknownFormat,
 	"extraction-unsupported": DOCUMENT_ISSUE_CODES.documentExtractionUnsupported,
 	"extraction-failed": DOCUMENT_ISSUE_CODES.documentExtractionFailed,

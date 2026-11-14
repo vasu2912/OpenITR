@@ -1,17 +1,16 @@
+import type { Sha256Digest } from "@openitr/model";
 import {
 	computeSourceDocumentIdentity,
 	DOCUMENT_ISSUE_CODES,
 	parseSha256Digest,
 } from "@openitr/model";
-import type { Sha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
-
+import { createDocumentInspectionRegistry } from "../registry";
 import {
 	createAisJsonBankInterestFixture,
 	createPrefilledItr1JsonFixture,
 	utf8Bytes,
 } from "../testing";
-import { createDocumentInspectionRegistry } from "../registry";
 
 const copyBytes = (source: Uint8Array): Uint8Array<ArrayBuffer> => {
 	const out = new Uint8Array(new ArrayBuffer(source.length));
@@ -48,7 +47,10 @@ describe("registry inspection of official prefilled ITR-1 JSON", () => {
 	});
 
 	test.each([
-		["a different assessment-year schema version", { schemaVersion: "2027-28" }],
+		[
+			"a different assessment-year schema version",
+			{ schemaVersion: "2027-28" },
+		],
 		["a different document type", { documentType: "ITR2_PREFILLED" }],
 	] as const)("rejects %s as unknown format", async (_label, override) => {
 		const text = JSON.stringify({

@@ -15,7 +15,8 @@ export const CANDIDATE_DOCUMENT_STATUSES = [
 	"removed",
 ] as const;
 
-export type CandidateDocumentStatus = (typeof CANDIDATE_DOCUMENT_STATUSES)[number];
+export type CandidateDocumentStatus =
+	(typeof CANDIDATE_DOCUMENT_STATUSES)[number];
 
 export type CandidateDocumentIdentification = Readonly<{
 	documentKind: DocumentKind;

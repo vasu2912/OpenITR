@@ -3,15 +3,16 @@ import type {
 	DocumentInspectionOutcome,
 	InspectableSourceDocument,
 } from "@openitr/model";
-
-import type { DocumentProcessingFacility } from "./session-orchestrator";
 import type {
 	InspectionWorkerRequest,
 	InspectionWorkerResponse,
 } from "../workers/document-inspection.worker";
+import type { DocumentProcessingFacility } from "./session-orchestrator";
 
 type PendingResolution = Readonly<{
-	resolve: (payload: DocumentInspectionOutcome | DocumentExtractionOutcome) => void;
+	resolve: (
+		payload: DocumentInspectionOutcome | DocumentExtractionOutcome,
+	) => void;
 	reject: (reason: unknown) => void;
 }>;
 
@@ -107,8 +108,16 @@ export const workerInspectionFacility = (): DocumentProcessingFacility => {
 
 	return {
 		inspect: (input, signal) =>
-			runInWorker("inspect", input, signal) as Promise<DocumentInspectionOutcome>,
+			runInWorker(
+				"inspect",
+				input,
+				signal,
+			) as Promise<DocumentInspectionOutcome>,
 		extract: (input, signal) =>
-			runInWorker("extract", input, signal) as Promise<DocumentExtractionOutcome>,
+			runInWorker(
+				"extract",
+				input,
+				signal,
+			) as Promise<DocumentExtractionOutcome>,
 	};
 };

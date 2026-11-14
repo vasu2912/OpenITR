@@ -1,15 +1,15 @@
 import type {
+	AcceptedCanonicalFact,
+	FactResolution,
+	UnresolvedFactConflict,
+} from "@openitr/fact-reconciliation";
+import type { ComputationTraceNode } from "@openitr/itr1-ay2026-27";
+import type {
 	AnalysisScopeEvaluation,
 	DocumentExtractionRecord,
 	FactKey,
 	ScopeFact,
 } from "@openitr/model";
-import type { ComputationTraceNode } from "@openitr/itr1-ay2026-27";
-import type {
-	AcceptedCanonicalFact,
-	FactResolution,
-	UnresolvedFactConflict,
-} from "@openitr/fact-reconciliation";
 import type { AttestedAnswerFact } from "@openitr/question-engine";
 
 export type FinalReviewTopicId =
@@ -111,13 +111,13 @@ const topicOf = (factKey: string): FinalReviewTopicId => {
 	) {
 		return "salary";
 	}
-	if (factKey.startsWith("house-property.") || factKey.includes("house-property")) {
+	if (
+		factKey.startsWith("house-property.") ||
+		factKey.includes("house-property")
+	) {
 		return "house-property";
 	}
-	if (
-		factKey.startsWith("capital-gains.") ||
-		factKey.includes("section112a")
-	) {
+	if (factKey.startsWith("capital-gains.") || factKey.includes("section112a")) {
 		return "gains";
 	}
 	if (factKey.startsWith("deductions.") || factKey.includes("deduction")) {
@@ -275,7 +275,10 @@ export const buildFinalReview = (input: FinalReviewInput): FinalReview => {
 		observations.map((observation) => [observation.observationId, observation]),
 	);
 	const resolutionById = new Map(
-		input.resolutions.map((resolution) => [resolution.resolutionId, resolution]),
+		input.resolutions.map((resolution) => [
+			resolution.resolutionId,
+			resolution,
+		]),
 	);
 	const facts: FinalReviewFact[] = [];
 
@@ -310,7 +313,8 @@ export const buildFinalReview = (input: FinalReviewInput): FinalReview => {
 						? "User-attested conflict resolution; original competing observations remain in the conflict review."
 						: evidenceText(observation),
 				transformation:
-					observation === undefined || observation.transformationSteps.length === 0
+					observation === undefined ||
+					observation.transformationSteps.length === 0
 						? "No source normalization steps recorded."
 						: observation.transformationSteps
 								.map((step) => step.operation)
@@ -338,7 +342,8 @@ export const buildFinalReview = (input: FinalReviewInput): FinalReview => {
 				originKind: "user-attestation",
 				origin: `Answered through question ${answer.questionId}`,
 				evidence: `Question revision ${answer.questionRevision}; recorded ${answer.answeredAt}`,
-				transformation: "Recorded as the typed answer value without source extraction.",
+				transformation:
+					"Recorded as the typed answer value without source extraction.",
 				downstreamUses: downstreamUsesOf(
 					String(answer.factKey),
 					input.derivedNodes,

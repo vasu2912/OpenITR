@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 const scriptUrl = new URL("./scan-release.mjs", import.meta.url);
@@ -40,9 +40,13 @@ const writeDist = (files) => {
 
 describe("release guard", () => {
 	test("accepts outbound navigation and canonical metadata but still checks adjacent scripts", () => {
-		const links = '<a href="https://github.com/vasu2912/OpenITR">Source</a><link rel="canonical" href="https://openitr.vasu-kandagatla.workers.dev/">';
+		const links =
+			'<a href="https://github.com/vasu2912/OpenITR">Source</a><link rel="canonical" href="https://openitr.vasu-kandagatla.workers.dev/">';
 		expect(() => runScanner(writeDist({ "index.html": links }))).not.toThrow();
-		writeFileSync(join(cleanupRoot, "dist/index.html"), `${links}<script src="https://example.test/app.js"></script>`);
+		writeFileSync(
+			join(cleanupRoot, "dist/index.html"),
+			`${links}<script src="https://example.test/app.js"></script>`,
+		);
 		expect(() => runScanner(join(cleanupRoot, "dist"))).toThrow();
 	});
 	test("accepts a static self-hosted release", () => {
@@ -51,7 +55,8 @@ describe("release guard", () => {
 <html><head><link rel="stylesheet" href="./assets/index-HASH.css"></head>
 <body><script type="module" src="./assets/index-HASH.js"></script></body></html>
 `,
-			"assets/index-HASH.js": 'const chunk="./assets/chunk-HASH.js";import(chunk);',
+			"assets/index-HASH.js":
+				'const chunk="./assets/chunk-HASH.js";import(chunk);',
 			"assets/chunk-HASH.js": "export const two = 1 + 1;",
 		});
 
@@ -59,15 +64,11 @@ describe("release guard", () => {
 	});
 
 	test.each([
-		[
-			"direct eval",
-			"assets/app-HASH.js",
-			'const run = eval(userInput);',
-		],
+		["direct eval", "assets/app-HASH.js", "const run = eval(userInput);"],
 		[
 			"function constructor",
 			"assets/app-HASH.js",
-			'const factory = new Function(ruleSource);',
+			"const factory = new Function(ruleSource);",
 		],
 		[
 			"worker importScripts",
@@ -89,33 +90,28 @@ describe("release guard", () => {
 			"assets/app-HASH.js",
 			'const engine = new Worker("https://cdn.example.test/engine.js");',
 		],
-	])(
-		"rejects a release asset containing %s",
-		(_label, assetName, snippet) => {
-			const dist = writeDist({
-				"index.html": '<script type="module" src="./assets/index-HASH.js"></script>',
-				"assets/index-HASH.js": "console.log(1);",
-				[assetName]: snippet,
-			});
+	])("rejects a release asset containing %s", (_label, assetName, snippet) => {
+		const dist = writeDist({
+			"index.html":
+				'<script type="module" src="./assets/index-HASH.js"></script>',
+			"assets/index-HASH.js": "console.log(1);",
+			[assetName]: snippet,
+		});
 
-			let failure;
-			try {
-				runScanner(dist);
-			} catch (error) {
-				failure = error;
-			}
+		let failure;
+		try {
+			runScanner(dist);
+		} catch (error) {
+			failure = error;
+		}
 
-			expect(failure).toBeDefined();
-			const output = `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
-			expect(output).toContain(assetName);
-		},
-	);
+		expect(failure).toBeDefined();
+		const output = `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
+		expect(output).toContain(assetName);
+	});
 
 	test.each([
-		[
-			"quoted",
-			'<script src="https://cdn.example.test/analytics.js"></script>',
-		],
+		["quoted", '<script src="https://cdn.example.test/analytics.js"></script>'],
 		[
 			"unquoted",
 			"<script src=https://cdn.example.test/tracker.js defer></script>",
@@ -124,26 +120,23 @@ describe("release guard", () => {
 			"in the first attribute position",
 			'<img src="https://cdn.example.test/pixel.gif">',
 		],
-	])(
-		"rejects a remote HTML reference written %s",
-		(_label, html) => {
-			const dist = writeDist({
-				"index.html": html,
-				"assets/index-HASH.js": "console.log(1);",
-			});
+	])("rejects a remote HTML reference written %s", (_label, html) => {
+		const dist = writeDist({
+			"index.html": html,
+			"assets/index-HASH.js": "console.log(1);",
+		});
 
-			let failure;
-			try {
-				runScanner(dist);
-			} catch (error) {
-				failure = error;
-			}
+		let failure;
+		try {
+			runScanner(dist);
+		} catch (error) {
+			failure = error;
+		}
 
-			expect(failure).toBeDefined();
-			const output = `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
-			expect(output).toContain("cdn.example.test");
-		},
-	);
+		expect(failure).toBeDefined();
+		const output = `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
+		expect(output).toContain("cdn.example.test");
+	});
 
 	test("fails when the release directory is missing", () => {
 		let failure;

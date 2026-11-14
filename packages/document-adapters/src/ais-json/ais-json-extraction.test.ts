@@ -1,8 +1,8 @@
+import type { Sha256Digest } from "@openitr/model";
 import {
 	computeSourceDocumentIdentity,
 	parseSha256Digest,
 } from "@openitr/model";
-import type { Sha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -13,9 +13,7 @@ import {
 } from "../testing";
 import { createAisJsonAdapter } from "./ais-json-adapter";
 
-const identityOf = async (
-	text: string,
-): Promise<Sha256Digest> => {
+const identityOf = async (text: string): Promise<Sha256Digest> => {
 	const bytes = utf8Bytes(text);
 	return (await computeSourceDocumentIdentity({ bytes })).contentSha256;
 };
@@ -207,7 +205,10 @@ describe("AIS JSON bank-interest extraction", () => {
 				institutionName: undefined,
 			},
 		],
-		["a blank masked account", { ...AIS_BANK_INTEREST_SAVINGS_RECORD, maskedAccountNumber: "   " }],
+		[
+			"a blank masked account",
+			{ ...AIS_BANK_INTEREST_SAVINGS_RECORD, maskedAccountNumber: "   " },
+		],
 	] as const)(
 		"reports %s as a malformed record without inventing facts",
 		async (_label, malformedRecord) => {
@@ -287,25 +288,28 @@ describe("AIS JSON bank-interest extraction", () => {
 	test.each([
 		["a different schema revision", { schemaVersion: "2027-28" }],
 		["a different document type", { documentType: "TIS" }],
-	] as const)("rejects %s before extracting any fact", async (_label, override) => {
-		const text = JSON.stringify({
-			documentType: "AIS",
-			schemaVersion: "2026-27",
-			taxpayerInformation: {},
-			transactionSummary: [],
-			interestInformation: {
-				bankInterest: [AIS_BANK_INTEREST_SAVINGS_RECORD],
-			},
-			...override,
-		});
-		const outcome = await extractOf(text);
+	] as const)(
+		"rejects %s before extracting any fact",
+		async (_label, override) => {
+			const text = JSON.stringify({
+				documentType: "AIS",
+				schemaVersion: "2026-27",
+				taxpayerInformation: {},
+				transactionSummary: [],
+				interestInformation: {
+					bankInterest: [AIS_BANK_INTEREST_SAVINGS_RECORD],
+				},
+				...override,
+			});
+			const outcome = await extractOf(text);
 
-		expect(outcome.kind).toBe("rejected");
-		if (outcome.kind === "rejected") {
-			expect(outcome.rejection).toBe("unknown-format");
-			expect(outcome.issue.code).toBe("DOCUMENT_UNKNOWN_FORMAT");
-		}
-	});
+			expect(outcome.kind).toBe("rejected");
+			if (outcome.kind === "rejected") {
+				expect(outcome.rejection).toBe("unknown-format");
+				expect(outcome.issue.code).toBe("DOCUMENT_UNKNOWN_FORMAT");
+			}
+		},
+	);
 
 	test("rejects bytes that are not JSON at all", async () => {
 		const outcome = await extractOf("definitely not json");
@@ -341,9 +345,9 @@ describe("AIS JSON bank-interest extraction", () => {
 		) {
 			throw new Error("expected two extracted outcomes");
 		}
-		expect(
-			JSON.stringify(secondOutcome.bankInterestObservations),
-		).toBe(JSON.stringify(firstOutcome.bankInterestObservations));
+		expect(JSON.stringify(secondOutcome.bankInterestObservations)).toBe(
+			JSON.stringify(firstOutcome.bankInterestObservations),
+		);
 	});
 
 	test("keeps every canonical field stable across an equivalent reformatted input", async () => {
@@ -356,8 +360,7 @@ describe("AIS JSON bank-interest extraction", () => {
 					bankInterest: [
 						{
 							recordCategory: AIS_BANK_INTEREST_SAVINGS_RECORD.recordCategory,
-							institutionName:
-								AIS_BANK_INTEREST_SAVINGS_RECORD.institutionName,
+							institutionName: AIS_BANK_INTEREST_SAVINGS_RECORD.institutionName,
 							maskedAccountNumber:
 								AIS_BANK_INTEREST_SAVINGS_RECORD.maskedAccountNumber,
 							interestAmount: AIS_BANK_INTEREST_SAVINGS_RECORD.interestAmount,
@@ -390,12 +393,8 @@ describe("AIS JSON bank-interest extraction", () => {
 		}
 		expect(reformattedOutcome.bankInterestObservations).toHaveLength(2);
 		const [canonicalSavings] = canonicalOutcome.bankInterestObservations;
-		const [reformattedSavings] =
-			reformattedOutcome.bankInterestObservations;
-		if (
-			canonicalSavings === undefined ||
-			reformattedSavings === undefined
-		) {
+		const [reformattedSavings] = reformattedOutcome.bankInterestObservations;
+		if (canonicalSavings === undefined || reformattedSavings === undefined) {
 			throw new Error("expected both inputs to yield observations");
 		}
 		expect(await identityOf(createAisJsonBankInterestFixture())).toBe(
@@ -407,21 +406,22 @@ describe("AIS JSON bank-interest extraction", () => {
 		expect(reformattedSavings.sourceDocumentId).not.toBe(
 			canonicalSavings.sourceDocumentId,
 		);
-		canonicalOutcome.bankInterestObservations.forEach(
-			(observation, index) => {
-				const counterpart = reformattedOutcome.bankInterestObservations[index];
-				if (counterpart === undefined) {
-					throw new Error("expected a counterpart observation");
-				}
-				const { sourceDocumentId: _s, observationId: _o, ...canonicalRest } =
-					observation;
-				const {
-					sourceDocumentId: _cs,
-					observationId: _co,
-					...counterpartRest
-				} = counterpart;
-				expect(counterpartRest).toEqual(canonicalRest);
-			},
-		);
+		canonicalOutcome.bankInterestObservations.forEach((observation, index) => {
+			const counterpart = reformattedOutcome.bankInterestObservations[index];
+			if (counterpart === undefined) {
+				throw new Error("expected a counterpart observation");
+			}
+			const {
+				sourceDocumentId: _s,
+				observationId: _o,
+				...canonicalRest
+			} = observation;
+			const {
+				sourceDocumentId: _cs,
+				observationId: _co,
+				...counterpartRest
+			} = counterpart;
+			expect(counterpartRest).toEqual(canonicalRest);
+		});
 	});
 });

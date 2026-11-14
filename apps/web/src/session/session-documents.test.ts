@@ -1,3 +1,21 @@
+import {
+	createAisCsvBankInterestFixture,
+	createAisJsonBankInterestFixture,
+	createAisJsonFixture,
+	createAmbiguousPdfFixture,
+	createDamagedPdfFixture,
+	createEncryptedPdfFixture,
+	createEpayTaxPdfFixture,
+	createForm16APdfFixture,
+	createForm16PdfFixture,
+	createForm16SalaryPdfFixture,
+	createForm26AsTextFixture,
+	createImageOnlyPdfFixture,
+	createPrivateStatementCsvFixture,
+	createUnknownBytesFixture,
+	utf8Bytes,
+} from "@openitr/document-adapters/testing";
+import { itr1Ay202627RulePack } from "@openitr/itr1-ay2026-27";
 import type {
 	BankInterestObservation,
 	CandidateDocument,
@@ -14,39 +32,19 @@ import {
 	parseRuleId,
 	parseTemplateRevision,
 } from "@openitr/model";
-import {
-	createAisCsvBankInterestFixture,
-	createAisJsonBankInterestFixture,
-	createAisJsonFixture,
-	createAmbiguousPdfFixture,
-	createDamagedPdfFixture,
-	createEpayTaxPdfFixture,
-	createEncryptedPdfFixture,
-	createForm16PdfFixture,
-	createForm16APdfFixture,
-	createImageOnlyPdfFixture,
-	createPrivateStatementCsvFixture,
-	createForm16SalaryPdfFixture,
-	createForm26AsTextFixture,
-	createUnknownBytesFixture,
-	utf8Bytes,
-} from "@openitr/document-adapters/testing";
 import { describe, expect, test } from "vitest";
-
-import {
-	createSessionOrchestrator,
-} from "./session-orchestrator";
-import type { DocumentProcessingFacility } from "./session-orchestrator";
+import { inProcessInspectionFacility } from "./in-process-inspection-facility";
 import type {
+	DocumentProcessingFacility,
 	SessionCommand,
 	SessionOrchestrator,
 } from "./session-orchestrator";
-import { inProcessInspectionFacility } from "./in-process-inspection-facility";
-import { itr1Ay202627RulePack } from "@openitr/itr1-ay2026-27";
+import { createSessionOrchestrator } from "./session-orchestrator";
 
 const fixedAnswerTime = "2026-08-22T00:00:00.000Z";
 
-const readerOf = (bytes: Uint8Array<ArrayBuffer>) => (): Promise<Uint8Array<ArrayBuffer>> =>
+const readerOf =
+	(bytes: Uint8Array<ArrayBuffer>) => (): Promise<Uint8Array<ArrayBuffer>> =>
 		Promise.resolve(bytes);
 
 const createEligibleSession = () => {
@@ -155,7 +153,10 @@ describe("source document intake", () => {
 
 		session.send(
 			selectCommand([
-				{ displayName: "statement.json", bytes: utf8Bytes(createAisJsonFixture()) },
+				{
+					displayName: "statement.json",
+					bytes: utf8Bytes(createAisJsonFixture()),
+				},
 				{
 					displayName: "notes.txt",
 					bytes: createUnknownBytesFixture(),
@@ -461,7 +462,8 @@ describe("cross-source conflict resolution", () => {
 			throw new Error("expected the JSON savings observation");
 		}
 		const conflictGroup = before.factConflicts.find(
-			(conflict) => String(conflict.factKey) === "bank-interest.savings-account",
+			(conflict) =>
+				String(conflict.factKey) === "bank-interest.savings-account",
 		);
 		if (conflictGroup === undefined) {
 			throw new Error("expected the savings-account conflict");
@@ -470,7 +472,10 @@ describe("cross-source conflict resolution", () => {
 		session.send({
 			kind: "resolve-fact-conflict",
 			groupId: conflictGroup.groupId,
-			choice: { kind: "observed", observationId: jsonObservation.observationId },
+			choice: {
+				kind: "observed",
+				observationId: jsonObservation.observationId,
+			},
 			reason: "The JSON export matches the bank statement I checked.",
 			executionContext: { recordedAt: fixedAnswerTime },
 		});
@@ -511,7 +516,8 @@ describe("cross-source conflict resolution", () => {
 		selectSalaryAndAisSources(session, "9,000.00");
 		await waitUntilAllExtracted(session);
 		const conflictGroup = intakeSnapshot(session).factConflicts.find(
-			(conflict) => String(conflict.factKey) === "bank-interest.savings-account",
+			(conflict) =>
+				String(conflict.factKey) === "bank-interest.savings-account",
 		);
 		if (conflictGroup === undefined) {
 			throw new Error("expected the savings-account conflict");
@@ -544,7 +550,8 @@ describe("cross-source conflict resolution", () => {
 		await waitUntilAllExtracted(session);
 
 		const conflictGroup = intakeSnapshot(session).factConflicts.find(
-			(conflict) => String(conflict.factKey) === "bank-interest.savings-account",
+			(conflict) =>
+				String(conflict.factKey) === "bank-interest.savings-account",
 		);
 		if (conflictGroup === undefined) {
 			throw new Error("expected the savings-account conflict");
@@ -580,9 +587,7 @@ describe("cross-source conflict resolution", () => {
 			kind: "remove-source-document",
 			documentId: csvCandidate.documentId,
 		});
-		await waitFor(
-			() => intakeSnapshot(session).factConflicts.length === 0,
-		);
+		await waitFor(() => intakeSnapshot(session).factConflicts.length === 0);
 
 		const estimate = estimateOf(session);
 		expect(estimate?.kind).toBe("computed");
@@ -707,7 +712,6 @@ describe("rejected documents contribute nothing", () => {
 	});
 });
 
-
 describe("every rejection class reaches the session snapshot distinctly", () => {
 	const rejectionCases = [
 		{
@@ -749,7 +753,10 @@ describe("every rejection class reaches the session snapshot distinctly", () => 
 
 			session.send(
 				selectCommand([
-					{ displayName: rejectionCase.displayName, bytes: rejectionCase.bytes() },
+					{
+						displayName: rejectionCase.displayName,
+						bytes: rejectionCase.bytes(),
+					},
 				]),
 			);
 			await waitUntilSettled(session, 20_000);
@@ -777,7 +784,9 @@ describe("every rejection class reaches the session snapshot distinctly", () => 
 type GatedCall = Readonly<{
 	stage: "inspect" | "extract";
 	signal: AbortSignal;
-	resolve: (outcome: DocumentInspectionOutcome | DocumentExtractionOutcome) => void;
+	resolve: (
+		outcome: DocumentInspectionOutcome | DocumentExtractionOutcome,
+	) => void;
 }>;
 
 const createGatedFacility = (): {
@@ -840,7 +849,7 @@ const createIdentifiedGatedSession = async () => {
 
 	calls
 		.filter((call) => call.stage === "inspect")
-		.forEach((call) =>
+		.forEach((call) => {
 			call.resolve({
 				kind: "identified",
 				document: {
@@ -848,8 +857,8 @@ const createIdentifiedGatedSession = async () => {
 					templateRevision: parseTemplateRevision("2026-27"),
 				},
 				adapter: { adapterId: "form16-pdf", adapterVersion: "1" },
-			} satisfies DocumentInspectionOutcome),
-		);
+			} satisfies DocumentInspectionOutcome);
+		});
 	return { session, calls };
 };
 
@@ -935,7 +944,7 @@ describe("cancellation and removal timing", () => {
 			return documents.length === 2 && documents[0]?.status !== "queued";
 		});
 
-const removedId = intakeDocuments(session)[1]?.documentId;
+		const removedId = intakeDocuments(session)[1]?.documentId;
 		if (removedId === undefined) {
 			throw new Error("candidate missing");
 		}
@@ -1008,9 +1017,7 @@ describe("observation extraction lifecycle", () => {
 			throw new Error("extraction did not complete");
 		}
 		expect(record.observations.map((o) => o.normalizedValue)).toEqual([
-			150000,
-			1200000,
-			1050000,
+			150000, 1200000, 1050000,
 		]);
 		expect(record.issues).toEqual([]);
 		expect(record.pages[0]?.lines.length).toBe(8);
@@ -1236,9 +1243,7 @@ describe("observation extraction lifecycle", () => {
 		const { session, calls } = await createIdentifiedGatedSession();
 
 		await waitFor(() => calls.some((call) => call.stage === "extract"));
-		await waitFor(
-			() => extractionRecords(session)[0]?.status === "extracting",
-		);
+		await waitFor(() => extractionRecords(session)[0]?.status === "extracting");
 
 		const documentId = intakeDocuments(session)[0]?.documentId;
 		if (documentId === undefined) {
@@ -1249,20 +1254,18 @@ describe("observation extraction lifecycle", () => {
 
 		calls
 			.filter((call) => call.stage === "extract")
-			.forEach((call) =>
+			.forEach((call) => {
 				call.resolve({
 					kind: "extracted",
 					taxPaymentObservations: [],
-					observations: [
-						fakeObservation(documentId, "salary.section-17-1", 1),
-					],
+					observations: [fakeObservation(documentId, "salary.section-17-1", 1)],
 					bankInterestObservations: [],
 					tdsObservations: [],
 					nonSalaryIncomeObservations: [],
 					issues: [],
 					pages: [],
-				} satisfies DocumentExtractionOutcome),
-			);
+				} satisfies DocumentExtractionOutcome);
+			});
 		await new Promise((resolve) => setTimeout(resolve, 100));
 
 		expect(extractionRecords(session)).toEqual([]);
@@ -1284,20 +1287,18 @@ describe("observation extraction lifecycle", () => {
 
 		calls
 			.filter((call) => call.stage === "extract")
-			.forEach((call) =>
+			.forEach((call) => {
 				call.resolve({
 					kind: "extracted",
 					taxPaymentObservations: [],
-					observations: [
-						fakeObservation(documentId, "salary.section-17-1", 1),
-					],
+					observations: [fakeObservation(documentId, "salary.section-17-1", 1)],
 					bankInterestObservations: [],
 					tdsObservations: [],
 					nonSalaryIncomeObservations: [],
 					issues: [],
 					pages: [],
-				} satisfies DocumentExtractionOutcome),
-			);
+				} satisfies DocumentExtractionOutcome);
+			});
 		await new Promise((resolve) => setTimeout(resolve, 100));
 
 		expect(extractionRecords(session)).toEqual([]);
@@ -1323,8 +1324,18 @@ const fakeObservation = (
 	originalText: "x",
 	normalizedValue: value,
 	transformationSteps: [],
-	evidence: { kind: "pdf-page-region", page: 1, x: 0, y: 0, width: 1, height: 1 },
-	ruleCitation: { ruleId: parseRuleId("FORM16-PARTA-TAXABLE-SALARY"), description: "d" },
+	evidence: {
+		kind: "pdf-page-region",
+		page: 1,
+		x: 0,
+		y: 0,
+		width: 1,
+		height: 1,
+	},
+	ruleCitation: {
+		ruleId: parseRuleId("FORM16-PARTA-TAXABLE-SALARY"),
+		description: "d",
+	},
 	record: { kind: "unidentified-document" },
 });
 
@@ -1543,10 +1554,9 @@ describe("new-regime salary computation exposure", () => {
 		if (snapshot.kind !== "document-intake") {
 			throw new Error("expected document intake");
 		}
-		expect(snapshot.factConflicts.map((conflict) => String(conflict.factKey))).toEqual([
-			"salary.section-17-1",
-			"salary.taxable-total",
-		]);
+		expect(
+			snapshot.factConflicts.map((conflict) => String(conflict.factKey)),
+		).toEqual(["salary.section-17-1", "salary.taxable-total"]);
 		for (const conflict of snapshot.factConflicts) {
 			expect(conflict.attestationPermitted).toBe(false);
 			expect(conflict.affectedResults).toEqual([
@@ -1583,18 +1593,14 @@ describe("new-regime salary computation exposure", () => {
 		}
 		calls
 			.filter((call) => call.stage === "extract")
-			.forEach((call) =>
+			.forEach((call) => {
 				call.resolve({
 					kind: "extracted",
 					taxPaymentObservations: [],
 					observations: [
 						fakeObservation(documentId, "salary.section-17-1", 1200000),
 						fakeObservation(documentId, "salary.section-17-1", 1300000),
-						fakeObservation(
-							documentId,
-							"salary.taxable-total",
-							1050000,
-						),
+						fakeObservation(documentId, "salary.taxable-total", 1050000),
 					],
 					bankInterestObservations: [],
 					tdsObservations: [],
@@ -1608,8 +1614,8 @@ describe("new-regime salary computation exposure", () => {
 						},
 					],
 					pages: [],
-				} satisfies DocumentExtractionOutcome),
-			);
+				} satisfies DocumentExtractionOutcome);
+			});
 		await waitFor(() => salaryComputationOf(session)?.kind === "blocked");
 
 		const computation = salaryComputationOf(session);
@@ -1668,9 +1674,7 @@ describe("refund-or-payable estimate exposure", () => {
 			: undefined;
 	};
 
-	const selectAllThreeDocuments = (
-		session: SessionOrchestrator,
-	): void => {
+	const selectAllThreeDocuments = (session: SessionOrchestrator): void => {
 		session.send(
 			selectCommand([
 				{
@@ -1767,7 +1771,7 @@ describe("refund-or-payable estimate exposure", () => {
 		}
 		calls
 			.filter((call) => call.stage === "extract")
-			.forEach((call) =>
+			.forEach((call) => {
 				call.resolve({
 					kind: "extracted",
 					taxPaymentObservations: [],
@@ -1790,15 +1794,13 @@ describe("refund-or-payable estimate exposure", () => {
 						{
 							code: DOCUMENT_REVIEW_ISSUE_CODES.bankInterestRecordAmbiguous,
 							severity: "review",
-							affectedFactKeys: [
-								parseFactKey("bank-interest.savings-account"),
-							],
+							affectedFactKeys: [parseFactKey("bank-interest.savings-account")],
 							recoveryAction: "Select the official AIS JSON export.",
 						},
 					],
 					pages: [],
-				} satisfies DocumentExtractionOutcome),
-			);
+				} satisfies DocumentExtractionOutcome);
+			});
 		await waitFor(() => estimateComputationOf(session)?.kind === "blocked");
 
 		const estimate = estimateComputationOf(session);
@@ -2060,10 +2062,11 @@ describe("refund-or-payable estimate exposure", () => {
 			kind: "remove-source-document",
 			documentId: aisCandidate.documentId,
 		});
-		await waitFor(() =>
-			intakeDocuments(session)
-				.find((candidate) => candidate.candidateKey === aisCandidate.candidateKey)
-				?.status === "removed",
+		await waitFor(
+			() =>
+				intakeDocuments(session).find(
+					(candidate) => candidate.candidateKey === aisCandidate.candidateKey,
+				)?.status === "removed",
 		);
 
 		const estimate = estimateComputationOf(session);
@@ -2104,8 +2107,7 @@ describe("refund-or-payable estimate exposure", () => {
 
 		const receiptRecord = extractionRecords(session).find(
 			(record) =>
-				record.status === "done" &&
-				record.taxPaymentObservations.length > 0,
+				record.status === "done" && record.taxPaymentObservations.length > 0,
 		);
 		expect(receiptRecord?.status).toBe("done");
 		if (receiptRecord?.status !== "done") {
@@ -2126,9 +2128,7 @@ describe("refund-or-payable estimate exposure", () => {
 			difference: "106920",
 		});
 		expect(
-			estimate.acceptedTaxPayments.map(
-				(receipt) => receipt.challanReference,
-			),
+			estimate.acceptedTaxPayments.map((receipt) => receipt.challanReference),
 		).toEqual(["BSR 0004321 · Serial 00517 · dated 26/03/2026"]);
 
 		session.stop();
@@ -2171,9 +2171,9 @@ describe("refund-or-payable estimate exposure", () => {
 		if (receiptRecord?.status !== "done") {
 			throw new Error("expected a done e-Pay Tax extraction record");
 		}
-		expect(
-			receiptRecord.issues.map((issue) => String(issue.code)),
-		).toEqual(["DOCUMENT_EPAY_RECEIPT_TYPE_OF_PAYMENT_UNKNOWN"]);
+		expect(receiptRecord.issues.map((issue) => String(issue.code))).toEqual([
+			"DOCUMENT_EPAY_RECEIPT_TYPE_OF_PAYMENT_UNKNOWN",
+		]);
 
 		// The unknown receipt contributes nothing: taxes paid stay at the
 		// statement's 61,250 deposits alone.
@@ -2223,7 +2223,11 @@ describe("refund-or-payable estimate exposure", () => {
 		);
 		expect(paymentConflicts).toHaveLength(1);
 		expect(paymentConflicts[0]?.attestationPermitted).toBe(false);
-		expect(new Set(paymentConflicts[0]?.candidates.map((candidate) => candidate.value)).size).toBe(2);
+		expect(
+			new Set(
+				paymentConflicts[0]?.candidates.map((candidate) => candidate.value),
+			).size,
+		).toBe(2);
 
 		const estimate = estimateComputationOf(session);
 		expect(estimate?.kind).toBe("blocked");

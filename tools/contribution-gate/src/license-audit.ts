@@ -1,9 +1,4 @@
-import {
-	existsSync,
-	realpathSync,
-	readdirSync,
-	readFileSync,
-} from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const ALLOWED_LICENSES = new Set([
@@ -17,9 +12,7 @@ const ALLOWED_LICENSES = new Set([
 	"OFL-1.1",
 ]);
 
-export const normalizeLicense = (
-	value: string | undefined,
-): string => {
+export const normalizeLicense = (value: string | undefined): string => {
 	if (value === undefined) {
 		return "UNLICENSED";
 	}
@@ -61,9 +54,7 @@ export type LicenseAuditResult = Readonly<{
 	violations: readonly LicenseViolation[];
 }>;
 
-const isRecord = (
-	value: unknown,
-): value is Record<string, unknown> =>
+const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null;
 
 const readPackageManifest = (file: string): Record<string, unknown> | null => {
@@ -166,9 +157,7 @@ export const auditWorkspaceLicenses = ({
 		}
 		visited.add(realPackageDir);
 
-		const manifest = readPackageManifest(
-			join(realPackageDir, "package.json"),
-		);
+		const manifest = readPackageManifest(join(realPackageDir, "package.json"));
 		if (manifest === null) {
 			violations.push({
 				name,

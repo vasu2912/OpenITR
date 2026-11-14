@@ -1,8 +1,4 @@
-import {
-	Alert,
-	Button,
-	Title,
-} from "@patternfly/react-core";
+import { Alert, Button, Title } from "@patternfly/react-core";
 
 import { buildFinalReview } from "../session/final-review-model";
 import type {
@@ -97,121 +93,121 @@ export const FinalReviewView = ({
 
 	return (
 		<section className="openitr-final-review" id="final-review-heading">
-				<Title headingLevel="h2" size="lg">
-					Final fact and evidence review
-				</Title>
-				<p>
-					Inspect the accepted facts, their provenance, transformations, and
-					downstream uses before confirming this analysis.
+			<Title headingLevel="h2" size="lg">
+				Final fact and evidence review
+			</Title>
+			<p>
+				Inspect the accepted facts, their provenance, transformations, and
+				downstream uses before confirming this analysis.
+			</p>
+			<p className="openitr-final-review-revision">
+				{currentRevision === undefined
+					? "A fact-set revision will appear when both regime calculations are ready."
+					: `Fact-set revision ${currentRevision}`}
+			</p>
+
+			{review.openItems.length === 0 ? (
+				<Alert isInline title="No unresolved review items" variant="success">
+					The grouped facts below are ready for final review.
+				</Alert>
+			) : (
+				<Alert
+					isInline
+					title="Warnings and unresolved review items"
+					variant="warning"
+				>
+					<ul className="openitr-final-review-open-items">
+						{review.openItems.map((item) => (
+							<li key={item.id}>
+								<strong>{item.label}</strong>
+								<br />
+								Affects: {item.affectedResults.join(", ")}
+								{item.targetId === undefined ? null : (
+									<>
+										{" · "}
+										<a href={`#${item.targetId}`}>Review item</a>
+									</>
+								)}
+							</li>
+						))}
+					</ul>
+				</Alert>
+			)}
+
+			<div className="openitr-final-review-topics">
+				{review.topics.map((topic) => (
+					<section aria-labelledby={`final-review-${topic.id}`} key={topic.id}>
+						<h3 id={`final-review-${topic.id}`}>{topic.label}</h3>
+						{topic.facts.length === 0 ? (
+							<p>No accepted facts in this topic.</p>
+						) : (
+							<ul className="openitr-final-review-facts">
+								{topic.facts.map((fact) => (
+									<li data-origin={fact.originKind} key={fact.id}>
+										<header>
+											<FactLabel factKey={fact.factKey} />
+											<strong>{fact.value}</strong>
+										</header>
+										<dl>
+											<div>
+												<dt>Origin</dt>
+												<dd>
+													{originLabels[fact.originKind]} · {fact.origin}
+												</dd>
+											</div>
+											<div>
+												<dt>Evidence</dt>
+												<dd>{fact.evidence}</dd>
+											</div>
+											<div>
+												<dt>Transformation</dt>
+												<dd>{fact.transformation}</dd>
+											</div>
+											<div>
+												<dt>Downstream use</dt>
+												<dd>
+													{fact.downstreamUses.length === 0
+														? "No direct downstream use recorded"
+														: fact.downstreamUses.join(", ")}
+												</dd>
+											</div>
+										</dl>
+										{fact.targetId === undefined ? null : (
+											<a href={`#${fact.targetId}`}>
+												Return to source or decision
+											</a>
+										)}
+									</li>
+								))}
+							</ul>
+						)}
+					</section>
+				))}
+			</div>
+
+			<div className="openitr-final-review-confirmation">
+				<Button
+					isDisabled={!canConfirm || confirmation !== undefined}
+					onClick={() =>
+						session.send({
+							kind: "confirm-final-review",
+							executionContext: { confirmedAt: new Date().toISOString() },
+						})
+					}
+					variant="primary"
+				>
+					Confirm reviewed fact set
+				</Button>
+				<p aria-live="polite">
+					{confirmation !== undefined
+						? `Confirmed revision ${confirmation.factSetRevision} at ${confirmation.confirmedAt}. This confirmation exists only in this browser session.`
+						: !hasCurrentPrimary
+							? "Choose a primary regime scenario before confirming."
+							: blockingItems.length > 0
+								? "Resolve the listed items before confirming."
+								: "This confirmation is stored only for the current fact-set revision and session."}
 				</p>
-				<p className="openitr-final-review-revision">
-					{currentRevision === undefined
-						? "A fact-set revision will appear when both regime calculations are ready."
-						: `Fact-set revision ${currentRevision}`}
-				</p>
-
-				{review.openItems.length === 0 ? (
-					<Alert isInline title="No unresolved review items" variant="success">
-						The grouped facts below are ready for final review.
-					</Alert>
-				) : (
-					<Alert
-						isInline
-						title="Warnings and unresolved review items"
-						variant="warning"
-					>
-						<ul className="openitr-final-review-open-items">
-							{review.openItems.map((item) => (
-								<li key={item.id}>
-									<strong>{item.label}</strong>
-									<br />
-									Affects: {item.affectedResults.join(", ")}
-									{item.targetId === undefined ? null : (
-										<>
-											{" · "}
-											<a href={`#${item.targetId}`}>Review item</a>
-										</>
-									)}
-								</li>
-							))}
-						</ul>
-					</Alert>
-				)}
-
-				<div className="openitr-final-review-topics">
-					{review.topics.map((topic) => (
-						<section aria-labelledby={`final-review-${topic.id}`} key={topic.id}>
-							<h3 id={`final-review-${topic.id}`}>{topic.label}</h3>
-							{topic.facts.length === 0 ? (
-								<p>No accepted facts in this topic.</p>
-							) : (
-								<ul className="openitr-final-review-facts">
-									{topic.facts.map((fact) => (
-										<li data-origin={fact.originKind} key={fact.id}>
-											<header>
-												<FactLabel factKey={fact.factKey} />
-												<strong>{fact.value}</strong>
-											</header>
-											<dl>
-												<div>
-													<dt>Origin</dt>
-													<dd>
-														{originLabels[fact.originKind]} · {fact.origin}
-													</dd>
-												</div>
-												<div>
-													<dt>Evidence</dt>
-													<dd>{fact.evidence}</dd>
-												</div>
-												<div>
-													<dt>Transformation</dt>
-													<dd>{fact.transformation}</dd>
-												</div>
-												<div>
-													<dt>Downstream use</dt>
-													<dd>
-														{fact.downstreamUses.length === 0
-															? "No direct downstream use recorded"
-															: fact.downstreamUses.join(", ")}
-													</dd>
-												</div>
-											</dl>
-											{fact.targetId === undefined ? null : (
-								<a href={`#${fact.targetId}`}>
-									Return to source or decision
-								</a>
-											)}
-										</li>
-									))}
-								</ul>
-							)}
-						</section>
-					))}
-				</div>
-
-				<div className="openitr-final-review-confirmation">
-					<Button
-						isDisabled={!canConfirm || confirmation !== undefined}
-						onClick={() =>
-							session.send({
-								kind: "confirm-final-review",
-								executionContext: { confirmedAt: new Date().toISOString() },
-							})
-						}
-						variant="primary"
-					>
-						Confirm reviewed fact set
-					</Button>
-					<p aria-live="polite">
-						{confirmation !== undefined
-							? `Confirmed revision ${confirmation.factSetRevision} at ${confirmation.confirmedAt}. This confirmation exists only in this browser session.`
-							: !hasCurrentPrimary
-								? "Choose a primary regime scenario before confirming."
-								: blockingItems.length > 0
-									? "Resolve the listed items before confirming."
-									: "This confirmation is stored only for the current fact-set revision and session."}
-					</p>
-				</div>
+			</div>
 		</section>
 	);
 };

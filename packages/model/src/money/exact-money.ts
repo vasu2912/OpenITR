@@ -65,8 +65,10 @@ export const exactMoneyFromWholeRupees = (value: number): ExactMoney => {
 	return canonical(new ExactDecimal(value));
 };
 
-export const addExactMoney = (left: ExactMoney, right: ExactMoney): ExactMoney =>
-	canonical(asExactDecimal(left).plus(asExactDecimal(right)));
+export const addExactMoney = (
+	left: ExactMoney,
+	right: ExactMoney,
+): ExactMoney => canonical(asExactDecimal(left).plus(asExactDecimal(right)));
 
 export const subtractExactMoney = (
 	left: ExactMoney,
@@ -88,9 +90,7 @@ export const multiplyByWholePercent = (
 	if (!Number.isSafeInteger(percent) || percent < 0 || percent > 100) {
 		throw new Error(`Invalid whole percentage: ${percent}`);
 	}
-	return canonical(
-		asExactDecimal(amount).times(percent).dividedBy(100),
-	);
+	return canonical(asExactDecimal(amount).times(percent).dividedBy(100));
 };
 
 export const multiplyByBasisPoints = (
@@ -104,9 +104,7 @@ export const multiplyByBasisPoints = (
 	) {
 		throw new Error(`Invalid basis-point rate: ${basisPoints}`);
 	}
-	return canonical(
-		asExactDecimal(amount).times(basisPoints).dividedBy(10_000),
-	);
+	return canonical(asExactDecimal(amount).times(basisPoints).dividedBy(10_000));
 };
 
 // Some statutory fractions feed whole-rupee form fields. Divide with the

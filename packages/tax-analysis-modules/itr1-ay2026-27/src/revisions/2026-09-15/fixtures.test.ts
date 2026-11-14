@@ -20,16 +20,12 @@ describe("2026-09-15 complete new-regime rule pack", () => {
 				.completeComputation,
 		).toEqual({
 			itr1NormalRateIncomeLimitWholeRupees: 5_000_000,
-			itr1NormalRateIncomeLimitRuleId:
-				"ITR1-NR-ITR1-NORMAL-RATE-INCOME-LIMIT",
+			itr1NormalRateIncomeLimitRuleId: "ITR1-NR-ITR1-NORMAL-RATE-INCOME-LIMIT",
 			incomeAggregationRuleId: "ITR1-NR-COMPLETE-INCOME-AGGREGATION",
 			housePropertyLossSetoffRuleId:
 				"ITR1-NR-HOUSE-PROPERTY-LOSS-SETOFF-EXCLUDED",
-			deductionCompositionRuleId:
-				"ITR1-NR-COMPLETE-DEDUCTION-COMPOSITION",
+			deductionCompositionRuleId: "ITR1-NR-COMPLETE-DEDUCTION-COMPOSITION",
 		});
-		expect(itr1Ay202627RulePack20260915.identity.revision).toBe(
-			"2026-09-15",
-		);
+		expect(itr1Ay202627RulePack20260915.identity.revision).toBe("2026-09-15");
 	});
 });

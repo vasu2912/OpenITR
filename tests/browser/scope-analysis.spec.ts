@@ -3,7 +3,9 @@ import { expect, test } from "@playwright/test";
 import { answerScopeCheck, openScopeQuestion } from "./helpers";
 
 test.describe("full ITR-1 analysis scope", () => {
-	test("shows the compact analysis notice only before the questionnaire", async ({ page }) => {
+	test("shows the compact analysis notice only before the questionnaire", async ({
+		page,
+	}) => {
 		await openScopeQuestion(page);
 		await expect(page.getByRole("note")).toContainText("For analysis only");
 		await answerScopeCheck(page, "Yes");
@@ -11,7 +13,9 @@ test.describe("full ITR-1 analysis scope", () => {
 		await expect(page.locator("[data-current-scope-question]")).toHaveCount(1);
 	});
 
-	test("renders unresolved scope questions and cited decisions after the initial answer", async ({ page }) => {
+	test("renders unresolved scope questions and cited decisions after the initial answer", async ({
+		page,
+	}) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
 
@@ -32,22 +36,36 @@ test.describe("full ITR-1 analysis scope", () => {
 			/What was your total income for FY 2025-26/i,
 		);
 		await expect(totalIncome).toHaveValue("");
-		await expect(page.getByRole("button", { name: "Record scope answer" }).first()).toBeDisabled();
+		await expect(
+			page.getByRole("button", { name: "Record scope answer" }).first(),
+		).toBeDisabled();
 		await page.getByRole("tab", { name: "Decision", exact: true }).click();
-		await expect(page.getByText(/Missing fact key: scope\.total-income/)).toBeVisible();
+		await expect(
+			page.getByText(/Missing fact key: scope\.total-income/),
+		).toBeVisible();
 	});
 
-	test("announces invalid scope input and keeps the question unresolved", async ({ page }) => {
+	test("announces invalid scope input and keeps the question unresolved", async ({
+		page,
+	}) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
-		const form = page.locator("form").filter({ has: page.getByLabel(/What was your total income/) });
+		const form = page
+			.locator("form")
+			.filter({ has: page.getByLabel(/What was your total income/) });
 		await form.getByLabel(/What was your total income/).fill("not-money");
 		await form.getByRole("button", { name: "Record scope answer" }).click();
-		await expect(form.getByRole("alert")).toContainText(/non-negative amount|valid amount|digits/i);
-		await expect(form.getByLabel(/What was your total income/)).toHaveValue("not-money");
+		await expect(form.getByRole("alert")).toContainText(
+			/non-negative amount|valid amount|digits/i,
+		);
+		await expect(form.getByLabel(/What was your total income/)).toHaveValue(
+			"not-money",
+		);
 	});
 
-	test("keeps the answer action clear of the input and advances after recording", async ({ page }) => {
+	test("keeps the answer action clear of the input and advances after recording", async ({
+		page,
+	}) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
 
@@ -80,7 +98,9 @@ test.describe("full ITR-1 analysis scope", () => {
 		await expect(page.locator("[data-current-scope-question]")).toHaveCount(1);
 	});
 
-	test("shows bounded counts and Yes or No answers as visible choices", async ({ page }) => {
+	test("shows bounded counts and Yes or No answers as visible choices", async ({
+		page,
+	}) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
 
@@ -123,16 +143,12 @@ test.describe("full ITR-1 analysis scope", () => {
 				noPropertiesBox.y + noPropertiesBox.height,
 			);
 		}
-		await currentQuestion
-			.getByRole("radio", { name: "No properties" })
-			.check();
+		await currentQuestion.getByRole("radio", { name: "No properties" }).check();
 		await currentQuestion
 			.getByRole("button", { name: "Record scope answer" })
 			.click();
 
-		await currentQuestion
-			.getByLabel(/How much long-term profit/i)
-			.fill("0");
+		await currentQuestion.getByLabel(/How much long-term profit/i).fill("0");
 		await currentQuestion
 			.getByRole("button", { name: "Record scope answer" })
 			.click();
@@ -145,7 +161,9 @@ test.describe("full ITR-1 analysis scope", () => {
 		await expect(currentQuestion.getByRole("combobox")).toHaveCount(0);
 	});
 
-	test("keeps a deferred question out of the way when the taxpayer changes sections", async ({ page }) => {
+	test("keeps a deferred question out of the way when the taxpayer changes sections", async ({
+		page,
+	}) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
 
@@ -167,29 +185,46 @@ test.describe("full ITR-1 analysis scope", () => {
 		);
 	});
 
-	test("keeps a recorded answer editable and renders its typed provenance", async ({ page }) => {
+	test("keeps a recorded answer editable and renders its typed provenance", async ({
+		page,
+	}) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
-		const form = page.locator("form").filter({ has: page.getByLabel(/What was your total income/) });
+		const form = page
+			.locator("form")
+			.filter({ has: page.getByLabel(/What was your total income/) });
 		await form.getByLabel(/What was your total income/).fill("5000000");
 		await form.getByRole("button", { name: "Record scope answer" }).click();
-		await page.locator("summary").filter({ hasText: /Review .* recorded answers?/ }).click();
+		await page
+			.locator("summary")
+			.filter({ hasText: /Review .* recorded answers?/ })
+			.click();
 		const recorded = page.locator('[data-scope-question="scope-total-income"]');
 		await expect(recorded).toContainText("Recorded answer: ₹ 5,000,000");
 		await expect(recorded).toContainText("Pinned revision 2026-09-17");
 		await recorded.getByRole("button", { name: "Change answer" }).click();
-		await expect(recorded.getByLabel(/What was your total income/)).toHaveValue("5000000");
+		await expect(recorded.getByLabel(/What was your total income/)).toHaveValue(
+			"5000000",
+		);
 		await recorded.getByLabel(/What was your total income/).fill("5000000.01");
 		await recorded.getByRole("button", { name: "Record scope answer" }).click();
 		await page.getByRole("tab", { name: "Decision", exact: true }).click();
 		await expect(page.getByText(/Total income above ₹50,00,000/)).toBeVisible();
 	});
 
-	test("does not expose enabled document intake while full scope is unresolved", async ({ page }) => {
+	test("does not expose enabled document intake while full scope is unresolved", async ({
+		page,
+	}) => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
-		await expect(page.getByRole("heading", { name: "Select source documents" })).toHaveCount(0);
+		await expect(
+			page.getByRole("heading", { name: "Select source documents" }),
+		).toHaveCount(0);
 		await page.getByRole("button", { name: /^\d+\. Documents/ }).click();
-		await expect(page.getByText(/Complete the mandatory scope questions before selecting source documents/i)).toBeVisible();
+		await expect(
+			page.getByText(
+				/Complete the mandatory scope questions before selecting source documents/i,
+			),
+		).toBeVisible();
 	});
 });

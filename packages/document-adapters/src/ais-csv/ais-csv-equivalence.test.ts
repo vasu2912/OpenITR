@@ -1,7 +1,11 @@
-import type { BankInterestObservation } from "@openitr/model";
-import { addExactMoney, parseExactMoney } from "@openitr/model";
+import type { BankInterestObservation, Sha256Digest } from "@openitr/model";
+import {
+	addExactMoney,
+	computeSourceDocumentIdentity,
+	parseExactMoney,
+} from "@openitr/model";
 import { describe, expect, test } from "vitest";
-
+import { createAisJsonAdapter } from "../ais-json/ais-json-adapter";
 import {
 	AIS_BANK_INTEREST_DEPOSITS_RECORD,
 	AIS_BANK_INTEREST_SAVINGS_RECORD,
@@ -10,18 +14,15 @@ import {
 	utf8Bytes,
 } from "../testing";
 import { createAisCsvAdapter } from "./ais-csv-adapter";
-import { createAisJsonAdapter } from "../ais-json/ais-json-adapter";
-import { computeSourceDocumentIdentity } from "@openitr/model";
-import type { Sha256Digest } from "@openitr/model";
 
-const identityOf = async (bytes: Uint8Array<ArrayBuffer>): Promise<Sha256Digest> =>
+const identityOf = async (
+	bytes: Uint8Array<ArrayBuffer>,
+): Promise<Sha256Digest> =>
 	(await computeSourceDocumentIdentity({ bytes })).contentSha256;
 
-const extractWith = async (
-	text: string,
-	format: "csv" | "json",
-) => {
-	const adapter = format === "csv" ? createAisCsvAdapter() : createAisJsonAdapter();
+const extractWith = async (text: string, format: "csv" | "json") => {
+	const adapter =
+		format === "csv" ? createAisCsvAdapter() : createAisJsonAdapter();
 	const { extract } = adapter;
 	if (extract === undefined) {
 		throw new Error("the AIS adapters must support extraction");
@@ -29,8 +30,7 @@ const extractWith = async (
 	const bytes = utf8Bytes(text);
 	const outcome = await extract({
 		identity: await identityOf(bytes),
-		displayName:
-			format === "csv" ? "synthetic-ais.csv" : "synthetic-ais.json",
+		displayName: format === "csv" ? "synthetic-ais.csv" : "synthetic-ais.json",
 		bytes,
 	});
 	if (outcome.kind !== "extracted") {
@@ -94,22 +94,22 @@ describe("equivalent AIS JSON and AIS CSV fixtures", () => {
 		).toEqual(["ais-json", "ais-json"]);
 		expect(csvOutcome.issues).toEqual(jsonOutcome.issues);
 
-		expect(
-			csvOutcome.bankInterestObservations.map(csvLocatorSansLine),
-		).toEqual([
-			{
-				kind: "csv-record-column",
-				columnIndex: 3,
-				columnHeader: "interestAmount",
-				rawValue: '"45,678.90"',
-			},
-			{
-				kind: "csv-record-column",
-				columnIndex: 3,
-				columnHeader: "interestAmount",
-				rawValue: '"7,890.25"',
-			},
-		]);
+		expect(csvOutcome.bankInterestObservations.map(csvLocatorSansLine)).toEqual(
+			[
+				{
+					kind: "csv-record-column",
+					columnIndex: 3,
+					columnHeader: "interestAmount",
+					rawValue: '"45,678.90"',
+				},
+				{
+					kind: "csv-record-column",
+					columnIndex: 3,
+					columnHeader: "interestAmount",
+					rawValue: '"7,890.25"',
+				},
+			],
+		);
 		// Each representation preserves its own raw amount text: the JSON
 		// export keeps its JSON encoding, the CSV keeps its exact cell.
 		expect(
@@ -132,7 +132,9 @@ describe("equivalent AIS JSON and AIS CSV fixtures", () => {
 			interestAmount: "500",
 		};
 		const jsonOutcome = await extractWith(
-			createAisJsonBankInterestFixture({ bankInterestRecords: [ungroupedSavings] }),
+			createAisJsonBankInterestFixture({
+				bankInterestRecords: [ungroupedSavings],
+			}),
 			"json",
 		);
 		const csvOutcome = await extractWith(
@@ -140,9 +142,9 @@ describe("equivalent AIS JSON and AIS CSV fixtures", () => {
 			"csv",
 		);
 
-		expect(
-			jsonOutcome.bankInterestObservations.map(canonicalFactOf),
-		).toEqual(csvOutcome.bankInterestObservations.map(canonicalFactOf));
+		expect(jsonOutcome.bankInterestObservations.map(canonicalFactOf)).toEqual(
+			csvOutcome.bankInterestObservations.map(canonicalFactOf),
+		);
 		// Without a grouping comma the two raw representations visibly
 		// diverge, which is exactly why raw values sit outside fact
 		// equality.
@@ -165,7 +167,10 @@ describe("equivalent AIS JSON and AIS CSV fixtures", () => {
 		const totalOf = (observations: readonly BankInterestObservation[]) =>
 			observations
 				.map((observation) => observation.normalizedValue)
-				.reduce((left, right) => addExactMoney(left, right), parseExactMoney("0"));
+				.reduce(
+					(left, right) => addExactMoney(left, right),
+					parseExactMoney("0"),
+				);
 
 		expect(totalOf(csvOutcome.bankInterestObservations)).toBe(
 			totalOf(jsonOutcome.bankInterestObservations),
@@ -204,19 +209,17 @@ describe("AIS CSV source ordering", () => {
 			reversedOutcome.bankInterestObservations.map(csvLocatorSansLine),
 		).toEqual(forwardOutcome.bankInterestObservations.map(csvLocatorSansLine));
 		expect(
-			forwardOutcome.bankInterestObservations.map(
-				(observation) =>
-					observation.evidence.kind === "csv-record-column"
-						? observation.evidence.line
-						: undefined,
+			forwardOutcome.bankInterestObservations.map((observation) =>
+				observation.evidence.kind === "csv-record-column"
+					? observation.evidence.line
+					: undefined,
 			),
 		).toEqual([6, 5]);
 		expect(
-			reversedOutcome.bankInterestObservations.map(
-				(observation) =>
-					observation.evidence.kind === "csv-record-column"
-						? observation.evidence.line
-						: undefined,
+			reversedOutcome.bankInterestObservations.map((observation) =>
+				observation.evidence.kind === "csv-record-column"
+					? observation.evidence.line
+					: undefined,
 			),
 		).toEqual([5, 6]);
 
@@ -229,8 +232,8 @@ describe("AIS CSV source ordering", () => {
 		const firstOutcome = await extractWith(text, "csv");
 		const secondOutcome = await extractWith(text, "csv");
 
-		expect(
-			JSON.stringify(secondOutcome.bankInterestObservations),
-		).toBe(JSON.stringify(firstOutcome.bankInterestObservations));
+		expect(JSON.stringify(secondOutcome.bankInterestObservations)).toBe(
+			JSON.stringify(firstOutcome.bankInterestObservations),
+		);
 	});
 });

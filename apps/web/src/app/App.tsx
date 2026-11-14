@@ -1,3 +1,4 @@
+import { FORM16_SALARY_FIELD_DEFINITIONS } from "@openitr/document-adapters";
 import type {
 	EligibilityAnswerValue,
 	EligibilityQuestion,
@@ -33,21 +34,23 @@ import {
 	ProgressStepper,
 	Radio,
 	Tab,
-	TabTitleText,
 	Tabs,
+	TabTitleText,
 	Title,
 } from "@patternfly/react-core";
+import type {
+	FormEvent,
+	MouseEvent as ReactMouseEvent,
+	ReactNode,
+} from "react";
 import { useContext, useEffect, useState, useSyncExternalStore } from "react";
-import type { FormEvent, MouseEvent as ReactMouseEvent, ReactNode } from "react";
-
-import { FORM16_SALARY_FIELD_DEFINITIONS } from "@openitr/document-adapters";
 
 import { loadRulePack } from "../session/load-rule-pack";
-import { createSessionOrchestrator } from "../session/session-orchestrator";
 import type {
 	DocumentIntakeSnapshot,
 	SessionOrchestrator,
 } from "../session/session-orchestrator";
+import { createSessionOrchestrator } from "../session/session-orchestrator";
 import { workerInspectionFacility } from "../session/worker-inspection-facility";
 import { AgriculturalIncomeView } from "../views/agricultural-income";
 import { AnalysisReadinessView } from "../views/analysis-readiness";
@@ -64,6 +67,11 @@ import { MissingFactQuestionsView } from "../views/missing-fact-questions";
 import { NewRegimeComputationView } from "../views/new-regime-computation";
 import { OldRegimeComputationView } from "../views/old-regime-computation";
 import { OtherSourcesComputationView } from "../views/other-sources-computation";
+import {
+	createFactLabeler,
+	type FactLabeler,
+	FactLabelProvider,
+} from "../views/plain-language";
 import { RegimeComparisonView } from "../views/regime-comparison";
 import { RemainingDeductionsView } from "../views/remaining-deductions";
 import { SalaryComputationView } from "../views/salary-computation";
@@ -71,11 +79,6 @@ import { SalaryReviewView } from "../views/salary-review";
 import { SavingsPensionDeductionsView } from "../views/savings-pension-deductions";
 import { ScopeAnalysisView } from "../views/scope-analysis";
 import { Section112aCapitalGainView } from "../views/section112a-capital-gain";
-import {
-	createFactLabeler,
-	FactLabelProvider,
-	type FactLabeler,
-} from "../views/plain-language";
 import { activeAnalysisRelease } from "./release-manifest";
 
 type SessionLoadState =
@@ -226,8 +229,7 @@ const workflowStages = [
 	},
 ] as const satisfies readonly WorkflowStage[];
 
-type WorkflowPageId =
-	(typeof workflowStages)[number]["pages"][number]["id"];
+type WorkflowPageId = (typeof workflowStages)[number]["pages"][number]["id"];
 
 const workflowPages: readonly (WorkflowPage & { stage: WorkflowStage })[] =
 	workflowStages.flatMap((stage) =>
@@ -251,7 +253,10 @@ const pageForTarget = (targetId: string): WorkflowPageId | undefined => {
 	) {
 		return "review";
 	}
-	if (targetId === "regime-comparison-heading" || targetId.startsWith("trace-")) {
+	if (
+		targetId === "regime-comparison-heading" ||
+		targetId.startsWith("trace-")
+	) {
 		return "tax-comparison";
 	}
 	if (targetId === "final-review-heading") return "final-review";
@@ -311,7 +316,9 @@ const WorkflowSteps = ({
 					});
 					return (
 						<ProgressStep
-							aria-current={stageIndex === activeStageIndex ? "step" : undefined}
+							aria-current={
+								stageIndex === activeStageIndex ? "step" : undefined
+							}
 							description={status}
 							id={`workflow-step-${stage.id}`}
 							isCurrent={stageIndex === activeStageIndex}
@@ -386,7 +393,10 @@ const AppFrame = ({
 		<Masthead>
 			<MastheadMain>
 				<MastheadToggle>
-					<PageToggleButton aria-label="Analysis workflow navigation" isHamburgerButton />
+					<PageToggleButton
+						aria-label="Analysis workflow navigation"
+						isHamburgerButton
+					/>
 				</MastheadToggle>
 				<MastheadBrand>
 					<span className="openitr-wordmark">OpenITR</span>
@@ -399,8 +409,10 @@ const AppFrame = ({
 					style={{ width: "100%" }}
 				>
 					<Content component="small">
-						{activeAnalysisRelease.form} · FY {activeAnalysisRelease.financialYear} · AY{" "}
-						{activeAnalysisRelease.assessmentYear} · Educational analysis, not a filing
+						{activeAnalysisRelease.form} · FY{" "}
+						{activeAnalysisRelease.financialYear} · AY{" "}
+						{activeAnalysisRelease.assessmentYear} · Educational analysis, not a
+						filing
 					</Content>
 					{sessionActions}
 				</Flex>
@@ -515,40 +527,44 @@ const ScopeQuestionCard = ({
 
 	return (
 		<section>
-				<Title headingLevel="h2" size="lg">
-					Residential status
-				</Title>
-				<Form onSubmit={handleSubmit}>
-					<FormGroup
-						fieldId={question.id}
-						isRequired
-						isStack
-						label={question.prompt}
-						role="radiogroup"
+			<Title headingLevel="h2" size="lg">
+				Residential status
+			</Title>
+			<Form onSubmit={handleSubmit}>
+				<FormGroup
+					fieldId={question.id}
+					isRequired
+					isStack
+					label={question.prompt}
+					role="radiogroup"
+				>
+					{question.answers.map((option) => (
+						<Radio
+							aria-describedby={helpTextId}
+							id={`${question.id}-${option.value}`}
+							isChecked={answer === option.value}
+							key={option.value}
+							label={option.label}
+							name={question.id}
+							onChange={() => setAnswer(option.value)}
+						/>
+					))}
+					<FormHelperText>
+						<HelperText id={helpTextId}>
+							<HelperTextItem>{question.helpText}</HelperTextItem>
+						</HelperText>
+					</FormHelperText>
+				</FormGroup>
+				<ActionGroup>
+					<Button
+						isDisabled={answer === undefined}
+						type="submit"
+						variant="primary"
 					>
-						{question.answers.map((option) => (
-							<Radio
-								aria-describedby={helpTextId}
-								id={`${question.id}-${option.value}`}
-								isChecked={answer === option.value}
-								key={option.value}
-								label={option.label}
-								name={question.id}
-								onChange={() => setAnswer(option.value)}
-							/>
-						))}
-						<FormHelperText>
-							<HelperText id={helpTextId}>
-								<HelperTextItem>{question.helpText}</HelperTextItem>
-							</HelperText>
-						</FormHelperText>
-					</FormGroup>
-					<ActionGroup>
-						<Button isDisabled={answer === undefined} type="submit" variant="primary">
-							Continue
-						</Button>
-					</ActionGroup>
-				</Form>
+						Continue
+					</Button>
+				</ActionGroup>
+			</Form>
 			<footer>
 				Rule pack revision {activeAnalysisRelease.rulePackRevision}
 			</footer>
@@ -565,7 +581,12 @@ const ResetSessionDialog = ({
 	onCancel: () => void;
 	onConfirmReset: () => void;
 }>) => (
-	<Modal aria-label="Reset this session?" isOpen={isOpen} onClose={onCancel} variant="small">
+	<Modal
+		aria-label="Reset this session?"
+		isOpen={isOpen}
+		onClose={onCancel}
+		variant="small"
+	>
 		<ModalHeader title="Reset this session?" titleIconVariant="warning" />
 		<ModalBody>
 			Resetting discards your answers and documents from this tab's memory.
@@ -615,7 +636,10 @@ const IntakePage = ({
 						resolutions={intake.factResolutions}
 						session={session}
 					/>
-					<SalaryReviewView documents={intake.documents} extractions={intake.extractions} />
+					<SalaryReviewView
+						documents={intake.documents}
+						extractions={intake.extractions}
+					/>
 				</>
 			);
 		case "income-computations":
@@ -625,12 +649,18 @@ const IntakePage = ({
 						computation={intake.salaryComputation}
 						documents={intake.documents}
 					/>
-					<HousePropertyComputationView computation={intake.housePropertyComputation} />
-					<OtherSourcesComputationView computation={intake.otherSourcesComputation} />
+					<HousePropertyComputationView
+						computation={intake.housePropertyComputation}
+					/>
+					<OtherSourcesComputationView
+						computation={intake.otherSourcesComputation}
+					/>
 					<Section112aCapitalGainView
 						computation={intake.section112aCapitalGainComputation}
 					/>
-					<AgriculturalIncomeView computation={intake.agriculturalIncomeComputation} />
+					<AgriculturalIncomeView
+						computation={intake.agriculturalIncomeComputation}
+					/>
 				</>
 			);
 		case "deductions":
@@ -642,9 +672,15 @@ const IntakePage = ({
 					<HealthDisabilityDeductionsView
 						computation={intake.healthDisabilityDeductionComputation}
 					/>
-					<LoanInterestDeductionsView computation={intake.loanInterestDeductionComputation} />
-					<DonationDeductionsView computation={intake.donationDeductionComputation} />
-					<RemainingDeductionsView computation={intake.remainingDeductionComputation} />
+					<LoanInterestDeductionsView
+						computation={intake.loanInterestDeductionComputation}
+					/>
+					<DonationDeductionsView
+						computation={intake.donationDeductionComputation}
+					/>
+					<RemainingDeductionsView
+						computation={intake.remainingDeductionComputation}
+					/>
 				</>
 			);
 		case "tax-comparison":
@@ -702,6 +738,7 @@ const ScopeInteraction = ({
 		return () => window.removeEventListener("hashchange", openHashTarget);
 	}, []);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll to the hash target again whenever the page or session content changes.
 	useEffect(() => {
 		const targetId = decodeURIComponent(window.location.hash.slice(1));
 		if (targetId === "") return;
@@ -762,48 +799,54 @@ const ScopeInteraction = ({
 			case "scope-questions":
 				return analysisScope === undefined ? (
 					<section aria-live="polite">
-							<Title headingLevel="h2" size="lg">
-								Scope-check result
-							</Title>
-							<Alert
-								isInline
-								title={completion.result.title}
-								variant={completion.result.kind === "supported" ? "success" : "warning"}
-							>
-								{completion.result.explanation}
-							</Alert>
-							<dl className="openitr-result-details">
-								<div>
-									<dt>Question</dt>
-									<dd>{completion.question.prompt}</dd>
-								</div>
-								<div>
-									<dt>Your answer</dt>
-									<dd>{completion.answer.label}</dd>
-								</div>
-								<div>
-									<dt>Rule</dt>
-									<dd>{completion.result.rule.id}</dd>
-								</div>
-								<div>
-									<dt>Official source</dt>
-									<dd>
-										<a href={completion.result.rule.sourceUrl} rel="noreferrer" target="_blank">
-											{completion.result.rule.citation}
-										</a>
-									</dd>
-								</div>
-							</dl>
-							{completion.result.kind === "unsupported" ? (
-								<p>
-									<strong>Next action:</strong>{" "}
-									{completion.result.issue.recoveryAction}
-								</p>
-							) : null}
+						<Title headingLevel="h2" size="lg">
+							Scope-check result
+						</Title>
+						<Alert
+							isInline
+							title={completion.result.title}
+							variant={
+								completion.result.kind === "supported" ? "success" : "warning"
+							}
+						>
+							{completion.result.explanation}
+						</Alert>
+						<dl className="openitr-result-details">
+							<div>
+								<dt>Question</dt>
+								<dd>{completion.question.prompt}</dd>
+							</div>
+							<div>
+								<dt>Your answer</dt>
+								<dd>{completion.answer.label}</dd>
+							</div>
+							<div>
+								<dt>Rule</dt>
+								<dd>{completion.result.rule.id}</dd>
+							</div>
+							<div>
+								<dt>Official source</dt>
+								<dd>
+									<a
+										href={completion.result.rule.sourceUrl}
+										rel="noreferrer"
+										target="_blank"
+									>
+										{completion.result.rule.citation}
+									</a>
+								</dd>
+							</div>
+						</dl>
+						{completion.result.kind === "unsupported" ? (
 							<p>
-								This result covers only this question. It is not a
-								filing-eligibility decision.
+								<strong>Next action:</strong>{" "}
+								{completion.result.issue.recoveryAction}
 							</p>
+						) : null}
+						<p>
+							This result covers only this question. It is not a
+							filing-eligibility decision.
+						</p>
 					</section>
 				) : (
 					<ScopeAnalysisView
@@ -819,7 +862,9 @@ const ScopeInteraction = ({
 				return analysisScope === undefined ? null : (
 					<ScopeAnalysisView
 						evaluation={analysisScope}
-						section={activePageId === "scope-decisions" ? "decisions" : "evidence"}
+						section={
+							activePageId === "scope-decisions" ? "decisions" : "evidence"
+						}
 						session={session}
 					/>
 				);
@@ -844,7 +889,9 @@ const ScopeInteraction = ({
 			default: {
 				const page = workflowPages[pageIndexOf(activePageId)];
 				return intake === undefined ? (
-					page === undefined ? null : <UnavailableNotice page={page} />
+					page === undefined ? null : (
+						<UnavailableNotice page={page} />
+					)
 				) : (
 					<IntakePage intake={intake} pageId={activePageId} session={session} />
 				);
@@ -864,14 +911,22 @@ const ScopeInteraction = ({
 						: "in-progress"
 			}
 			sessionActions={
-				<Button onClick={() => setResetConfirmationOpen(true)} variant="secondary">
+				<Button
+					onClick={() => setResetConfirmationOpen(true)}
+					variant="secondary"
+				>
 					Reset session
 				</Button>
 			}
 		>
 			{pageContent()}
 			{intake?.pendingRecomputation.kind === "pending" ? (
-				<Alert aria-live="polite" isInline title="Recomputing affected results" variant="info">
+				<Alert
+					aria-live="polite"
+					isInline
+					title="Recomputing affected results"
+					variant="info"
+				>
 					The previous estimate is hidden while the changed decision is applied.
 					The regime calculations and comparison are hidden too.
 				</Alert>
@@ -948,8 +1003,13 @@ export const App = () => {
 		case "failed":
 			return (
 				<AppFrame scopeStatus="blocked">
-					<Alert isInline title="The rule pack could not be loaded" variant="danger">
-						Refresh the page to try again. Incident code: {loadState.incidentCode}.
+					<Alert
+						isInline
+						title="The rule pack could not be loaded"
+						variant="danger"
+					>
+						Refresh the page to try again. Incident code:{" "}
+						{loadState.incidentCode}.
 					</Alert>
 				</AppFrame>
 			);

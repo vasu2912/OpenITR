@@ -43,8 +43,7 @@ export const loadRulePack = async (
 		);
 	}
 	if (
-		moduleArtifact.rulePackRevisions.moduleId !==
-		release.taxAnalysisModule.id
+		moduleArtifact.rulePackRevisions.moduleId !== release.taxAnalysisModule.id
 	) {
 		throw new Error(
 			`Rule-pack registry belongs to another tax-analysis module: ${moduleArtifact.rulePackRevisions.moduleId}`,

@@ -3,8 +3,8 @@ import {
 	createForm26AsTextFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
 	openAnalysis,
@@ -69,23 +69,59 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	).toBeVisible({ timeout: 30_000 });
 	for (const [label, value] of [
 		["How much savings-account interest did you receive in FY 2025-26?", "0"],
-		["How much interest on deposits (fixed or recurring) did you receive in FY 2025-26?", "0"],
+		[
+			"How much interest on deposits (fixed or recurring) did you receive in FY 2025-26?",
+			"0",
+		],
 		["Were you a resident senior citizen for FY 2025-26?", "no"],
-		["Do you want to analyze any section 80C, 80CCC, or 80CCD savings and pension contributions for FY 2025-26?", "no"],
-		["Do you want to analyze section 80D health-insurance, preventive-checkup, or eligible senior-citizen medical payments?", "no"],
-		["Do you want to analyze a section 80DD deduction for a dependent person with disability?", "no"],
-		["Do you want to analyze section 80DDB medical treatment for a specified disease?", "no"],
+		[
+			"Do you want to analyze any section 80C, 80CCC, or 80CCD savings and pension contributions for FY 2025-26?",
+			"no",
+		],
+		[
+			"Do you want to analyze section 80D health-insurance, preventive-checkup, or eligible senior-citizen medical payments?",
+			"no",
+		],
+		[
+			"Do you want to analyze a section 80DD deduction for a dependent person with disability?",
+			"no",
+		],
+		[
+			"Do you want to analyze section 80DDB medical treatment for a specified disease?",
+			"no",
+		],
 		["Do you want to analyze section 80U for your own disability?", "no"],
-		["Do you want to analyze interest on a higher-education loan under section 80E?", "no"],
-		["Do you want to analyze additional first-home loan interest under section 80EE?", "no"],
-		["Do you want to analyze additional affordable first-home loan interest under section 80EEA?", "no"],
-		["Do you want to analyze electric-vehicle loan interest under section 80EEB?", "no"],
+		[
+			"Do you want to analyze interest on a higher-education loan under section 80E?",
+			"no",
+		],
+		[
+			"Do you want to analyze additional first-home loan interest under section 80EE?",
+			"no",
+		],
+		[
+			"Do you want to analyze additional affordable first-home loan interest under section 80EEA?",
+			"no",
+		],
+		[
+			"Do you want to analyze electric-vehicle loan interest under section 80EEB?",
+			"no",
+		],
 		["Do you want to analyze a donation under section 80G?", "no"],
-		["Do you want to analyze an Agniveer Corpus Fund deduction under section 80CCH?", "no"],
+		[
+			"Do you want to analyze an Agniveer Corpus Fund deduction under section 80CCH?",
+			"no",
+		],
 		["Do you want to analyze rent paid under section 80GG?", "no"],
 		["Do you want to analyze a contribution under section 80GGA?", "no"],
-		["Do you want to analyze a political contribution under section 80GGC?", "no"],
-		["Do you need a Chapter VI-A deduction not named in this questionnaire?", "no"],
+		[
+			"Do you want to analyze a political contribution under section 80GGC?",
+			"no",
+		],
+		[
+			"Do you need a Chapter VI-A deduction not named in this questionnaire?",
+			"no",
+		],
 	] as const) {
 		await recordAnswerIfPresent({ page, label, value });
 	}
@@ -95,10 +131,18 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await expect(
 		comparison.getByRole("heading", { name: "Compare old and new regimes" }),
 	).toBeVisible({ timeout: 30_000 });
-	await expect(comparison.getByText("Fact-set revision fact-set-", { exact: false })).toBeVisible();
-	await expect(comparison.getByRole("heading", { name: "Old regime", exact: true })).toBeVisible();
-	await expect(comparison.getByRole("heading", { name: "New regime", exact: true })).toBeVisible();
-	const taxableIncome = comparison.locator('[data-comparison-row="taxable-income"]');
+	await expect(
+		comparison.getByText("Fact-set revision fact-set-", { exact: false }),
+	).toBeVisible();
+	await expect(
+		comparison.getByRole("heading", { name: "Old regime", exact: true }),
+	).toBeVisible();
+	await expect(
+		comparison.getByRole("heading", { name: "New regime", exact: true }),
+	).toBeVisible();
+	const taxableIncome = comparison.locator(
+		'[data-comparison-row="taxable-income"]',
+	);
 	await expect(taxableIncome).toContainText("₹ 10,00,000");
 	await expect(taxableIncome).toContainText("₹ 9,75,000");
 	await expect(taxableIncome).toContainText("Old regime is ₹ 25,000 higher");
@@ -133,7 +177,9 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 			exact: false,
 		}),
 	).toBeVisible();
-	await expect(analysis).not.toContainText(/guaranteed savings|buy now|sign up/i);
+	await expect(analysis).not.toContainText(
+		/guaranteed savings|buy now|sign up/i,
+	);
 	await expect(
 		analysis
 			.locator('[data-analysis-amount="taxes-paid"]')
@@ -158,9 +204,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	const salaryTraceTarget = await salaryAmount
 		.getByRole("link", { name: "Computation trace" })
 		.getAttribute("href");
-	await salaryAmount
-		.getByRole("link", { name: "Computation trace" })
-		.click();
+	await salaryAmount.getByRole("link", { name: "Computation trace" }).click();
 	await expect(
 		page.locator(`[id="${salaryTraceTarget?.slice(1) ?? "missing-trace"}"]`),
 	).toBeVisible();
@@ -169,9 +213,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	const salaryEvidenceTarget = await refreshedSalaryAmount
 		.getByRole("link", { name: "Evidence 1" })
 		.getAttribute("href");
-	await refreshedSalaryAmount
-		.getByRole("link", { name: "Evidence 1" })
-		.click();
+	await refreshedSalaryAmount.getByRole("link", { name: "Evidence 1" }).click();
 	await expect(
 		page.locator(
 			`[id="${salaryEvidenceTarget?.slice(1) ?? "missing-evidence"}"]`,
@@ -221,9 +263,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 		finalReview.getByText("Downstream use", { exact: true }).first(),
 	).toBeVisible();
 
-	const sourceReturn = finalReview
-		.locator('a[href^="#observation-"]')
-		.first();
+	const sourceReturn = finalReview.locator('a[href^="#observation-"]').first();
 	const sourceTarget = await sourceReturn.getAttribute("href");
 	await sourceReturn.click();
 	await expect(
@@ -242,7 +282,9 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await expect(
 		readiness.getByRole("heading", { name: "Available partial analysis" }),
 	).toBeVisible();
-	await expect(readiness).toContainText(/does not prepare, validate, or file a tax return/);
+	await expect(readiness).toContainText(
+		/does not prepare, validate, or file a tax return/,
+	);
 	await expect(
 		readiness.getByRole("button", { name: /upload|submit|file|download/i }),
 	).toHaveCount(0);
@@ -272,7 +314,9 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 		}),
 	).toHaveCount(0);
 	await expect(
-		page.getByText(/Filing successful|Return submitted successfully|Portal upload complete/i),
+		page.getByText(
+			/Filing successful|Return submitted successfully|Portal upload complete/i,
+		),
 	).toHaveCount(0);
 
 	await page.setViewportSize({ width: 390, height: 844 });
@@ -294,13 +338,14 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	).toBe(true);
 	await openTaxComparison(page);
 	expect(
-		await comparison.locator(".openitr-regime-table-wrap").evaluate(
-			(element) => element.scrollWidth <= element.clientWidth,
-		),
+		await comparison
+			.locator(".openitr-regime-table-wrap")
+			.evaluate((element) => element.scrollWidth <= element.clientWidth),
 	).toBe(true);
 
 	await openFinalReview(page);
-	const seniorReviewFact = page.locator(".openitr-final-review")
+	const seniorReviewFact = page
+		.locator(".openitr-final-review")
 		.locator('[data-origin="user-attestation"]')
 		.filter({ hasText: "Were you a resident senior citizen for FY 2025-26?" });
 	const answerTarget = await seniorReviewFact
@@ -322,7 +367,9 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 		updatedFinalReview.getByText("Warnings and unresolved review items"),
 	).toBeVisible();
 	await expect(
-		updatedFinalReview.getByText("Affects: Old regime", { exact: false }).first(),
+		updatedFinalReview
+			.getByText("Affects: Old regime", { exact: false })
+			.first(),
 	).toBeVisible();
 	await expect(
 		updatedFinalReview.locator('[data-origin="source-observation"]').first(),

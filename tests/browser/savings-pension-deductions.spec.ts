@@ -12,7 +12,9 @@ import {
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
-const openDeductions = async (page: Parameters<typeof openDocumentIntake>[0]) => {
+const openDeductions = async (
+	page: Parameters<typeof openDocumentIntake>[0],
+) => {
 	await openDocumentIntake(page);
 	await selectSourceFiles(page, [
 		{
@@ -38,7 +40,9 @@ const record = async (
 };
 
 test.describe("savings and pension-contribution deductions", () => {
-	test("keeps category questions hidden after an explicit no", async ({ page }) => {
+	test("keeps category questions hidden after an explicit no", async ({
+		page,
+	}) => {
 		await openDeductions(page);
 		await record(
 			page,
@@ -46,7 +50,9 @@ test.describe("savings and pension-contribution deductions", () => {
 			"no",
 		);
 		await expect(
-			page.getByLabel("What was your eligible section 80C amount for FY 2025-26?"),
+			page.getByLabel(
+				"What was your eligible section 80C amount for FY 2025-26?",
+			),
 		).toHaveCount(0);
 		await openDeductionsPage(page);
 		const card = page.locator(".openitr-savings-pension-card");
@@ -68,9 +74,15 @@ test.describe("savings and pension-contribution deductions", () => {
 				"What did you contribute to an eligible section 80CCC pension annuity for FY 2025-26?",
 				"60000",
 			],
-			["What did you contribute under section 80CCD(1) for FY 2025-26?", "50000"],
+			[
+				"What did you contribute under section 80CCD(1) for FY 2025-26?",
+				"50000",
+			],
 			["Were you an employee for the section 80CCD(1) contribution?", "yes"],
-			["What salary amount is the section 80CCD(1) percentage based on?", "300000"],
+			[
+				"What salary amount is the section 80CCD(1) percentage based on?",
+				"300000",
+			],
 			[
 				"What additional contribution did you allocate to section 80CCD(1B) for FY 2025-26?",
 				"60000",

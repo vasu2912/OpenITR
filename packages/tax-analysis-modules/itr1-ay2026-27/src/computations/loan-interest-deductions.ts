@@ -1,3 +1,11 @@
+import type {
+	ExactMoney,
+	FactKey,
+	IsoDate,
+	IssueCode,
+	RuleId,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	addExactMoney,
 	compareExactMoney,
@@ -7,14 +15,7 @@ import {
 	parseFactKey,
 	parseIssueCode,
 } from "@openitr/model";
-import type {
-	ExactMoney,
-	FactKey,
-	IsoDate,
-	IssueCode,
-	RuleId,
-	ScopeRulePack,
-} from "@openitr/model";
+import { requireFact } from "./require-fact";
 
 const FACT_KEYS = Object.freeze({
 	section80ePresent: parseFactKey("deductions.80e-present"),
@@ -22,37 +23,55 @@ const FACT_KEYS = Object.freeze({
 	section80eEligibleStudent: parseFactKey("deductions.80e-eligible-student"),
 	section80eEligibleLender: parseFactKey("deductions.80e-eligible-lender"),
 	section80eSanctionDate: parseFactKey("deductions.80e-sanction-date"),
-	section80eFirstInterestPaymentDate: parseFactKey("deductions.80e-first-interest-payment-date"),
+	section80eFirstInterestPaymentDate: parseFactKey(
+		"deductions.80e-first-interest-payment-date",
+	),
 	section80eInterestPaid: parseFactKey("deductions.80e-interest-paid"),
 	section80eLoanDetails: parseFactKey("deductions.80e-loan-details"),
 	section80eePresent: parseFactKey("deductions.80ee-present"),
 	section80eeBorrower: parseFactKey("deductions.80ee-borrower"),
-	section80eeResidentialAcquisition: parseFactKey("deductions.80ee-residential-acquisition"),
+	section80eeResidentialAcquisition: parseFactKey(
+		"deductions.80ee-residential-acquisition",
+	),
 	section80eeEligibleLender: parseFactKey("deductions.80ee-eligible-lender"),
 	section80eeSanctionDate: parseFactKey("deductions.80ee-sanction-date"),
 	section80eeLoanAmount: parseFactKey("deductions.80ee-loan-amount"),
 	section80eePropertyValue: parseFactKey("deductions.80ee-property-value"),
 	section80eeFirstHome: parseFactKey("deductions.80ee-first-home"),
-	section80eeSection24bExhausted: parseFactKey("deductions.80ee-section-24b-exhausted"),
-	section80eeAdditionalInterest: parseFactKey("deductions.80ee-additional-interest"),
+	section80eeSection24bExhausted: parseFactKey(
+		"deductions.80ee-section-24b-exhausted",
+	),
+	section80eeAdditionalInterest: parseFactKey(
+		"deductions.80ee-additional-interest",
+	),
 	section80eeLoanDetails: parseFactKey("deductions.80ee-loan-details"),
 	section80eeaPresent: parseFactKey("deductions.80eea-present"),
 	section80eeaBorrower: parseFactKey("deductions.80eea-borrower"),
-	section80eeaResidentialAcquisition: parseFactKey("deductions.80eea-residential-acquisition"),
+	section80eeaResidentialAcquisition: parseFactKey(
+		"deductions.80eea-residential-acquisition",
+	),
 	section80eeaEligibleLender: parseFactKey("deductions.80eea-eligible-lender"),
 	section80eeaSanctionDate: parseFactKey("deductions.80eea-sanction-date"),
 	section80eeaStampValue: parseFactKey("deductions.80eea-stamp-value"),
 	section80eeaFirstHome: parseFactKey("deductions.80eea-first-home"),
-	section80eeaSection24bExhausted: parseFactKey("deductions.80eea-section-24b-exhausted"),
-	section80eeaAdditionalInterest: parseFactKey("deductions.80eea-additional-interest"),
+	section80eeaSection24bExhausted: parseFactKey(
+		"deductions.80eea-section-24b-exhausted",
+	),
+	section80eeaAdditionalInterest: parseFactKey(
+		"deductions.80eea-additional-interest",
+	),
 	section80eeaLoanDetails: parseFactKey("deductions.80eea-loan-details"),
 	section80eebPresent: parseFactKey("deductions.80eeb-present"),
 	section80eebBorrower: parseFactKey("deductions.80eeb-borrower"),
-	section80eebElectricVehiclePurchase: parseFactKey("deductions.80eeb-electric-vehicle-purchase"),
+	section80eebElectricVehiclePurchase: parseFactKey(
+		"deductions.80eeb-electric-vehicle-purchase",
+	),
 	section80eebEligibleLender: parseFactKey("deductions.80eeb-eligible-lender"),
 	section80eebSanctionDate: parseFactKey("deductions.80eeb-sanction-date"),
 	section80eebInterestPaid: parseFactKey("deductions.80eeb-interest-paid"),
-	section80eebNotClaimedElsewhere: parseFactKey("deductions.80eeb-not-claimed-elsewhere"),
+	section80eebNotClaimedElsewhere: parseFactKey(
+		"deductions.80eeb-not-claimed-elsewhere",
+	),
 	section80eebLoanDetails: parseFactKey("deductions.80eeb-loan-details"),
 });
 
@@ -60,7 +79,10 @@ export const LOAN_INTEREST_DEDUCTION_FACT_KEYS = FACT_KEYS;
 
 export type LoanInterestDeductionOrigin =
 	| Readonly<{ kind: "attested-answer"; answerId: string }>
-	| Readonly<{ kind: "accepted-evidence"; sourceDocumentIds: readonly string[] }>;
+	| Readonly<{
+			kind: "accepted-evidence";
+			sourceDocumentIds: readonly string[];
+	  }>;
 
 export type LoanInterestDeductionFact = Readonly<{
 	factKey: FactKey;
@@ -133,7 +155,9 @@ export const computeLoanInterestDeductions = ({
 	facts: readonly LoanInterestDeductionFact[];
 }>): LoanInterestDeductionComputation => {
 	const permitted = new Set<FactKey>(Object.values(FACT_KEYS));
-	const unsupported = facts.find((candidate) => !permitted.has(candidate.factKey));
+	const unsupported = facts.find(
+		(candidate) => !permitted.has(candidate.factKey),
+	);
 	if (unsupported !== undefined) {
 		return {
 			kind: "unsupported",
@@ -208,7 +232,9 @@ export const computeLoanInterestDeductions = ({
 		FACT_KEYS.section80eeaPresent,
 		FACT_KEYS.section80eebPresent,
 	] as const;
-	const missingSelections = selectionKeys.filter((factKey) => bool(factKey) === undefined);
+	const missingSelections = selectionKeys.filter(
+		(factKey) => bool(factKey) === undefined,
+	);
 	if (missingSelections.length > 0) {
 		return {
 			kind: "blocked",
@@ -222,7 +248,10 @@ export const computeLoanInterestDeductions = ({
 			],
 		};
 	}
-	if (bool(FACT_KEYS.section80eePresent) && bool(FACT_KEYS.section80eeaPresent)) {
+	if (
+		bool(FACT_KEYS.section80eePresent) &&
+		bool(FACT_KEYS.section80eeaPresent)
+	) {
 		return {
 			kind: "blocked",
 			issues: [
@@ -272,91 +301,425 @@ export const computeLoanInterestDeductions = ({
 		inputs: readonly FactKey[],
 		operation: string,
 	): void => {
-		categories.push({ category, claimedInterest, oldRegimeAllowed, newRegimeAllowed: zero, loanPurpose });
-		trace.push({ label: `Section ${category} old-regime deduction`, ruleId, inputs, operation, result: oldRegimeAllowed });
-		trace.push({ label: `Section ${category} new-regime exclusion`, ruleId: constants.newRegimeExclusionRuleId, inputs, operation: "Chapter VI-A category excluded under the new regime", result: zero });
+		categories.push({
+			category,
+			claimedInterest,
+			oldRegimeAllowed,
+			newRegimeAllowed: zero,
+			loanPurpose,
+		});
+		trace.push({
+			label: `Section ${category} old-regime deduction`,
+			ruleId,
+			inputs,
+			operation,
+			result: oldRegimeAllowed,
+		});
+		trace.push({
+			label: `Section ${category} new-regime exclusion`,
+			ruleId: constants.newRegimeExclusionRuleId,
+			inputs,
+			operation: "Chapter VI-A category excluded under the new regime",
+			result: zero,
+		});
 	};
 
 	if (bool(FACT_KEYS.section80ePresent)) {
-		const required = [FACT_KEYS.section80eBorrower, FACT_KEYS.section80eEligibleStudent, FACT_KEYS.section80eEligibleLender, FACT_KEYS.section80eSanctionDate, FACT_KEYS.section80eFirstInterestPaymentDate, FACT_KEYS.section80eInterestPaid, FACT_KEYS.section80eLoanDetails];
+		const required = [
+			FACT_KEYS.section80eBorrower,
+			FACT_KEYS.section80eEligibleStudent,
+			FACT_KEYS.section80eEligibleLender,
+			FACT_KEYS.section80eSanctionDate,
+			FACT_KEYS.section80eFirstInterestPaymentDate,
+			FACT_KEYS.section80eInterestPaid,
+			FACT_KEYS.section80eLoanDetails,
+		];
 		if (requireFacts("80E", required)) {
 			const eligible = [
-				requireTrue("80E", FACT_KEYS.section80eBorrower, "FACT_80E_BORROWER_INELIGIBLE", "Confirm that you are the individual borrower who paid the interest."),
-				requireTrue("80E", FACT_KEYS.section80eEligibleStudent, "FACT_80E_PURPOSE_OR_STUDENT_INELIGIBLE", "Use section 80E only for qualifying higher education for you or an eligible relative."),
-				requireTrue("80E", FACT_KEYS.section80eEligibleLender, "FACT_80E_LENDER_INELIGIBLE", "Use section 80E only for a loan from an eligible financial or approved charitable institution."),
-				requireTrue("80E", FACT_KEYS.section80eLoanDetails, "FACT_80E_LOAN_DETAILS_MISSING", "Obtain the lender, account, sanction, balance, and interest details before relying on the claim."),
+				requireTrue(
+					"80E",
+					FACT_KEYS.section80eBorrower,
+					"FACT_80E_BORROWER_INELIGIBLE",
+					"Confirm that you are the individual borrower who paid the interest.",
+				),
+				requireTrue(
+					"80E",
+					FACT_KEYS.section80eEligibleStudent,
+					"FACT_80E_PURPOSE_OR_STUDENT_INELIGIBLE",
+					"Use section 80E only for qualifying higher education for you or an eligible relative.",
+				),
+				requireTrue(
+					"80E",
+					FACT_KEYS.section80eEligibleLender,
+					"FACT_80E_LENDER_INELIGIBLE",
+					"Use section 80E only for a loan from an eligible financial or approved charitable institution.",
+				),
+				requireTrue(
+					"80E",
+					FACT_KEYS.section80eLoanDetails,
+					"FACT_80E_LOAN_DETAILS_MISSING",
+					"Obtain the lender, account, sanction, balance, and interest details before relying on the claim.",
+				),
 			].every(Boolean);
-			const firstPaymentDate = date(FACT_KEYS.section80eFirstInterestPaymentDate)!;
-			if (!inRange(firstPaymentDate, constants.section80eEarliestFirstInterestPaymentDate, constants.section80eCurrentFinancialYearEndDate)) {
-				blockers.push(issue("FACT_80E_OUTSIDE_DEDUCTION_PERIOD", "80E", [FACT_KEYS.section80eFirstInterestPaymentDate], "Correct the first interest-payment date or exclude the claim because AY 2026-27 is outside the initial assessment year and seven succeeding years."));
+			const firstPaymentDate = requireFact(
+				date(FACT_KEYS.section80eFirstInterestPaymentDate),
+				FACT_KEYS.section80eFirstInterestPaymentDate,
+			);
+			if (
+				!inRange(
+					firstPaymentDate,
+					constants.section80eEarliestFirstInterestPaymentDate,
+					constants.section80eCurrentFinancialYearEndDate,
+				)
+			) {
+				blockers.push(
+					issue(
+						"FACT_80E_OUTSIDE_DEDUCTION_PERIOD",
+						"80E",
+						[FACT_KEYS.section80eFirstInterestPaymentDate],
+						"Correct the first interest-payment date or exclude the claim because AY 2026-27 is outside the initial assessment year and seven succeeding years.",
+					),
+				);
 			} else {
-				trace.push({ label: "Section 80E eight-year period", ruleId: constants.section80ePeriodRuleId, inputs: [FACT_KEYS.section80eFirstInterestPaymentDate], operation: "First interest-payment date is within the AY 2026-27 eight-year window", result: money(FACT_KEYS.section80eInterestPaid)! });
+				trace.push({
+					label: "Section 80E eight-year period",
+					ruleId: constants.section80ePeriodRuleId,
+					inputs: [FACT_KEYS.section80eFirstInterestPaymentDate],
+					operation:
+						"First interest-payment date is within the AY 2026-27 eight-year window",
+					result: requireFact(
+						money(FACT_KEYS.section80eInterestPaid),
+						FACT_KEYS.section80eInterestPaid,
+					),
+				});
 			}
-			if (eligible && !blockers.some((candidate) => candidate.category === "80E")) {
-				const claimed = money(FACT_KEYS.section80eInterestPaid)!;
-				recordCategory("80E", claimed, claimed, "higher-education", constants.section80eEligibilityRuleId, required, "Actual qualifying interest paid, with no monetary cap");
+			if (
+				eligible &&
+				!blockers.some((candidate) => candidate.category === "80E")
+			) {
+				const claimed = requireFact(
+					money(FACT_KEYS.section80eInterestPaid),
+					FACT_KEYS.section80eInterestPaid,
+				);
+				recordCategory(
+					"80E",
+					claimed,
+					claimed,
+					"higher-education",
+					constants.section80eEligibilityRuleId,
+					required,
+					"Actual qualifying interest paid, with no monetary cap",
+				);
 			}
 		}
 	}
 
 	if (bool(FACT_KEYS.section80eePresent)) {
-		const required = [FACT_KEYS.section80eeBorrower, FACT_KEYS.section80eeResidentialAcquisition, FACT_KEYS.section80eeEligibleLender, FACT_KEYS.section80eeSanctionDate, FACT_KEYS.section80eeLoanAmount, FACT_KEYS.section80eePropertyValue, FACT_KEYS.section80eeFirstHome, FACT_KEYS.section80eeSection24bExhausted, FACT_KEYS.section80eeAdditionalInterest, FACT_KEYS.section80eeLoanDetails];
+		const required = [
+			FACT_KEYS.section80eeBorrower,
+			FACT_KEYS.section80eeResidentialAcquisition,
+			FACT_KEYS.section80eeEligibleLender,
+			FACT_KEYS.section80eeSanctionDate,
+			FACT_KEYS.section80eeLoanAmount,
+			FACT_KEYS.section80eePropertyValue,
+			FACT_KEYS.section80eeFirstHome,
+			FACT_KEYS.section80eeSection24bExhausted,
+			FACT_KEYS.section80eeAdditionalInterest,
+			FACT_KEYS.section80eeLoanDetails,
+		];
 		if (requireFacts("80EE", required)) {
 			[
-				[FACT_KEYS.section80eeBorrower, "FACT_80EE_BORROWER_INELIGIBLE", "Confirm that you are the individual borrower."],
-				[FACT_KEYS.section80eeResidentialAcquisition, "FACT_80EE_PURPOSE_INELIGIBLE", "Use section 80EE only for acquisition of residential house property."],
-				[FACT_KEYS.section80eeEligibleLender, "FACT_80EE_LENDER_INELIGIBLE", "Use section 80EE only for a loan from an eligible financial institution."],
-				[FACT_KEYS.section80eeFirstHome, "FACT_80EE_FIRST_HOME_REQUIRED", "Exclude the claim if you owned residential house property when the loan was sanctioned."],
-				[FACT_KEYS.section80eeSection24bExhausted, "FACT_80EE_SECTION_24B_NOT_EXHAUSTED", "Apply eligible interest under section 24(b) first and enter only the additional amount for section 80EE."],
-				[FACT_KEYS.section80eeLoanDetails, "FACT_80EE_LOAN_DETAILS_MISSING", "Obtain the lender and loan-account details before relying on the claim."],
-			].forEach(([key, code, action]) => requireTrue("80EE", key as FactKey, code as string, action as string));
-			const sanction = date(FACT_KEYS.section80eeSanctionDate)!;
-			if (!inRange(sanction, constants.section80eeSanctionStartDate, constants.section80eeSanctionEndDate)) blockers.push(issue("FACT_80EE_SANCTION_DATE_INELIGIBLE", "80EE", [FACT_KEYS.section80eeSanctionDate], "Exclude the claim unless the loan was sanctioned from 1 April 2016 through 31 March 2017."));
-			if (compareExactMoney(money(FACT_KEYS.section80eeLoanAmount)!, exactMoneyFromWholeRupees(constants.section80eeLoanLimitWholeRupees)) > 0) blockers.push(issue("FACT_80EE_LOAN_AMOUNT_EXCEEDS_LIMIT", "80EE", [FACT_KEYS.section80eeLoanAmount], "Exclude section 80EE because the sanctioned loan exceeds ₹35 lakh."));
-			if (compareExactMoney(money(FACT_KEYS.section80eePropertyValue)!, exactMoneyFromWholeRupees(constants.section80eePropertyValueLimitWholeRupees)) > 0) blockers.push(issue("FACT_80EE_PROPERTY_VALUE_EXCEEDS_LIMIT", "80EE", [FACT_KEYS.section80eePropertyValue], "Exclude section 80EE because the residential property value exceeds ₹50 lakh."));
+				[
+					FACT_KEYS.section80eeBorrower,
+					"FACT_80EE_BORROWER_INELIGIBLE",
+					"Confirm that you are the individual borrower.",
+				],
+				[
+					FACT_KEYS.section80eeResidentialAcquisition,
+					"FACT_80EE_PURPOSE_INELIGIBLE",
+					"Use section 80EE only for acquisition of residential house property.",
+				],
+				[
+					FACT_KEYS.section80eeEligibleLender,
+					"FACT_80EE_LENDER_INELIGIBLE",
+					"Use section 80EE only for a loan from an eligible financial institution.",
+				],
+				[
+					FACT_KEYS.section80eeFirstHome,
+					"FACT_80EE_FIRST_HOME_REQUIRED",
+					"Exclude the claim if you owned residential house property when the loan was sanctioned.",
+				],
+				[
+					FACT_KEYS.section80eeSection24bExhausted,
+					"FACT_80EE_SECTION_24B_NOT_EXHAUSTED",
+					"Apply eligible interest under section 24(b) first and enter only the additional amount for section 80EE.",
+				],
+				[
+					FACT_KEYS.section80eeLoanDetails,
+					"FACT_80EE_LOAN_DETAILS_MISSING",
+					"Obtain the lender and loan-account details before relying on the claim.",
+				],
+			].forEach(([key, code, action]) => {
+				requireTrue("80EE", key as FactKey, code as string, action as string);
+			});
+			const sanction = requireFact(
+				date(FACT_KEYS.section80eeSanctionDate),
+				FACT_KEYS.section80eeSanctionDate,
+			);
+			if (
+				!inRange(
+					sanction,
+					constants.section80eeSanctionStartDate,
+					constants.section80eeSanctionEndDate,
+				)
+			)
+				blockers.push(
+					issue(
+						"FACT_80EE_SANCTION_DATE_INELIGIBLE",
+						"80EE",
+						[FACT_KEYS.section80eeSanctionDate],
+						"Exclude the claim unless the loan was sanctioned from 1 April 2016 through 31 March 2017.",
+					),
+				);
+			if (
+				compareExactMoney(
+					requireFact(
+						money(FACT_KEYS.section80eeLoanAmount),
+						FACT_KEYS.section80eeLoanAmount,
+					),
+					exactMoneyFromWholeRupees(constants.section80eeLoanLimitWholeRupees),
+				) > 0
+			)
+				blockers.push(
+					issue(
+						"FACT_80EE_LOAN_AMOUNT_EXCEEDS_LIMIT",
+						"80EE",
+						[FACT_KEYS.section80eeLoanAmount],
+						"Exclude section 80EE because the sanctioned loan exceeds ₹35 lakh.",
+					),
+				);
+			if (
+				compareExactMoney(
+					requireFact(
+						money(FACT_KEYS.section80eePropertyValue),
+						FACT_KEYS.section80eePropertyValue,
+					),
+					exactMoneyFromWholeRupees(
+						constants.section80eePropertyValueLimitWholeRupees,
+					),
+				) > 0
+			)
+				blockers.push(
+					issue(
+						"FACT_80EE_PROPERTY_VALUE_EXCEEDS_LIMIT",
+						"80EE",
+						[FACT_KEYS.section80eePropertyValue],
+						"Exclude section 80EE because the residential property value exceeds ₹50 lakh.",
+					),
+				);
 			if (!blockers.some((candidate) => candidate.category === "80EE")) {
-				const claimed = money(FACT_KEYS.section80eeAdditionalInterest)!;
-				recordCategory("80EE", claimed, minExactMoney(claimed, exactMoneyFromWholeRupees(constants.section80eeLimitWholeRupees)), "residential-property", constants.section80eeLimitRuleId, required, "Additional qualifying interest after section 24(b), capped at ₹50,000");
+				const claimed = requireFact(
+					money(FACT_KEYS.section80eeAdditionalInterest),
+					FACT_KEYS.section80eeAdditionalInterest,
+				);
+				recordCategory(
+					"80EE",
+					claimed,
+					minExactMoney(
+						claimed,
+						exactMoneyFromWholeRupees(constants.section80eeLimitWholeRupees),
+					),
+					"residential-property",
+					constants.section80eeLimitRuleId,
+					required,
+					"Additional qualifying interest after section 24(b), capped at ₹50,000",
+				);
 			}
 		}
 	}
 
 	if (bool(FACT_KEYS.section80eeaPresent)) {
-		const required = [FACT_KEYS.section80eeaBorrower, FACT_KEYS.section80eeaResidentialAcquisition, FACT_KEYS.section80eeaEligibleLender, FACT_KEYS.section80eeaSanctionDate, FACT_KEYS.section80eeaStampValue, FACT_KEYS.section80eeaFirstHome, FACT_KEYS.section80eeaSection24bExhausted, FACT_KEYS.section80eeaAdditionalInterest, FACT_KEYS.section80eeaLoanDetails];
+		const required = [
+			FACT_KEYS.section80eeaBorrower,
+			FACT_KEYS.section80eeaResidentialAcquisition,
+			FACT_KEYS.section80eeaEligibleLender,
+			FACT_KEYS.section80eeaSanctionDate,
+			FACT_KEYS.section80eeaStampValue,
+			FACT_KEYS.section80eeaFirstHome,
+			FACT_KEYS.section80eeaSection24bExhausted,
+			FACT_KEYS.section80eeaAdditionalInterest,
+			FACT_KEYS.section80eeaLoanDetails,
+		];
 		if (requireFacts("80EEA", required)) {
 			[
-				[FACT_KEYS.section80eeaBorrower, "FACT_80EEA_BORROWER_INELIGIBLE", "Confirm that you are the individual borrower."],
-				[FACT_KEYS.section80eeaResidentialAcquisition, "FACT_80EEA_PURPOSE_INELIGIBLE", "Use section 80EEA only for acquisition of residential house property."],
-				[FACT_KEYS.section80eeaEligibleLender, "FACT_80EEA_LENDER_INELIGIBLE", "Use section 80EEA only for a loan from an eligible financial institution."],
-				[FACT_KEYS.section80eeaFirstHome, "FACT_80EEA_FIRST_HOME_REQUIRED", "Exclude the claim if you owned residential house property when the loan was sanctioned."],
-				[FACT_KEYS.section80eeaSection24bExhausted, "FACT_80EEA_SECTION_24B_NOT_EXHAUSTED", "Apply eligible interest under section 24(b) first and enter only the additional amount for section 80EEA."],
-				[FACT_KEYS.section80eeaLoanDetails, "FACT_80EEA_LOAN_DETAILS_MISSING", "Obtain the lender and loan-account details before relying on the claim."],
-			].forEach(([key, code, action]) => requireTrue("80EEA", key as FactKey, code as string, action as string));
-			const sanction = date(FACT_KEYS.section80eeaSanctionDate)!;
-			if (!inRange(sanction, constants.section80eeaSanctionStartDate, constants.section80eeaSanctionEndDate)) blockers.push(issue("FACT_80EEA_SANCTION_DATE_INELIGIBLE", "80EEA", [FACT_KEYS.section80eeaSanctionDate], "Exclude the claim unless the loan was sanctioned from 1 April 2019 through 31 March 2022."));
-			if (compareExactMoney(money(FACT_KEYS.section80eeaStampValue)!, exactMoneyFromWholeRupees(constants.section80eeaStampValueLimitWholeRupees)) > 0) blockers.push(issue("FACT_80EEA_STAMP_VALUE_EXCEEDS_LIMIT", "80EEA", [FACT_KEYS.section80eeaStampValue], "Exclude section 80EEA because the stamp-duty value exceeds ₹45 lakh."));
+				[
+					FACT_KEYS.section80eeaBorrower,
+					"FACT_80EEA_BORROWER_INELIGIBLE",
+					"Confirm that you are the individual borrower.",
+				],
+				[
+					FACT_KEYS.section80eeaResidentialAcquisition,
+					"FACT_80EEA_PURPOSE_INELIGIBLE",
+					"Use section 80EEA only for acquisition of residential house property.",
+				],
+				[
+					FACT_KEYS.section80eeaEligibleLender,
+					"FACT_80EEA_LENDER_INELIGIBLE",
+					"Use section 80EEA only for a loan from an eligible financial institution.",
+				],
+				[
+					FACT_KEYS.section80eeaFirstHome,
+					"FACT_80EEA_FIRST_HOME_REQUIRED",
+					"Exclude the claim if you owned residential house property when the loan was sanctioned.",
+				],
+				[
+					FACT_KEYS.section80eeaSection24bExhausted,
+					"FACT_80EEA_SECTION_24B_NOT_EXHAUSTED",
+					"Apply eligible interest under section 24(b) first and enter only the additional amount for section 80EEA.",
+				],
+				[
+					FACT_KEYS.section80eeaLoanDetails,
+					"FACT_80EEA_LOAN_DETAILS_MISSING",
+					"Obtain the lender and loan-account details before relying on the claim.",
+				],
+			].forEach(([key, code, action]) => {
+				requireTrue("80EEA", key as FactKey, code as string, action as string);
+			});
+			const sanction = requireFact(
+				date(FACT_KEYS.section80eeaSanctionDate),
+				FACT_KEYS.section80eeaSanctionDate,
+			);
+			if (
+				!inRange(
+					sanction,
+					constants.section80eeaSanctionStartDate,
+					constants.section80eeaSanctionEndDate,
+				)
+			)
+				blockers.push(
+					issue(
+						"FACT_80EEA_SANCTION_DATE_INELIGIBLE",
+						"80EEA",
+						[FACT_KEYS.section80eeaSanctionDate],
+						"Exclude the claim unless the loan was sanctioned from 1 April 2019 through 31 March 2022.",
+					),
+				);
+			if (
+				compareExactMoney(
+					requireFact(
+						money(FACT_KEYS.section80eeaStampValue),
+						FACT_KEYS.section80eeaStampValue,
+					),
+					exactMoneyFromWholeRupees(
+						constants.section80eeaStampValueLimitWholeRupees,
+					),
+				) > 0
+			)
+				blockers.push(
+					issue(
+						"FACT_80EEA_STAMP_VALUE_EXCEEDS_LIMIT",
+						"80EEA",
+						[FACT_KEYS.section80eeaStampValue],
+						"Exclude section 80EEA because the stamp-duty value exceeds ₹45 lakh.",
+					),
+				);
 			if (!blockers.some((candidate) => candidate.category === "80EEA")) {
-				const claimed = money(FACT_KEYS.section80eeaAdditionalInterest)!;
-				recordCategory("80EEA", claimed, minExactMoney(claimed, exactMoneyFromWholeRupees(constants.section80eeaLimitWholeRupees)), "residential-property", constants.section80eeaLimitRuleId, required, "Additional qualifying interest after section 24(b), capped at ₹1,50,000");
+				const claimed = requireFact(
+					money(FACT_KEYS.section80eeaAdditionalInterest),
+					FACT_KEYS.section80eeaAdditionalInterest,
+				);
+				recordCategory(
+					"80EEA",
+					claimed,
+					minExactMoney(
+						claimed,
+						exactMoneyFromWholeRupees(constants.section80eeaLimitWholeRupees),
+					),
+					"residential-property",
+					constants.section80eeaLimitRuleId,
+					required,
+					"Additional qualifying interest after section 24(b), capped at ₹1,50,000",
+				);
 			}
 		}
 	}
 
 	if (bool(FACT_KEYS.section80eebPresent)) {
-		const required = [FACT_KEYS.section80eebBorrower, FACT_KEYS.section80eebElectricVehiclePurchase, FACT_KEYS.section80eebEligibleLender, FACT_KEYS.section80eebSanctionDate, FACT_KEYS.section80eebInterestPaid, FACT_KEYS.section80eebNotClaimedElsewhere, FACT_KEYS.section80eebLoanDetails];
+		const required = [
+			FACT_KEYS.section80eebBorrower,
+			FACT_KEYS.section80eebElectricVehiclePurchase,
+			FACT_KEYS.section80eebEligibleLender,
+			FACT_KEYS.section80eebSanctionDate,
+			FACT_KEYS.section80eebInterestPaid,
+			FACT_KEYS.section80eebNotClaimedElsewhere,
+			FACT_KEYS.section80eebLoanDetails,
+		];
 		if (requireFacts("80EEB", required)) {
 			[
-				[FACT_KEYS.section80eebBorrower, "FACT_80EEB_BORROWER_INELIGIBLE", "Confirm that you are the individual borrower."],
-				[FACT_KEYS.section80eebElectricVehiclePurchase, "FACT_80EEB_PURPOSE_INELIGIBLE", "Use section 80EEB only for purchase of an exclusively electric vehicle."],
-				[FACT_KEYS.section80eebEligibleLender, "FACT_80EEB_LENDER_INELIGIBLE", "Use section 80EEB only for a loan from an eligible financial institution."],
-				[FACT_KEYS.section80eebNotClaimedElsewhere, "FACT_80EEB_INTEREST_OVERLAP", "Enter only interest that is not claimed under another provision."],
-				[FACT_KEYS.section80eebLoanDetails, "FACT_80EEB_LOAN_DETAILS_MISSING", "Obtain the lender, loan-account, and vehicle-registration details before relying on the claim."],
-			].forEach(([key, code, action]) => requireTrue("80EEB", key as FactKey, code as string, action as string));
-			const sanction = date(FACT_KEYS.section80eebSanctionDate)!;
-			if (!inRange(sanction, constants.section80eebSanctionStartDate, constants.section80eebSanctionEndDate)) blockers.push(issue("FACT_80EEB_SANCTION_DATE_INELIGIBLE", "80EEB", [FACT_KEYS.section80eebSanctionDate], "Exclude the claim unless the loan was sanctioned from 1 April 2019 through 31 March 2023."));
+				[
+					FACT_KEYS.section80eebBorrower,
+					"FACT_80EEB_BORROWER_INELIGIBLE",
+					"Confirm that you are the individual borrower.",
+				],
+				[
+					FACT_KEYS.section80eebElectricVehiclePurchase,
+					"FACT_80EEB_PURPOSE_INELIGIBLE",
+					"Use section 80EEB only for purchase of an exclusively electric vehicle.",
+				],
+				[
+					FACT_KEYS.section80eebEligibleLender,
+					"FACT_80EEB_LENDER_INELIGIBLE",
+					"Use section 80EEB only for a loan from an eligible financial institution.",
+				],
+				[
+					FACT_KEYS.section80eebNotClaimedElsewhere,
+					"FACT_80EEB_INTEREST_OVERLAP",
+					"Enter only interest that is not claimed under another provision.",
+				],
+				[
+					FACT_KEYS.section80eebLoanDetails,
+					"FACT_80EEB_LOAN_DETAILS_MISSING",
+					"Obtain the lender, loan-account, and vehicle-registration details before relying on the claim.",
+				],
+			].forEach(([key, code, action]) => {
+				requireTrue("80EEB", key as FactKey, code as string, action as string);
+			});
+			const sanction = requireFact(
+				date(FACT_KEYS.section80eebSanctionDate),
+				FACT_KEYS.section80eebSanctionDate,
+			);
+			if (
+				!inRange(
+					sanction,
+					constants.section80eebSanctionStartDate,
+					constants.section80eebSanctionEndDate,
+				)
+			)
+				blockers.push(
+					issue(
+						"FACT_80EEB_SANCTION_DATE_INELIGIBLE",
+						"80EEB",
+						[FACT_KEYS.section80eebSanctionDate],
+						"Exclude the claim unless the loan was sanctioned from 1 April 2019 through 31 March 2023.",
+					),
+				);
 			if (!blockers.some((candidate) => candidate.category === "80EEB")) {
-				const claimed = money(FACT_KEYS.section80eebInterestPaid)!;
-				recordCategory("80EEB", claimed, minExactMoney(claimed, exactMoneyFromWholeRupees(constants.section80eebLimitWholeRupees)), "electric-vehicle", constants.section80eebLimitRuleId, required, "Qualifying electric-vehicle loan interest, capped at ₹1,50,000");
+				const claimed = requireFact(
+					money(FACT_KEYS.section80eebInterestPaid),
+					FACT_KEYS.section80eebInterestPaid,
+				);
+				recordCategory(
+					"80EEB",
+					claimed,
+					minExactMoney(
+						claimed,
+						exactMoneyFromWholeRupees(constants.section80eebLimitWholeRupees),
+					),
+					"electric-vehicle",
+					constants.section80eebLimitRuleId,
+					required,
+					"Qualifying electric-vehicle loan interest, capped at ₹1,50,000",
+				);
 			}
 		}
 	}
@@ -366,7 +729,9 @@ export const computeLoanInterestDeductions = ({
 		kind: "computed",
 		facts: Object.freeze([...facts]),
 		categories: Object.freeze(categories),
-		oldRegimeTotal: sum(categories.map((category) => category.oldRegimeAllowed)),
+		oldRegimeTotal: sum(
+			categories.map((category) => category.oldRegimeAllowed),
+		),
 		newRegimeTotal: zero,
 		issues: Object.freeze([]),
 		trace: Object.freeze(trace),

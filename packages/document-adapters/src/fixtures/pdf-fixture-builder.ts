@@ -114,10 +114,7 @@ export const buildSyntheticPdf = ({
 				.map((n) => `${n} 0 R`)
 				.join(" ")}] /Count ${pages.length} >>`,
 		),
-		plainObject(
-			3,
-			"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-		),
+		plainObject(3, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
 	];
 
 	let imageIndex = 0;
@@ -200,9 +197,12 @@ export const buildSyntheticPdf = ({
 			` /ID [<${toHex(documentId)}><${toHex(documentId)}>]`;
 	}
 
-	return serializePdf(objects.sort((a, b) => a.number - b.number), {
-		trailerExtra,
-	});
+	return serializePdf(
+		objects.sort((a, b) => a.number - b.number),
+		{
+			trailerExtra,
+		},
+	);
 };
 
 const serializePdf = (
@@ -238,7 +238,11 @@ const serializePdf = (
 	const maxObjectNumber = sortedObjects[sortedObjects.length - 1]?.number ?? 0;
 	const xrefOffset = offset;
 	pushText(`xref\n0 ${maxObjectNumber + 1}\n0000000000 65535 f \n`);
-	for (let objectNumber = 1; objectNumber <= maxObjectNumber; objectNumber += 1) {
+	for (
+		let objectNumber = 1;
+		objectNumber <= maxObjectNumber;
+		objectNumber += 1
+	) {
 		const objectOffset = offsets.get(objectNumber);
 		if (objectOffset === undefined) {
 			throw new Error("PDF fixture object numbering gap");

@@ -1,19 +1,29 @@
+import {
+	exactMoneyFromWholeRupees,
+	parseFactKey,
+	parseIsoDate,
+} from "@openitr/model";
 import { describe, expect, it } from "vitest";
 
-import { exactMoneyFromWholeRupees, parseFactKey, parseIsoDate } from "@openitr/model";
-
 import { itr1Ay202627RulePack20260911 } from "../revisions/2026-09-11/rule-pack";
+import type { LoanInterestDeductionFact } from "./loan-interest-deductions";
 import {
 	computeLoanInterestDeductions,
 	LOAN_INTEREST_DEDUCTION_FACT_KEYS as KEYS,
 } from "./loan-interest-deductions";
-import type { LoanInterestDeductionFact } from "./loan-interest-deductions";
 
-const origin = Object.freeze({ kind: "attested-answer" as const, answerId: "answer-1" });
+const origin = Object.freeze({
+	kind: "attested-answer" as const,
+	answerId: "answer-1",
+});
 const fact = (
 	factKey: string,
 	value: LoanInterestDeductionFact["value"],
-): LoanInterestDeductionFact => ({ factKey: parseFactKey(factKey), value, origin });
+): LoanInterestDeductionFact => ({
+	factKey: parseFactKey(factKey),
+	value,
+	origin,
+});
 const selected = (
 	category:
 		| "section80ePresent"
@@ -21,9 +31,14 @@ const selected = (
 		| "section80eeaPresent"
 		| "section80eebPresent",
 ): LoanInterestDeductionFact[] =>
-	(["section80ePresent", "section80eePresent", "section80eeaPresent", "section80eebPresent"] as const).map(
-		(key) => fact(KEYS[key], key === category),
-	);
+	(
+		[
+			"section80ePresent",
+			"section80eePresent",
+			"section80eeaPresent",
+			"section80eebPresent",
+		] as const
+	).map((key) => fact(KEYS[key], key === category));
 
 describe("loan-interest deductions", () => {
 	it("allows actual section 80E interest within the eight-year period only under the old regime", () => {
@@ -35,7 +50,10 @@ describe("loan-interest deductions", () => {
 				fact(KEYS.section80eEligibleStudent, true),
 				fact(KEYS.section80eEligibleLender, true),
 				fact(KEYS.section80eSanctionDate, parseIsoDate("2017-06-15")),
-				fact(KEYS.section80eFirstInterestPaymentDate, parseIsoDate("2018-04-01")),
+				fact(
+					KEYS.section80eFirstInterestPaymentDate,
+					parseIsoDate("2018-04-01"),
+				),
 				fact(KEYS.section80eInterestPaid, exactMoneyFromWholeRupees(220_000)),
 				fact(KEYS.section80eLoanDetails, true),
 			],
@@ -61,7 +79,10 @@ describe("loan-interest deductions", () => {
 				fact(KEYS.section80eEligibleStudent, true),
 				fact(KEYS.section80eEligibleLender, true),
 				fact(KEYS.section80eSanctionDate, parseIsoDate("2016-06-15")),
-				fact(KEYS.section80eFirstInterestPaymentDate, parseIsoDate("2018-03-31")),
+				fact(
+					KEYS.section80eFirstInterestPaymentDate,
+					parseIsoDate("2018-03-31"),
+				),
 				fact(KEYS.section80eInterestPaid, exactMoneyFromWholeRupees(10_000)),
 				fact(KEYS.section80eLoanDetails, true),
 			],
@@ -83,10 +104,16 @@ describe("loan-interest deductions", () => {
 				fact(KEYS.section80eeEligibleLender, true),
 				fact(KEYS.section80eeSanctionDate, parseIsoDate("2017-03-31")),
 				fact(KEYS.section80eeLoanAmount, exactMoneyFromWholeRupees(3_500_000)),
-				fact(KEYS.section80eePropertyValue, exactMoneyFromWholeRupees(5_000_000)),
+				fact(
+					KEYS.section80eePropertyValue,
+					exactMoneyFromWholeRupees(5_000_000),
+				),
 				fact(KEYS.section80eeFirstHome, true),
 				fact(KEYS.section80eeSection24bExhausted, true),
-				fact(KEYS.section80eeAdditionalInterest, exactMoneyFromWholeRupees(70_000)),
+				fact(
+					KEYS.section80eeAdditionalInterest,
+					exactMoneyFromWholeRupees(70_000),
+				),
 				fact(KEYS.section80eeLoanDetails, true),
 			],
 		});
@@ -99,14 +126,17 @@ describe("loan-interest deductions", () => {
 			rulePack: itr1Ay202627RulePack20260911,
 			facts: result.facts.map((candidate) =>
 				candidate.factKey === KEYS.section80eeLoanAmount
-					? fact(KEYS.section80eeLoanAmount, exactMoneyFromWholeRupees(3_500_001))
+					? fact(
+							KEYS.section80eeLoanAmount,
+							exactMoneyFromWholeRupees(3_500_001),
+						)
 					: candidate,
 			),
 		});
 		expect(overThreshold.kind).toBe("blocked");
-		expect(overThreshold.issues.map((currentIssue) => currentIssue.code)).toContain(
-			"FACT_80EE_LOAN_AMOUNT_EXCEEDS_LIMIT",
-		);
+		expect(
+			overThreshold.issues.map((currentIssue) => currentIssue.code),
+		).toContain("FACT_80EE_LOAN_AMOUNT_EXCEEDS_LIMIT");
 	});
 
 	it("blocks section 80EEA overlap with section 80EE and permits the sanction-date boundaries", () => {
@@ -132,7 +162,10 @@ describe("loan-interest deductions", () => {
 				fact(KEYS.section80eeaStampValue, exactMoneyFromWholeRupees(4_500_000)),
 				fact(KEYS.section80eeaFirstHome, true),
 				fact(KEYS.section80eeaSection24bExhausted, true),
-				fact(KEYS.section80eeaAdditionalInterest, exactMoneyFromWholeRupees(175_000)),
+				fact(
+					KEYS.section80eeaAdditionalInterest,
+					exactMoneyFromWholeRupees(175_000),
+				),
 				fact(KEYS.section80eeaLoanDetails, true),
 			],
 		});
@@ -149,9 +182,9 @@ describe("loan-interest deductions", () => {
 			),
 		});
 		expect(afterWindow.kind).toBe("blocked");
-		expect(afterWindow.issues.map((currentIssue) => currentIssue.code)).toContain(
-			"FACT_80EEA_SANCTION_DATE_INELIGIBLE",
-		);
+		expect(
+			afterWindow.issues.map((currentIssue) => currentIssue.code),
+		).toContain("FACT_80EEA_SANCTION_DATE_INELIGIBLE");
 	});
 
 	it("allows eligible electric-vehicle interest and rejects an unsupported purpose", () => {

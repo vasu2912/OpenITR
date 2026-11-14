@@ -146,8 +146,7 @@ export const buildXlsxWorkbookFixture = (
 	options: XlsxWorkbookFixtureOptions,
 ): Uint8Array<ArrayBuffer> => {
 	const parts: Record<string, string> = {
-		"[Content_Types].xml":
-			options.contentTypesXml ?? contentTypesXml(),
+		"[Content_Types].xml": options.contentTypesXml ?? contentTypesXml(),
 		"_rels/.rels": officeRelsXml(),
 		"xl/workbook.xml": options.workbookXml ?? workbookXml(options.sheetName),
 		"xl/_rels/workbook.xml.rels": workbookRelsXml(),

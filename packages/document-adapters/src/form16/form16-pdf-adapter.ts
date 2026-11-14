@@ -8,10 +8,11 @@ import type {
 import {
 	createExtractionRejectionOutcome,
 	DOCUMENT_REVIEW_ISSUE_CODES,
+	parseDocumentKind,
+	parseTemplateRevision,
 	SALARY_FIELD_AMBIGUOUS_RECOVERY_ACTION,
 	SALARY_FIELD_MISSING_RECOVERY_ACTION,
 } from "@openitr/model";
-import { parseDocumentKind, parseTemplateRevision } from "@openitr/model";
 
 import type { PdfLineGeometry } from "../pdf/pdf-text-layer";
 import {
@@ -191,10 +192,10 @@ const extractSalaryObservations = (
 				width: line.width,
 				height: line.height,
 			},
-				ruleCitation: {
-					ruleId: field.ruleId,
-					description: field.description,
-				},
+			ruleCitation: {
+				ruleId: field.ruleId,
+				description: field.description,
+			},
 			record:
 				deductorTan === undefined
 					? { kind: "unidentified-document" }

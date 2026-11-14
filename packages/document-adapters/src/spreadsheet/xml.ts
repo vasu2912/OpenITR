@@ -71,14 +71,8 @@ const decodeEntities = (raw: string): string | undefined => {
 			if (!/^[0-9a-fA-F]+$/.test(digits)) {
 				return undefined;
 			}
-			const codePoint = Number.parseInt(
-				digits,
-				isHex ? 16 : 10,
-			);
-			if (
-				!Number.isFinite(codePoint) ||
-				!isValidXmlCharacter(codePoint)
-			) {
+			const codePoint = Number.parseInt(digits, isHex ? 16 : 10);
+			if (!Number.isFinite(codePoint) || !isValidXmlCharacter(codePoint)) {
 				return undefined;
 			}
 			decoded += String.fromCodePoint(codePoint);
@@ -116,7 +110,10 @@ const readDeclarationAndMisc = (text: string): number => {
 	return cursor;
 };
 
-const expectName = (text: string, start: number): { name: string; next: number } => {
+const expectName = (
+	text: string,
+	start: number,
+): { name: string; next: number } => {
 	const match = /^[A-Za-z_][A-Za-z0-9._-]*/.exec(text.slice(start));
 	const name = match?.[0];
 	if (name === undefined || name === "") {
@@ -304,7 +301,9 @@ export const elementChildrenOf = (
 export const childElementsOf = (
 	node: XmlElementNode,
 ): readonly XmlElementNode[] =>
-	node.children.filter((child): child is XmlElementNode => child.kind === "element");
+	node.children.filter(
+		(child): child is XmlElementNode => child.kind === "element",
+	);
 
 // Whitespace between structural elements carries no content; any other
 // stray text does and fails closed.

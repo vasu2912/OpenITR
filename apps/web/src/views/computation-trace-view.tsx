@@ -1,6 +1,9 @@
-import type { ComputationNodeInput, ComputationTraceNode } from "@openitr/itr1-ay2026-27";
+import type {
+	ComputationNodeInput,
+	ComputationTraceNode,
+} from "@openitr/itr1-ay2026-27";
 import type { ReactNode } from "react";
-
+import { keyed } from "./keyed";
 import { FactLabel, humanizeKey } from "./plain-language";
 
 // Display-only grouping of an exact decimal string. Arithmetic never passes
@@ -79,13 +82,11 @@ export const ComputationNodeCard = ({
 			) : null}
 		</dl>
 		<ul className="openitr-trace-inputs">
-			{node.inputs.map((input, index) => (
-				<li key={`${input.kind}-${index}`}>{inputLabel(input)}</li>
+			{keyed(node.inputs, (input) => input.kind).map(({ key, item: input }) => (
+				<li key={key}>{inputLabel(input)}</li>
 			))}
 		</ul>
-		{node.note ? (
-			<p className="openitr-trace-note">{node.note}</p>
-		) : null}
+		{node.note ? <p className="openitr-trace-note">{node.note}</p> : null}
 	</details>
 );
 

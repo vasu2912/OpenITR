@@ -54,8 +54,8 @@ describe("exact money parsing", () => {
 
 	test("rejects values beyond the engine precision envelope", () => {
 		expect(() => parseExactMoney("9".repeat(40))).toThrow(
-		"Exact money exceeds 39 digits",
-	);
+			"Exact money exceeds 39 digits",
+		);
 		expect(parseExactMoney("9".repeat(39))).toBe("9".repeat(39));
 	});
 });
@@ -69,7 +69,9 @@ describe("exact money construction from observations", () => {
 	test("rejects fractional, unsafe, and negative numbers", () => {
 		expect(() => exactMoneyFromWholeRupees(1.5)).toThrow();
 		expect(() => exactMoneyFromWholeRupees(Number.NaN)).toThrow();
-		expect(() => exactMoneyFromWholeRupees(Number.MAX_SAFE_INTEGER + 1)).toThrow();
+		expect(() =>
+			exactMoneyFromWholeRupees(Number.MAX_SAFE_INTEGER + 1),
+		).toThrow();
 		expect(() => exactMoneyFromWholeRupees(-1)).toThrow();
 	});
 });
@@ -87,13 +89,10 @@ describe("exact money arithmetic", () => {
 		const maximumInput = m("9".repeat(39));
 		const withinEnvelope = Array.from({ length: 10 }).reduce<
 			ReturnType<typeof m>
-		>(
-			(total) => addExactMoney(total, maximumInput),
-			m("0"),
+		>((total) => addExactMoney(total, maximumInput), m("0"));
+		expect(() => addExactMoney(withinEnvelope, maximumInput)).toThrow(
+			"Exact money result exceeds the supported precision",
 		);
-		expect(() =>
-			addExactMoney(withinEnvelope, maximumInput),
-		).toThrow("Exact money result exceeds the supported precision");
 	});
 
 	test("subtracts exactly and never produces a negative amount", () => {
@@ -119,11 +118,14 @@ describe("exact money arithmetic", () => {
 		expect(multiplyByBasisPoints(m("17"), 1250)).toBe("2.125");
 	});
 
-	test.each([-1, 10001, 12.5])("rejects an invalid basis-point rate %s", (rate) => {
-		expect(() => multiplyByBasisPoints(m("100"), rate)).toThrow(
-			"Invalid basis-point rate",
-		);
-	});
+	test.each([-1, 10001, 12.5])(
+		"rejects an invalid basis-point rate %s",
+		(rate) => {
+			expect(() => multiplyByBasisPoints(m("100"), rate)).toThrow(
+				"Invalid basis-point rate",
+			);
+		},
+	);
 
 	test("divides by a whole number and returns an exact whole-rupee result", () => {
 		expect(divideExactMoneyByWholeAndRound(m("30000"), 3)).toBe("10000");

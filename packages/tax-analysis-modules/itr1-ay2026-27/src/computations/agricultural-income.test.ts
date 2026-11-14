@@ -17,15 +17,18 @@ describe("agricultural income", () => {
 		["4999", "computed"],
 		["5000", "computed"],
 		["5001", "unsupported"],
-	] as const)("classifies ₹%s against the pinned ITR-1 limit", (amount, kind) => {
-		expect(
-			computeAgriculturalIncome({
-				rulePack: itr1Ay202627RulePack20260908,
-				applicable: true,
-				facts: [fact(amount)],
-			}),
-		).toMatchObject({ kind });
-	});
+	] as const)(
+		"classifies ₹%s against the pinned ITR-1 limit",
+		(amount, kind) => {
+			expect(
+				computeAgriculturalIncome({
+					rulePack: itr1Ay202627RulePack20260908,
+					applicable: true,
+					facts: [fact(amount)],
+				}),
+			).toMatchObject({ kind });
+		},
+	);
 
 	test("reports an in-scope amount as exempt and keeps it out of taxable income", () => {
 		expect(

@@ -1,11 +1,11 @@
 import type { DocumentReviewIssue, FactKey } from "@openitr/model";
 import {
 	DOCUMENT_REVIEW_ISSUE_CODES,
+	parseFactKey,
+	parseRuleId,
 	TDS_COLUMN_HEADER_MALFORMED_RECOVERY_ACTION,
 	TDS_RECORD_MALFORMED_RECOVERY_ACTION,
 	TDS_SECTION_MISSING_RECOVERY_ACTION,
-	parseFactKey,
-	parseRuleId,
 } from "@openitr/model";
 // The reviewed vocabulary of Form 26AS Part I, shared by every adapter that
 // maps the statement's tax-deducted-at-source records onto canonical facts,
@@ -58,9 +58,7 @@ export const TDS_AMOUNT_COLUMNS = {
 		description:
 			"Form 26AS Part I record fact for the total tax deposited with the government.",
 	}),
-} as const satisfies Readonly<
-	Record<string, TdsAmountCellDefinition>
->;
+} as const satisfies Readonly<Record<string, TdsAmountCellDefinition>>;
 
 export const AMOUNT_CELL_DEFINITIONS: readonly TdsAmountCellDefinition[] =
 	Object.values(TDS_AMOUNT_COLUMNS);

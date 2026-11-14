@@ -1,3 +1,10 @@
+import type {
+	ExactMoney,
+	FactKey,
+	IssueCode,
+	OldRegimeAgeCategory,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	addExactMoney,
 	compareExactMoney,
@@ -10,25 +17,17 @@ import {
 	roundToNearestMultipleOf,
 	subtractExactMoney,
 } from "@openitr/model";
+import type { FactSetRevision } from "./fact-set-revision";
 import type {
-	ExactMoney,
-	FactKey,
-	IssueCode,
-	OldRegimeAgeCategory,
-	ScopeRulePack,
-} from "@openitr/model";
-
+	ComputationNodeDraft,
+	ComputationTraceNode,
+} from "./new-regime-liability";
 import {
 	constantInput,
 	finalizeComputationNodes,
 	nodeInput,
 	TOTAL_INCOME_ROUNDED_NODE_ID,
 } from "./new-regime-liability";
-import type {
-	ComputationNodeDraft,
-	ComputationTraceNode,
-} from "./new-regime-liability";
-import type { FactSetRevision } from "./fact-set-revision";
 
 const ZERO = exactMoneyFromWholeRupees(0);
 
@@ -63,14 +62,14 @@ export type OldRegimeComputationIssue = Readonly<{
 
 export type OldRegimeComputationInput =
 	| Readonly<{
-		kind: "blocked";
-		issues: readonly OldRegimeComputationIssue[];
+			kind: "blocked";
+			issues: readonly OldRegimeComputationIssue[];
 	  }>
 	| Readonly<{
-		kind: "ready";
-		factSetRevision: FactSetRevision;
-		ageCategory: OldRegimeAgeCategory;
-		amounts: OldRegimeAcceptedAmounts;
+			kind: "ready";
+			factSetRevision: FactSetRevision;
+			ageCategory: OldRegimeAgeCategory;
+			amounts: OldRegimeAcceptedAmounts;
 	  }>;
 
 export type OldRegimeSummary = Readonly<{
@@ -97,16 +96,16 @@ export type OldRegimeSummary = Readonly<{
 
 export type OldRegimeComputation =
 	| Readonly<{
-		kind: "blocked" | "unsupported";
-		issues: readonly OldRegimeComputationIssue[];
+			kind: "blocked" | "unsupported";
+			issues: readonly OldRegimeComputationIssue[];
 	  }>
 	| Readonly<{
-		kind: "computed";
-		factSetRevision: FactSetRevision;
-		rulePackRevision: string;
-		ageCategory: OldRegimeAgeCategory;
-		nodes: readonly ComputationTraceNode[];
-		summary: OldRegimeSummary;
+			kind: "computed";
+			factSetRevision: FactSetRevision;
+			rulePackRevision: string;
+			ageCategory: OldRegimeAgeCategory;
+			nodes: readonly ComputationTraceNode[];
+			summary: OldRegimeSummary;
 	  }>;
 
 const nodeIds = Object.freeze({
@@ -126,12 +125,8 @@ const nodeIds = Object.freeze({
 	loanInterestDeductions: parseFactKey(
 		"derived.old-regime-loan-interest-deductions",
 	),
-	donationDeductions: parseFactKey(
-		"derived.old-regime-donation-deductions",
-	),
-	remainingDeductions: parseFactKey(
-		"derived.old-regime-remaining-deductions",
-	),
+	donationDeductions: parseFactKey("derived.old-regime-donation-deductions"),
+	remainingDeductions: parseFactKey("derived.old-regime-remaining-deductions"),
 	deductionsClaimed: parseFactKey("derived.old-regime-deductions-claimed"),
 	deductionsAllowed: parseFactKey("derived.old-regime-deductions-allowed"),
 	normalRateIncome: parseFactKey("derived.old-regime-normal-rate-income"),
@@ -212,7 +207,9 @@ export const computeOldRegime = ({
 		constants.housePropertyLossSetoffLimitWholeRupees,
 	);
 	const housePropertyIncome =
-		amounts.houseProperty.kind === "income" ? amounts.houseProperty.amount : ZERO;
+		amounts.houseProperty.kind === "income"
+			? amounts.houseProperty.amount
+			: ZERO;
 	const housePropertyLoss =
 		amounts.houseProperty.kind === "loss"
 			? minExactMoney(amounts.houseProperty.amount, housePropertyLimit)
@@ -246,9 +243,7 @@ export const computeOldRegime = ({
 	);
 	const totalIncome = roundToNearestMultipleOf(
 		totalIncomeBeforeRounding,
-		exactMoneyFromWholeRupees(
-			constants.totalIncomeRoundingBaseWholeRupees,
-		),
+		exactMoneyFromWholeRupees(constants.totalIncomeRoundingBaseWholeRupees),
 	);
 	if (
 		compareExactMoney(
@@ -288,9 +283,7 @@ export const computeOldRegime = ({
 	const rebateApplied =
 		compareExactMoney(
 			totalIncome,
-			exactMoneyFromWholeRupees(
-				constants.rebateMaxTotalIncomeWholeRupees,
-			),
+			exactMoneyFromWholeRupees(constants.rebateMaxTotalIncomeWholeRupees),
 		) <= 0
 			? minExactMoney(
 					incomeTaxBeforeRebate,
@@ -422,8 +415,7 @@ export const computeOldRegime = ({
 			inputs: [],
 			unroundedValue: amounts.agriculturalIncome,
 			roundedValue: ZERO,
-			note:
-				"Agricultural income inside the ITR-1 limit is reported as exempt and excluded from taxable income.",
+			note: "Agricultural income inside the ITR-1 limit is reported as exempt and excluded from taxable income.",
 		},
 		{
 			nodeId: nodeIds.grossTotalIncome,
@@ -463,14 +455,8 @@ export const computeOldRegime = ({
 					nodeIds.loanInterestDeductions,
 					amounts.deductions.loanInterest,
 				),
-				nodeInput(
-					nodeIds.donationDeductions,
-					amounts.deductions.donations,
-				),
-				nodeInput(
-					nodeIds.remainingDeductions,
-					amounts.deductions.remaining,
-				),
+				nodeInput(nodeIds.donationDeductions, amounts.deductions.donations),
+				nodeInput(nodeIds.remainingDeductions, amounts.deductions.remaining),
 			],
 			unroundedValue: deductionsClaimed,
 			roundedValue: deductionsClaimed,

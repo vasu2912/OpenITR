@@ -1,11 +1,11 @@
-import { parseExactMoney, parseFactKey, parseSha256Digest } from "@openitr/model";
-import { describe, expect, test } from "vitest";
-
-import {
-	evaluateResolutionAttempt,
-	reconcileCanonicalFacts,
-} from "./index";
 import type { IsoTimestamp } from "@openitr/model";
+import {
+	parseExactMoney,
+	parseFactKey,
+	parseSha256Digest,
+} from "@openitr/model";
+import { describe, expect, test } from "vitest";
+import { evaluateResolutionAttempt, reconcileCanonicalFacts } from "./index";
 
 const docA = parseSha256Digest(
 	"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -195,8 +195,7 @@ describe("rejected resolutions", () => {
 
 	test("a selection outside the offered candidates is rejected", () => {
 		expect(
-			attemptOf({ kind: "observed", observationId: "obs-not-offered" })
-				.kind,
+			attemptOf({ kind: "observed", observationId: "obs-not-offered" }).kind,
 		).toBe("rejected");
 	});
 
@@ -216,9 +215,7 @@ describe("rejected resolutions", () => {
 	});
 
 	test("a malformed attested amount is rejected", () => {
-		expect(attemptOf({ kind: "attested", value: "-5" }).kind).toBe(
-			"rejected",
-		);
+		expect(attemptOf({ kind: "attested", value: "-5" }).kind).toBe("rejected");
 		expect(attemptOf({ kind: "attested", value: "12,000" }).kind).toBe(
 			"rejected",
 		);

@@ -1,8 +1,8 @@
+import type { Sha256Digest, TdsObservation } from "@openitr/model";
 import {
 	computeSourceDocumentIdentity,
 	parseSha256Digest,
 } from "@openitr/model";
-import type { Sha256Digest, TdsObservation } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -154,7 +154,10 @@ describe("Form 26AS text TDS extraction", () => {
 			],
 		],
 		["a blank deductor name", ["1", "   ", "MUMA12345B", "10", "1", "1"]],
-		["a non-numeric serial number", ["x", "Name", "MUMA12345B", "10", "1", "1"]],
+		[
+			"a non-numeric serial number",
+			["x", "Name", "MUMA12345B", "10", "1", "1"],
+		],
 		[
 			"a row with more cells than the reviewed column header",
 			["1", "Name", "MUMA12345B", "10", "1", "1", "extra"],
@@ -307,9 +310,9 @@ describe("Form 26AS text TDS extraction", () => {
 		const deposited = outcome.tdsObservations.filter(
 			(observation) => observation.factKey === "tds.tds-deposited",
 		);
-		expect(deposited.map((observation) => String(observation.normalizedValue))).toEqual([
-			"0",
-		]);
+		expect(
+			deposited.map((observation) => String(observation.normalizedValue)),
+		).toEqual(["0"]);
 	});
 
 	test("reports a missing Part I section as a typed review issue instead of empty success", async () => {
@@ -453,8 +456,11 @@ describe("Form 26AS text TDS extraction", () => {
 				throw new Error("expected a counterpart observation");
 			}
 			expect(reformattedIdentity).toBe(counterpart.sourceDocumentId);
-			const { sourceDocumentId: _s, observationId: _o, ...canonicalRest } =
-				observation;
+			const {
+				sourceDocumentId: _s,
+				observationId: _o,
+				...canonicalRest
+			} = observation;
 			const {
 				sourceDocumentId: _cs,
 				observationId: _co,

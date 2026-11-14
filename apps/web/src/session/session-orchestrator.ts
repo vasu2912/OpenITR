@@ -1,16 +1,73 @@
+import type {
+	AcceptedCanonicalFact,
+	AffectedResult,
+	CanonicalFactGroup,
+	FactResolution,
+	ReconciliationResult,
+	UnresolvedFactConflict,
+} from "@openitr/fact-reconciliation";
 import {
-	addExactMoney,
-	computeSourceDocumentIdentity,
-	compareExactMoney,
-	createExtractionRejectionOutcome,
-	createInspectionFailedOutcome,
-	exactMoneyFromWholeRupees,
-	isIsoDate,
-	parseExactMoney,
-	parseFactKey,
-	parseIssueCode,
-	parseIsoTimestamp,
-} from "@openitr/model";
+	evaluateResolutionAttempt,
+	reconcileCanonicalFacts,
+} from "@openitr/fact-reconciliation";
+import type {
+	AcceptedSalaryDocumentFacts,
+	AgriculturalIncomeComputation,
+	AgriculturalIncomeFact,
+	AttestedFactContribution,
+	DonationDeductionComputation,
+	DonationDeductionFact,
+	FactSetRevision,
+	HealthDisabilityDeductionComputation,
+	HealthDisabilityDeductionFact,
+	HousePropertyComputation,
+	HousePropertyFact,
+	LoanInterestDeductionComputation,
+	LoanInterestDeductionFact,
+	NewRegimeComputation,
+	NewRegimeComputationIssue,
+	NewRegimeSalaryComputation,
+	OldRegimeComputation,
+	OldRegimeComputationIssue,
+	OtherSourceFact,
+	OtherSourcesComputation,
+	RefundOrAmountPayableEstimate,
+	Regime,
+	RegimeComparison,
+	RemainingDeductionComputation,
+	RemainingDeductionFact,
+	SavingsPensionDeductionComputation,
+	SavingsPensionDeductionFact,
+	Section112aCapitalGainComputation,
+	Section112aCapitalGainFact,
+} from "@openitr/itr1-ay2026-27";
+import {
+	compareRegimes,
+	computeAgriculturalIncome,
+	computeDonationDeductions,
+	computeHealthDisabilityDeductions,
+	computeHouseProperties,
+	computeLoanInterestDeductions,
+	computeNewRegime,
+	computeNewRegimeSalaryScenario,
+	computeOldRegime,
+	computeOtherSources,
+	computeRefundOrAmountPayableEstimate,
+	computeRemainingDeductions,
+	computeSavingsPensionDeductions,
+	computeSection112aCapitalGain,
+	DONATION_DEDUCTION_FACT_KEYS,
+	deriveItr1AnalysisScopeFacts,
+	estimateRefundOrAmountPayableFromSalaryScenario,
+	factSetRevisionFor,
+	HEALTH_DISABILITY_DEDUCTION_FACT_KEYS,
+	itr1EstimateIsBlockedByScopeFacts,
+	knownScopeFact,
+	LOAN_INTEREST_DEDUCTION_FACT_KEYS,
+	parseItr1ScopeQuestionAnswer,
+	REMAINING_DEDUCTION_FACT_KEYS,
+	SAVINGS_PENSION_DEDUCTION_FACT_KEYS,
+} from "@openitr/itr1-ay2026-27";
 import type {
 	AnalysisScopeEvaluation,
 	AttestedAnswer,
@@ -25,104 +82,45 @@ import type {
 	InspectableSourceDocument,
 	IsoTimestamp,
 	QuestionId,
+	SalaryObservation,
 	ScopeCheckSessionSnapshot,
 	ScopeFact,
 	ScopeRulePack,
 	SelectedSourceFile,
-	SalaryObservation,
 	Sha256Digest,
 } from "@openitr/model";
 import {
-	computeHouseProperties,
-	computeHealthDisabilityDeductions,
-	computeLoanInterestDeductions,
-	computeNewRegime,
-	computeOldRegime,
-	compareRegimes,
-	computeDonationDeductions,
-	computeRemainingDeductions,
-	computeAgriculturalIncome,
-	computeOtherSources,
-	computeSavingsPensionDeductions,
-	computeSection112aCapitalGain,
-	computeNewRegimeSalaryScenario,
-	deriveItr1AnalysisScopeFacts,
-	knownScopeFact,
-	parseItr1ScopeQuestionAnswer,
-	SAVINGS_PENSION_DEDUCTION_FACT_KEYS,
-	HEALTH_DISABILITY_DEDUCTION_FACT_KEYS,
-	LOAN_INTEREST_DEDUCTION_FACT_KEYS,
-	DONATION_DEDUCTION_FACT_KEYS,
-	REMAINING_DEDUCTION_FACT_KEYS,
-	itr1EstimateIsBlockedByScopeFacts,
-	factSetRevisionFor,
-} from "@openitr/itr1-ay2026-27";
+	addExactMoney,
+	compareExactMoney,
+	computeSourceDocumentIdentity,
+	createExtractionRejectionOutcome,
+	createInspectionFailedOutcome,
+	exactMoneyFromWholeRupees,
+	isIsoDate,
+	type parseExactMoney,
+	parseFactKey,
+	parseIsoTimestamp,
+	parseIssueCode,
+} from "@openitr/model";
 import type {
-	AcceptedSalaryDocumentFacts,
-	AgriculturalIncomeComputation,
-	AgriculturalIncomeFact,
-	AttestedFactContribution,
-	HousePropertyComputation,
-	HousePropertyFact,
-	HealthDisabilityDeductionComputation,
-	HealthDisabilityDeductionFact,
-	LoanInterestDeductionComputation,
-	LoanInterestDeductionFact,
-	NewRegimeComputation,
-	NewRegimeComputationIssue,
-	OldRegimeComputation,
-	OldRegimeComputationIssue,
-	FactSetRevision,
-	Regime,
-	RegimeComparison,
-	DonationDeductionComputation,
-	DonationDeductionFact,
-	RemainingDeductionComputation,
-	RemainingDeductionFact,
-	NewRegimeSalaryComputation,
-	OtherSourceFact,
-	OtherSourcesComputation,
-	SavingsPensionDeductionComputation,
-	SavingsPensionDeductionFact,
-	Section112aCapitalGainComputation,
-	Section112aCapitalGainFact,
-} from "@openitr/itr1-ay2026-27";
-import {
-	computeRefundOrAmountPayableEstimate,
-	estimateRefundOrAmountPayableFromSalaryScenario,
-} from "@openitr/itr1-ay2026-27";
-import type { RefundOrAmountPayableEstimate } from "@openitr/itr1-ay2026-27";
-import { createActor, setup } from "xstate";
-import type { Subscription } from "xstate";
-import {
-	evaluateResolutionAttempt,
-	reconcileCanonicalFacts,
-} from "@openitr/fact-reconciliation";
-import { buildAnalysisReport } from "./analysis-report";
-import type { AnalysisReport } from "./analysis-report";
-import { buildAnalysisReadiness } from "./analysis-readiness";
-import type {
-	AnalysisReadiness,
-	AnalysisReadinessIssue,
-	ReadinessResultInput,
-} from "./analysis-readiness";
+	AttestedAnswerFact,
+	MissingFactQuestionnaire,
+} from "@openitr/question-engine";
 import {
 	deriveMissingFactQuestions,
 	evaluateFactAnswerAttempt,
 	removeFactAnswerAndDependents,
 } from "@openitr/question-engine";
+import type { Subscription } from "xstate";
+import { createActor, setup } from "xstate";
 import type {
-	AttestedAnswerFact,
-	MissingFactQuestionnaire,
-} from "@openitr/question-engine";
-import type {
-	AffectedResult,
-	AcceptedCanonicalFact,
-	CanonicalFactGroup,
-	FactResolution,
-	ReconciliationResult,
-	UnresolvedFactConflict,
-} from "@openitr/fact-reconciliation";
+	AnalysisReadiness,
+	AnalysisReadinessIssue,
+	ReadinessResultInput,
+} from "./analysis-readiness";
+import { buildAnalysisReadiness } from "./analysis-readiness";
+import type { AnalysisReport } from "./analysis-report";
+import { buildAnalysisReport } from "./analysis-report";
 
 export type SessionCommand =
 	| Readonly<{
@@ -157,7 +155,7 @@ export type SessionCommand =
 			questionId: string;
 			value: string;
 			executionContext: Readonly<{ answerTime: string }>;
-		}>
+	  }>
 	| Readonly<{
 			kind: "remove-missing-fact-answer";
 			answerId: string;
@@ -231,7 +229,9 @@ export type DocumentIntakeSnapshot = Readonly<{
 	healthDisabilityDeductionComputation:
 		| HealthDisabilityDeductionComputation
 		| undefined;
-	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
+	loanInterestDeductionComputation:
+		| LoanInterestDeductionComputation
+		| undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
 	remainingDeductionComputation: RemainingDeductionComputation | undefined;
 	newRegimeComputation: NewRegimeComputation | undefined;
@@ -247,7 +247,8 @@ export type DocumentIntakeSnapshot = Readonly<{
 }>;
 
 export type SessionOrchestratorSnapshot =
-	| (ScopeCheckSessionSnapshot & Readonly<{ analysisReadiness: AnalysisReadiness }>)
+	| (ScopeCheckSessionSnapshot &
+			Readonly<{ analysisReadiness: AnalysisReadiness }>)
 	| DocumentIntakeSnapshot;
 
 export type SessionOrchestrator = Readonly<{
@@ -298,7 +299,9 @@ type SessionContext = Readonly<{
 	healthDisabilityDeductionComputation:
 		| HealthDisabilityDeductionComputation
 		| undefined;
-	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
+	loanInterestDeductionComputation:
+		| LoanInterestDeductionComputation
+		| undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
 	remainingDeductionComputation: RemainingDeductionComputation | undefined;
 	newRegimeComputation: NewRegimeComputation | undefined;
@@ -358,10 +361,12 @@ const scopeFactsFromEligibility = (
 	return Object.freeze(facts);
 };
 
-const evaluateAnalysisScopeOf = (
-	{ rulePack, facts }: Readonly<{ rulePack: ScopeRulePack; facts: readonly ScopeFact[]; }>,
-): AnalysisScopeEvaluation | undefined =>
-	rulePack.evaluateAnalysisScope?.({ facts });
+const evaluateAnalysisScopeOf = ({
+	rulePack,
+	facts,
+}: Readonly<{ rulePack: ScopeRulePack; facts: readonly ScopeFact[] }>):
+	| AnalysisScopeEvaluation
+	| undefined => rulePack.evaluateAnalysisScope?.({ facts });
 
 // Only observations that no review issue disputes are accepted facts. The
 // computations themselves re-validate everything and fail closed on gaps.
@@ -389,10 +394,7 @@ const sliceRecords = <
 >(
 	extractions: readonly DocumentExtractionRecord[],
 	observationField: TKey,
-): readonly Extract<
-	DocumentExtractionRecord,
-	{ status: "done" }
->[] =>
+): readonly Extract<DocumentExtractionRecord, { status: "done" }>[] =>
 	extractions.filter(
 		(record): record is Extract<DocumentExtractionRecord, { status: "done" }> =>
 			record.status === "done" && record[observationField].length > 0,
@@ -423,15 +425,18 @@ const AGRICULTURAL_INCOME_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	label: "Agricultural-income explanation",
 });
 
-const SAVINGS_PENSION_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
-	resultId: "savings-pension-deductions",
-	label: "Savings and pension-contribution deductions",
-});
+const SAVINGS_PENSION_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze(
+	{
+		resultId: "savings-pension-deductions",
+		label: "Savings and pension-contribution deductions",
+	},
+);
 
-const HEALTH_DISABILITY_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
-	resultId: "health-disability-deductions",
-	label: "Health and disability deductions",
-});
+const HEALTH_DISABILITY_DEDUCTION_AFFECTED_RESULT: AffectedResult =
+	Object.freeze({
+		resultId: "health-disability-deductions",
+		label: "Health and disability deductions",
+	});
 
 const LOAN_INTEREST_DEDUCTION_AFFECTED_RESULT: AffectedResult = Object.freeze({
 	resultId: "loan-interest-deductions",
@@ -458,7 +463,8 @@ const housePropertyResultId = (propertyNumber: 1 | 2): string =>
 
 const housePropertyCountOf = (facts: readonly ScopeFact[]): number => {
 	const fact = facts.find(
-		(candidate) => candidate.factKey === parseFactKey("scope.house-property-count"),
+		(candidate) =>
+			candidate.factKey === parseFactKey("scope.house-property-count"),
 	);
 	return fact?.state === "known" && fact.value.kind === "whole-number"
 		? fact.value.value
@@ -476,27 +482,30 @@ const computeHousePropertyScenario = ({
 }>): HousePropertyComputation | undefined => {
 	const propertyCount = housePropertyCountOf(analysisScopeFacts);
 	if (propertyCount === 0) return undefined;
-	const facts = answers.flatMap(
-		(answer): readonly HousePropertyFact[] => {
-			if (typeof answer.value === "string" && isIsoDate(answer.value)) {
-				return [];
-			}
-			for (const propertyNumber of [1, 2] as const) {
-				if (answer.factKey.startsWith(`house-property.${propertyNumber}.`)) {
-					return [{ propertyNumber, factKey: answer.factKey, value: answer.value }];
-				}
-			}
+	const facts = answers.flatMap((answer): readonly HousePropertyFact[] => {
+		if (typeof answer.value === "string" && isIsoDate(answer.value)) {
 			return [];
-		},
-	);
+		}
+		for (const propertyNumber of [1, 2] as const) {
+			if (answer.factKey.startsWith(`house-property.${propertyNumber}.`)) {
+				return [
+					{ propertyNumber, factKey: answer.factKey, value: answer.value },
+				];
+			}
+		}
+		return [];
+	});
 	return computeHouseProperties({ rulePack, propertyCount, facts });
 };
 
 const otherSourcesApply = (facts: readonly ScopeFact[]): boolean => {
 	const fact = facts.find(
-		(candidate) => candidate.factKey === parseFactKey("scope.allowed-other-sources-income"),
+		(candidate) =>
+			candidate.factKey === parseFactKey("scope.allowed-other-sources-income"),
 	);
-	return fact?.state === "known" && fact.value.kind === "boolean" && fact.value.value;
+	return (
+		fact?.state === "known" && fact.value.kind === "boolean" && fact.value.value
+	);
 };
 
 const OTHER_SOURCE_FACT_KEYS = new Set<FactKey>([
@@ -520,14 +529,13 @@ const computeOtherSourcesScenario = ({
 	const observedFactKeys = new Set(
 		reconciliation.acceptedFacts.map((accepted) => accepted.factKey),
 	);
-	const answerFacts = answers.flatMap(
-		(answer): readonly OtherSourceFact[] =>
-			typeof answer.value === "string" &&
-			!isIsoDate(answer.value) &&
-			OTHER_SOURCE_FACT_KEYS.has(answer.factKey) &&
-			!observedFactKeys.has(answer.factKey)
-				? [{ factKey: answer.factKey, value: answer.value }]
-				: [],
+	const answerFacts = answers.flatMap((answer): readonly OtherSourceFact[] =>
+		typeof answer.value === "string" &&
+		!isIsoDate(answer.value) &&
+		OTHER_SOURCE_FACT_KEYS.has(answer.factKey) &&
+		!observedFactKeys.has(answer.factKey)
+			? [{ factKey: answer.factKey, value: answer.value }]
+			: [],
 	);
 	const observedFacts = reconciliation.acceptedFacts.flatMap(
 		(accepted): readonly OtherSourceFact[] =>
@@ -546,8 +554,7 @@ const section112aReportedGainOf = (
 	facts: readonly ScopeFact[],
 ): Section112aCapitalGainFact | undefined => {
 	const fact = facts.find(
-		(candidate) =>
-			candidate.factKey === parseFactKey("scope.section112a-ltcg"),
+		(candidate) => candidate.factKey === parseFactKey("scope.section112a-ltcg"),
 	);
 	return fact?.state === "known" && fact.value.kind === "exact-money"
 		? { factKey: fact.factKey, value: fact.value.value }
@@ -599,9 +606,7 @@ const agriculturalIncomePresenceOf = (facts: readonly ScopeFact[]): boolean => {
 		(candidate) => candidate.factKey === AGRICULTURAL_INCOME_PRESENCE_FACT,
 	);
 	return (
-		fact?.state === "known" &&
-		fact.value.kind === "boolean" &&
-		fact.value.value
+		fact?.state === "known" && fact.value.kind === "boolean" && fact.value.value
 	);
 };
 
@@ -644,8 +649,7 @@ const agriculturalIncomeApplies = ({
 }>): boolean =>
 	agriculturalIncomePresenceOf(analysisScopeFacts) ||
 	agriculturalIncomeFactsOf({ answers, reconciliation }).some(
-		(fact) =>
-			compareExactMoney(fact.value, exactMoneyFromWholeRupees(0)) > 0,
+		(fact) => compareExactMoney(fact.value, exactMoneyFromWholeRupees(0)) > 0,
 	);
 
 const computeAgriculturalIncomeScenario = ({
@@ -823,7 +827,8 @@ const computeLoanInterestDeductionScenario = ({
 	answers: readonly AttestedAnswerFact[];
 	reconciliation: ReconciliationResult;
 }>): LoanInterestDeductionComputation | undefined => {
-	if (rulePack.taxConstants?.loanInterestDeductions === undefined) return undefined;
+	if (rulePack.taxConstants?.loanInterestDeductions === undefined)
+		return undefined;
 	const observedFactKeys = new Set(
 		reconciliation.acceptedFacts.map((accepted) => accepted.factKey),
 	);
@@ -836,10 +841,19 @@ const computeLoanInterestDeductionScenario = ({
 							value: accepted.value,
 							origin:
 								accepted.origin.kind === "resolved-attested"
-									? { kind: "attested-answer", answerId: accepted.origin.resolutionId }
+									? {
+											kind: "attested-answer",
+											answerId: accepted.origin.resolutionId,
+										}
 									: {
 											kind: "accepted-evidence",
-											sourceDocumentIds: [...new Set(accepted.agreeingCandidates.map((candidate) => String(candidate.sourceDocumentId)))],
+											sourceDocumentIds: [
+												...new Set(
+													accepted.agreeingCandidates.map((candidate) =>
+														String(candidate.sourceDocumentId),
+													),
+												),
+											],
 										},
 						},
 					]
@@ -849,7 +863,13 @@ const computeLoanInterestDeductionScenario = ({
 		(answer): readonly LoanInterestDeductionFact[] =>
 			LOAN_INTEREST_FACT_KEY_SET.has(answer.factKey) &&
 			!observedFactKeys.has(answer.factKey)
-				? [{ factKey: answer.factKey, value: answer.value, origin: { kind: "attested-answer", answerId: answer.answerId } }]
+				? [
+						{
+							factKey: answer.factKey,
+							value: answer.value,
+							origin: { kind: "attested-answer", answerId: answer.answerId },
+						},
+					]
 				: [],
 	);
 	return computeLoanInterestDeductions({
@@ -943,7 +963,8 @@ const computeRemainingDeductionScenario = ({
 	answers: readonly AttestedAnswerFact[];
 	reconciliation: ReconciliationResult;
 }>): RemainingDeductionComputation | undefined => {
-	if (rulePack.taxConstants?.remainingDeductions === undefined) return undefined;
+	if (rulePack.taxConstants?.remainingDeductions === undefined)
+		return undefined;
 	const observedFactKeys = new Set(
 		reconciliation.acceptedFacts.map((accepted) => accepted.factKey),
 	);
@@ -952,14 +973,30 @@ const computeRemainingDeductionScenario = ({
 			if (
 				!REMAINING_DEDUCTION_FACT_KEY_SET.has(accepted.factKey) ||
 				(typeof accepted.value === "string" && isIsoDate(accepted.value))
-			) return [];
-			return [{
-				factKey: accepted.factKey,
-				value: accepted.value,
-				origin: accepted.origin.kind === "resolved-attested"
-					? { kind: "attested-answer", answerId: accepted.origin.resolutionId }
-					: { kind: "accepted-evidence", sourceDocumentIds: [...new Set(accepted.agreeingCandidates.map((candidate) => String(candidate.sourceDocumentId)))] },
-			}];
+			)
+				return [];
+			return [
+				{
+					factKey: accepted.factKey,
+					value: accepted.value,
+					origin:
+						accepted.origin.kind === "resolved-attested"
+							? {
+									kind: "attested-answer",
+									answerId: accepted.origin.resolutionId,
+								}
+							: {
+									kind: "accepted-evidence",
+									sourceDocumentIds: [
+										...new Set(
+											accepted.agreeingCandidates.map((candidate) =>
+												String(candidate.sourceDocumentId),
+											),
+										),
+									],
+								},
+				},
+			];
 		},
 	);
 	const answerFacts = answers.flatMap(
@@ -967,7 +1004,13 @@ const computeRemainingDeductionScenario = ({
 			REMAINING_DEDUCTION_FACT_KEY_SET.has(answer.factKey) &&
 			!(typeof answer.value === "string" && isIsoDate(answer.value)) &&
 			!observedFactKeys.has(answer.factKey)
-				? [{ factKey: answer.factKey, value: answer.value, origin: { kind: "attested-answer", answerId: answer.answerId } }]
+				? [
+						{
+							factKey: answer.factKey,
+							value: answer.value,
+							origin: { kind: "attested-answer", answerId: answer.answerId },
+						},
+					]
 				: [],
 	);
 	return computeRemainingDeductions({
@@ -1027,9 +1070,7 @@ const upsertGroup = (
 	});
 };
 
-const salarySourceIdOf = (
-	observation: SalaryObservation,
-): string => {
+const salarySourceIdOf = (observation: SalaryObservation): string => {
 	switch (observation.record.kind) {
 		case "form16":
 			return `form16:${observation.record.deductorTan}`;
@@ -1177,9 +1218,7 @@ const reconcileSessionFacts = ({
 // the Form 16 checks.
 const representativeFilterOf = (
 	reconciliation: ReconciliationResult,
-): ((observation: {
-	observationId: string;
-}) => boolean) => {
+): ((observation: { observationId: string }) => boolean) => {
 	const representatives = new Set(
 		reconciliation.acceptedFacts.flatMap((fact) =>
 			fact.representativeObservationId === undefined
@@ -1262,14 +1301,19 @@ const acceptedSalarySourcesOf = ({
 		});
 };
 
-const currentResidentAnswerOf = (
-	{ scopeCheck, analysisScopeFacts }: Readonly<{ scopeCheck: SessionContext["scopeCheck"]; analysisScopeFacts: readonly ScopeFact[]; }>,
-): AttestedAnswer => {
+const currentResidentAnswerOf = ({
+	scopeCheck,
+	analysisScopeFacts,
+}: Readonly<{
+	scopeCheck: SessionContext["scopeCheck"];
+	analysisScopeFacts: readonly ScopeFact[];
+}>): AttestedAnswer => {
 	if (scopeCheck.kind !== "complete") {
 		throw new Error("A resident answer requires a completed scope check");
 	}
 	const residentFact = analysisScopeFacts.find(
-		(fact) => fact.factKey === parseFactKey("scope.taxpayer-resident-other-than-rnor"),
+		(fact) =>
+			fact.factKey === parseFactKey("scope.taxpayer-resident-other-than-rnor"),
 	);
 	if (
 		residentFact?.state === "known" &&
@@ -1294,7 +1338,10 @@ const computeSalaryScenario = ({
 	extractions,
 	analysisScopeFacts,
 	reconciliation,
-}: Pick<SliceComputationInput, "rulePack" | "scopeCheck" | "extractions" | "analysisScopeFacts"> & {
+}: Pick<
+	SliceComputationInput,
+	"rulePack" | "scopeCheck" | "extractions" | "analysisScopeFacts"
+> & {
 	reconciliation: ReconciliationResult;
 }): NewRegimeSalaryComputation | undefined => {
 	if (scopeCheck.kind !== "complete") {
@@ -1302,7 +1349,8 @@ const computeSalaryScenario = ({
 	}
 	if (
 		rulePack.analysisScope !== undefined &&
-		evaluateAnalysisScopeOf({ rulePack, facts: analysisScopeFacts })?.kind !== "supported"
+		evaluateAnalysisScopeOf({ rulePack, facts: analysisScopeFacts })?.kind !==
+			"supported"
 	) {
 		return undefined;
 	}
@@ -1340,7 +1388,8 @@ const computeEstimateScenario = ({
 	}
 	if (
 		rulePack.analysisScope !== undefined &&
-		evaluateAnalysisScopeOf({ rulePack, facts: analysisScopeFacts })?.kind !== "supported"
+		evaluateAnalysisScopeOf({ rulePack, facts: analysisScopeFacts })?.kind !==
+			"supported"
 	) {
 		return undefined;
 	}
@@ -1350,19 +1399,20 @@ const computeEstimateScenario = ({
 	) {
 		return undefined;
 	}
-	const residentAnswer = currentResidentAnswerOf({ scopeCheck, analysisScopeFacts });
+	const residentAnswer = currentResidentAnswerOf({
+		scopeCheck,
+		analysisScopeFacts,
+	});
 	const withheldFactKeys = [
 		...new Set(reconciliation.conflicts.map((conflict) => conflict.factKey)),
 	].sort();
 	// Attestations carry no observation, so their values reach the estimate
 	// through an explicit contribution channel. Accepted evidence supersedes
 	// an earlier question answer for the same fact and prevents double-counting.
-	const supersededAnswerFactKeys = new Set(
-		[
-			...reconciliation.acceptedFacts.map((fact) => fact.factKey),
-			...reconciliation.conflicts.map((conflict) => conflict.factKey),
-		],
-	);
+	const supersededAnswerFactKeys = new Set([
+		...reconciliation.acceptedFacts.map((fact) => fact.factKey),
+		...reconciliation.conflicts.map((conflict) => conflict.factKey),
+	]);
 	const resolutionContributions = reconciliation.acceptedFacts.flatMap(
 		(fact) =>
 			fact.origin.kind === "resolved-attested" &&
@@ -1419,10 +1469,7 @@ const computeEstimateScenario = ({
 		"nonSalaryIncomeObservations",
 	);
 	const tdsRecords = sliceRecords(extractions, "tdsObservations");
-	const taxPaymentRecords = sliceRecords(
-		extractions,
-		"taxPaymentObservations",
-	);
+	const taxPaymentRecords = sliceRecords(extractions, "taxPaymentObservations");
 	if (
 		salaryRecords.length === 0 &&
 		bankInterestRecords.length === 0 &&
@@ -1540,10 +1587,12 @@ const deriveSessionReview = (
 		input.rulePack.taxConstants?.oldRegime !== undefined
 			? [OLD_REGIME_AFFECTED_RESULT.resultId]
 			: []),
-		...(input.documentsStageEntered === true && otherSourcesApply(input.analysisScopeFacts)
+		...(input.documentsStageEntered === true &&
+		otherSourcesApply(input.analysisScopeFacts)
 			? [OTHER_SOURCES_AFFECTED_RESULT.resultId]
 			: []),
-		...(input.documentsStageEntered === true && section112aApplies(input.analysisScopeFacts)
+		...(input.documentsStageEntered === true &&
+		section112aApplies(input.analysisScopeFacts)
 			? [SECTION112A_AFFECTED_RESULT.resultId]
 			: []),
 		...(input.documentsStageEntered === true &&
@@ -1583,34 +1632,38 @@ const deriveSessionReviewAndSalary = (
 	const review = deriveSessionReview(input);
 	return {
 		...review,
-			salaryComputation: computeSalaryScenario({
-				rulePack,
-				scopeCheck,
-				extractions,
-				analysisScopeFacts: input.analysisScopeFacts,
-				reconciliation: review.reconciliation,
-			}),
+		salaryComputation: computeSalaryScenario({
+			rulePack,
+			scopeCheck,
+			extractions,
+			analysisScopeFacts: input.analysisScopeFacts,
+			reconciliation: review.reconciliation,
+		}),
 	};
 };
 
-const oldRegimeIssue = (issue: Readonly<{
-	code: OldRegimeComputationIssue["code"];
-	affectedFacts?: readonly FactKey[];
-	affectedFactKeys?: readonly FactKey[];
-	recoveryAction: string;
-}>): OldRegimeComputationIssue => ({
+const oldRegimeIssue = (
+	issue: Readonly<{
+		code: OldRegimeComputationIssue["code"];
+		affectedFacts?: readonly FactKey[];
+		affectedFactKeys?: readonly FactKey[];
+		recoveryAction: string;
+	}>,
+): OldRegimeComputationIssue => ({
 	code: issue.code,
 	severity: "blocking",
 	affectedFacts: issue.affectedFacts ?? issue.affectedFactKeys ?? [],
 	recoveryAction: issue.recoveryAction,
 });
 
-const newRegimeIssue = (issue: Readonly<{
-	code: NewRegimeComputationIssue["code"];
-	affectedFacts?: readonly FactKey[];
-	affectedFactKeys?: readonly FactKey[];
-	recoveryAction: string;
-}>): NewRegimeComputationIssue => ({
+const newRegimeIssue = (
+	issue: Readonly<{
+		code: NewRegimeComputationIssue["code"];
+		affectedFacts?: readonly FactKey[];
+		affectedFactKeys?: readonly FactKey[];
+		recoveryAction: string;
+	}>,
+): NewRegimeComputationIssue => ({
 	code: issue.code,
 	severity: "blocking",
 	affectedFacts: issue.affectedFacts ?? issue.affectedFactKeys ?? [],
@@ -1631,7 +1684,9 @@ const acceptedRemainingMoney = (
 		(fact) => fact.factKey === factKey,
 	)?.value;
 	if (typeof value !== "string") {
-		throw new Error(`Completed remaining-deduction fact is missing: ${factKey}`);
+		throw new Error(
+			`Completed remaining-deduction fact is missing: ${factKey}`,
+		);
 	}
 	return value;
 };
@@ -1667,7 +1722,9 @@ const computeOldRegimeScenario = ({
 	healthDisabilityDeductionComputation:
 		| HealthDisabilityDeductionComputation
 		| undefined;
-	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
+	loanInterestDeductionComputation:
+		| LoanInterestDeductionComputation
+		| undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
 	remainingDeductionComputation: RemainingDeductionComputation | undefined;
 }>): OldRegimeComputation | undefined => {
@@ -1863,7 +1920,9 @@ const computeNewRegimeScenario = ({
 	healthDisabilityDeductionComputation:
 		| HealthDisabilityDeductionComputation
 		| undefined;
-	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
+	loanInterestDeductionComputation:
+		| LoanInterestDeductionComputation
+		| undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
 	remainingDeductionComputation: RemainingDeductionComputation | undefined;
 }>): NewRegimeComputation | undefined => {
@@ -2005,22 +2064,16 @@ const computeNewRegimeScenario = ({
 							healthDisabilityDeductionComputation.newRegimeTotal,
 					},
 					loanInterest: {
-						oldRegimeAllowed:
-							loanInterestDeductionComputation.oldRegimeTotal,
-						newRegimeAllowed:
-							loanInterestDeductionComputation.newRegimeTotal,
+						oldRegimeAllowed: loanInterestDeductionComputation.oldRegimeTotal,
+						newRegimeAllowed: loanInterestDeductionComputation.newRegimeTotal,
 					},
 					donations: {
-						oldRegimeAllowed:
-							donationDeductionComputation.oldRegimeTotal,
-						newRegimeAllowed:
-							donationDeductionComputation.newRegimeTotal,
+						oldRegimeAllowed: donationDeductionComputation.oldRegimeTotal,
+						newRegimeAllowed: donationDeductionComputation.newRegimeTotal,
 					},
 					remaining: {
-						oldRegimeAllowed:
-							remainingDeductionComputation.oldRegimeTotal,
-						newRegimeAllowed:
-							remainingDeductionComputation.newRegimeTotal,
+						oldRegimeAllowed: remainingDeductionComputation.oldRegimeTotal,
+						newRegimeAllowed: remainingDeductionComputation.newRegimeTotal,
 					},
 				},
 			},
@@ -2071,7 +2124,9 @@ const deriveSessionComputations = (
 	healthDisabilityDeductionComputation:
 		| HealthDisabilityDeductionComputation
 		| undefined;
-	loanInterestDeductionComputation: LoanInterestDeductionComputation | undefined;
+	loanInterestDeductionComputation:
+		| LoanInterestDeductionComputation
+		| undefined;
 	donationDeductionComputation: DonationDeductionComputation | undefined;
 	remainingDeductionComputation: RemainingDeductionComputation | undefined;
 	newRegimeComputation: NewRegimeComputation | undefined;
@@ -2104,11 +2159,13 @@ const deriveSessionComputations = (
 			answers,
 			reconciliation: derived.reconciliation,
 		});
-	const loanInterestDeductionComputation = computeLoanInterestDeductionScenario({
-		rulePack,
-		answers,
-		reconciliation: derived.reconciliation,
-	});
+	const loanInterestDeductionComputation = computeLoanInterestDeductionScenario(
+		{
+			rulePack,
+			answers,
+			reconciliation: derived.reconciliation,
+		},
+	);
 	const donationDeductionComputation = computeDonationDeductionScenario({
 		rulePack,
 		answers,
@@ -2217,7 +2274,8 @@ const pendingRecomputationFor = ({
 
 const answersOf = (
 	decisions: readonly AnswerDecision[],
-): readonly AttestedAnswerFact[] => decisions.map((decision) => decision.answer);
+): readonly AttestedAnswerFact[] =>
+	decisions.map((decision) => decision.answer);
 
 const moneyAnswersOf = (
 	answers: readonly AttestedAnswerFact[],
@@ -2229,7 +2287,8 @@ const moneyAnswersOf = (
 
 const resolutionsOf = (
 	decisions: readonly ResolutionDecision[],
-): readonly FactResolution[] => decisions.map((decision) => decision.resolution);
+): readonly FactResolution[] =>
+	decisions.map((decision) => decision.resolution);
 
 const deriveDecisionComputations = ({
 	context,
@@ -2285,9 +2344,10 @@ const deriveDecisionComputations = ({
 		attestedFacts: moneyAnswersOf(answers),
 		rulePackId: context.rulePack.identity.id,
 	});
-	const analysisScopeEvaluation = evaluateAnalysisScopeOf(
-		{ rulePack: context.rulePack, facts: analysisScopeFacts },
-);
+	const analysisScopeEvaluation = evaluateAnalysisScopeOf({
+		rulePack: context.rulePack,
+		facts: analysisScopeFacts,
+	});
 	const affectsEstimate =
 		affectedResultIds.includes(ESTIMATE_AFFECTED_RESULT.resultId) ||
 		affectedResultIds.includes(AGRICULTURAL_INCOME_AFFECTED_RESULT.resultId);
@@ -2327,11 +2387,13 @@ const deriveDecisionComputations = ({
 			answers,
 			reconciliation: review.reconciliation,
 		});
-	const loanInterestDeductionComputation = computeLoanInterestDeductionScenario({
-		rulePack: context.rulePack,
-		answers,
-		reconciliation: review.reconciliation,
-	});
+	const loanInterestDeductionComputation = computeLoanInterestDeductionScenario(
+		{
+			rulePack: context.rulePack,
+			answers,
+			reconciliation: review.reconciliation,
+		},
+	);
 	const donationDeductionComputation = computeDonationDeductionScenario({
 		rulePack: context.rulePack,
 		answers,
@@ -2459,8 +2521,8 @@ const settlePendingRecomputation = (
 		context.agriculturalIncomeComputation?.kind === "unsupported"
 			? undefined
 			: context.pendingRecomputation.affectedResultIds.includes(
-					ESTIMATE_AFFECTED_RESULT.resultId,
-				)
+						ESTIMATE_AFFECTED_RESULT.resultId,
+					)
 				? computeEstimateScenario({
 						rulePack: context.rulePack,
 						scopeCheck: context.scopeCheck,
@@ -2487,8 +2549,7 @@ const settlePendingRecomputation = (
 			context.savingsPensionDeductionComputation,
 		healthDisabilityDeductionComputation:
 			context.healthDisabilityDeductionComputation,
-		loanInterestDeductionComputation:
-			context.loanInterestDeductionComputation,
+		loanInterestDeductionComputation: context.loanInterestDeductionComputation,
 		donationDeductionComputation: context.donationDeductionComputation,
 		remainingDeductionComputation: context.remainingDeductionComputation,
 	});
@@ -2506,8 +2567,7 @@ const settlePendingRecomputation = (
 			context.savingsPensionDeductionComputation,
 		healthDisabilityDeductionComputation:
 			context.healthDisabilityDeductionComputation,
-		loanInterestDeductionComputation:
-			context.loanInterestDeductionComputation,
+		loanInterestDeductionComputation: context.loanInterestDeductionComputation,
 		donationDeductionComputation: context.donationDeductionComputation,
 		remainingDeductionComputation: context.remainingDeductionComputation,
 	});
@@ -2581,9 +2641,10 @@ const deriveSourceComputations = ({
 	return {
 		extractions,
 		analysisScopeFacts,
-		analysisScopeEvaluation: evaluateAnalysisScopeOf(
-			{ rulePack: context.rulePack, facts: analysisScopeFacts },
-		),
+		analysisScopeEvaluation: evaluateAnalysisScopeOf({
+			rulePack: context.rulePack,
+			facts: analysisScopeFacts,
+		}),
 		...derived,
 		primaryRegime: undefined,
 		finalReviewConfirmation: undefined,
@@ -2654,7 +2715,7 @@ type SessionEvent =
 	| Readonly<{
 			type: "analysis-scope-question-answered";
 			fact: ScopeFact;
-		}>
+	  }>
 	| Readonly<{
 			type: "missing-fact-answer-removed";
 			decision: AnswerDecision;
@@ -2664,15 +2725,15 @@ type SessionEvent =
 			decision: ResolutionDecision;
 	  }>
 	| Readonly<{
-		type: "recomputation-scheduled";
-		generation: number;
+			type: "recomputation-scheduled";
+			generation: number;
 	  }>
 	| Readonly<{
-		type: "primary-regime-selected";
-		selection: Readonly<{
-			regime: Regime;
-			factSetRevision: FactSetRevision;
-		}>;
+			type: "primary-regime-selected";
+			selection: Readonly<{
+				regime: Regime;
+				factSetRevision: FactSetRevision;
+			}>;
 	  }>
 	| Readonly<{
 			type: "final-review-confirmed";
@@ -2702,7 +2763,7 @@ const settleExtractionRecord = (
 	outcome: DocumentExtractionOutcome,
 ): DocumentExtractionRecord =>
 	outcome.kind === "extracted"
-		? {
+		? ({
 				candidateKey: record.candidateKey,
 				documentId: record.documentId,
 				status: "done",
@@ -2713,13 +2774,13 @@ const settleExtractionRecord = (
 				taxPaymentObservations: outcome.taxPaymentObservations,
 				issues: outcome.issues,
 				pages: outcome.pages,
-			} satisfies DocumentExtractionRecord
-		: {
+			} satisfies DocumentExtractionRecord)
+		: ({
 				candidateKey: record.candidateKey,
 				documentId: record.documentId,
 				status: "failed",
 				issue: outcome.issue,
-			} satisfies DocumentExtractionRecord;
+			} satisfies DocumentExtractionRecord);
 
 const withStatus = (
 	candidate: CandidateDocument,
@@ -2799,7 +2860,10 @@ const createSessionMachine = ({
 									answeredAt: event.answeredAt,
 								});
 								return deriveItr1AnalysisScopeFacts({
-									baseFacts: scopeFactsFromEligibility(context.rulePack, completion),
+									baseFacts: scopeFactsFromEligibility(
+										context.rulePack,
+										completion,
+									),
 									acceptedFacts: emptyReconciliation.acceptedFacts,
 									attestedFacts: [],
 									rulePackId: context.rulePack.identity.id,
@@ -2813,14 +2877,18 @@ const createSessionMachine = ({
 									answer: event.answer,
 									answeredAt: event.answeredAt,
 								});
-								return evaluateAnalysisScopeOf(
-									{ rulePack: context.rulePack, facts: deriveItr1AnalysisScopeFacts({
-										baseFacts: scopeFactsFromEligibility(context.rulePack, completion),
+								return evaluateAnalysisScopeOf({
+									rulePack: context.rulePack,
+									facts: deriveItr1AnalysisScopeFacts({
+										baseFacts: scopeFactsFromEligibility(
+											context.rulePack,
+											completion,
+										),
 										acceptedFacts: emptyReconciliation.acceptedFacts,
 										attestedFacts: [],
 										rulePackId: context.rulePack.identity.id,
-									}) },
-								);
+									}),
+								});
 							},
 						}),
 						target: "complete",
@@ -2913,14 +2981,11 @@ const createSessionMachine = ({
 												displayName: candidate.displayName,
 												status: "identified",
 												identification: {
-													documentKind:
-														event.outcome.document.documentKind,
+													documentKind: event.outcome.document.documentKind,
 													templateRevision:
 														event.outcome.document.templateRevision,
-													adapterId:
-														event.outcome.adapter.adapterId,
-													adapterVersion:
-														event.outcome.adapter.adapterVersion,
+													adapterId: event.outcome.adapter.adapterId,
+													adapterVersion: event.outcome.adapter.adapterVersion,
 												},
 											} satisfies CandidateDocument;
 										}
@@ -3029,8 +3094,7 @@ const createSessionMachine = ({
 							const nextExtractions = replaceExtractionRecord(
 								context.extractions,
 								event.candidateKey,
-								(record) =>
-									settleExtractionRecord(record, event.outcome),
+								(record) => settleExtractionRecord(record, event.outcome),
 							);
 							return {
 								...deriveSourceComputations({
@@ -3114,12 +3178,15 @@ const createSessionMachine = ({
 							const analysisScopeFacts = deriveItr1AnalysisScopeFacts({
 								baseFacts: nextBaseFacts,
 								acceptedFacts: context.reconciliation.acceptedFacts,
-								attestedFacts: moneyAnswersOf(answersOf(context.answerDecisions)),
+								attestedFacts: moneyAnswersOf(
+									answersOf(context.answerDecisions),
+								),
 								rulePackId: context.rulePack.identity.id,
 							});
-							const analysisScopeEvaluation = evaluateAnalysisScopeOf(
-								{ rulePack: context.rulePack, facts: analysisScopeFacts },
-							);
+							const analysisScopeEvaluation = evaluateAnalysisScopeOf({
+								rulePack: context.rulePack,
+								facts: analysisScopeFacts,
+							});
 							const recomputationGeneration =
 								context.recomputationGeneration + 1;
 							if (analysisScopeEvaluation?.kind === "supported") {
@@ -3175,8 +3242,8 @@ const createSessionMachine = ({
 									answerId: event.decision.answer.answerId,
 								}).map((answer) => answer.answerId),
 							);
-							const answerDecisions = context.answerDecisions.filter((decision) =>
-								retainedAnswerIds.has(decision.answer.answerId),
+							const answerDecisions = context.answerDecisions.filter(
+								(decision) => retainedAnswerIds.has(decision.answer.answerId),
 							);
 							return deriveDecisionComputations({
 								context,
@@ -3295,7 +3362,8 @@ const resultInputsOf = (
 		{
 			id: "salary-analysis",
 			label: "Salary analysis",
-			limitation: "Uses only accepted salary observations and permitted answers.",
+			limitation:
+				"Uses only accepted salary observations and permitted answers.",
 			computation: context.salaryComputation,
 		},
 		{
@@ -3307,67 +3375,78 @@ const resultInputsOf = (
 		{
 			id: "other-sources-analysis",
 			label: "Other-source income analysis",
-			limitation: "Covers only supported other-source categories with accepted facts.",
+			limitation:
+				"Covers only supported other-source categories with accepted facts.",
 			computation: context.otherSourcesComputation,
 		},
 		{
 			id: "section-112a-analysis",
 			label: "Section 112A analysis",
-			limitation: "Covers only section 112A gains inside the supported ITR-1 boundary.",
+			limitation:
+				"Covers only section 112A gains inside the supported ITR-1 boundary.",
 			computation: context.section112aCapitalGainComputation,
 		},
 		{
 			id: "agricultural-income-analysis",
 			label: "Agricultural-income analysis",
-			limitation: "Covers only agricultural income inside the supported ITR-1 boundary.",
+			limitation:
+				"Covers only agricultural income inside the supported ITR-1 boundary.",
 			computation: context.agriculturalIncomeComputation,
 		},
 		{
 			id: "savings-pension-deductions",
 			label: "Savings and pension deductions",
-			limitation: "Explains only the supported deduction categories and supplied proof facts.",
+			limitation:
+				"Explains only the supported deduction categories and supplied proof facts.",
 			computation: context.savingsPensionDeductionComputation,
 		},
 		{
 			id: "health-disability-deductions",
 			label: "Health and disability deductions",
-			limitation: "Explains only the supported deduction categories and supplied proof facts.",
+			limitation:
+				"Explains only the supported deduction categories and supplied proof facts.",
 			computation: context.healthDisabilityDeductionComputation,
 		},
 		{
 			id: "loan-interest-deductions",
 			label: "Loan-interest deductions",
-			limitation: "Explains only the supported deduction categories and supplied proof facts.",
+			limitation:
+				"Explains only the supported deduction categories and supplied proof facts.",
 			computation: context.loanInterestDeductionComputation,
 		},
 		{
 			id: "donation-deductions",
 			label: "Donation deductions",
-			limitation: "Explains only the supported deduction categories and supplied proof facts.",
+			limitation:
+				"Explains only the supported deduction categories and supplied proof facts.",
 			computation: context.donationDeductionComputation,
 		},
 		{
 			id: "remaining-deductions",
 			label: "Remaining supported deductions",
-			limitation: "Explains only the deduction sections implemented by the pinned rule pack.",
+			limitation:
+				"Explains only the deduction sections implemented by the pinned rule pack.",
 			computation: context.remainingDeductionComputation,
 		},
 		{
 			id: "estimated-balance",
 			label: "Estimated refund or amount payable",
-			limitation: "Uses only accepted FY 2025-26 facts and is not an official result.",
+			limitation:
+				"Uses only accepted FY 2025-26 facts and is not an official result.",
 			computation: context.estimateComputation,
 		},
 		{
 			id: "old-regime",
 			label: "Old-regime computation",
-			limitation: "Uses the pinned AY 2026-27 rule pack and accepted fact revision.",
+			limitation:
+				"Uses the pinned AY 2026-27 rule pack and accepted fact revision.",
 			computation: context.oldRegimeComputation,
 		},
 		{
 			id: "new-regime",
 			label: "New-regime computation",
-			limitation: "Uses the pinned AY 2026-27 rule pack and accepted fact revision.",
+			limitation:
+				"Uses the pinned AY 2026-27 rule pack and accepted fact revision.",
 			computation: context.newRegimeComputation,
 		},
 		{
@@ -3379,7 +3458,8 @@ const resultInputsOf = (
 		{
 			id: "complete-analysis",
 			label: "Complete analysis",
-			limitation: "Explains the selected scenario only and does not prepare a tax return.",
+			limitation:
+				"Explains the selected scenario only and does not prepare a tax return.",
 			computation: analysisReport,
 		},
 	]);
@@ -3399,7 +3479,8 @@ const documentReadinessIssuesOf = (
 						factKeys: [],
 						affectedResults: ["Source evidence"],
 						explanation: `Document ${record.documentId} is still being inspected or extracted.`,
-						recoveryAction: "Wait for document processing to finish or cancel it.",
+						recoveryAction:
+							"Wait for document processing to finish or cancel it.",
 						targetId: undefined,
 					}),
 				];
@@ -3482,7 +3563,8 @@ const analysisReadinessFor = (
 				factKeys: [String(limitation.factKey)],
 				affectedResults: ["Tax calculations"],
 				explanation: limitation.explanation,
-				recoveryAction: "Keep this calculation limit in view when interpreting the affected result.",
+				recoveryAction:
+					"Keep this calculation limit in view when interpreting the affected result.",
 				targetId: "scope-calculation-limits-heading",
 			}),
 		),
@@ -3519,7 +3601,8 @@ const analysisReadinessFor = (
 				factKeys: [String(conflict.factKey)],
 				affectedResults: conflict.affectedResults.map((result) => result.label),
 				explanation: `Source observations disagree for ${conflict.factKey}.`,
-				recoveryAction: "Review every competing observation and record a reasoned resolution.",
+				recoveryAction:
+					"Review every competing observation and record a reasoned resolution.",
 				targetId: `conflict-${conflict.conflictId}`,
 			}),
 		),
@@ -3561,7 +3644,7 @@ const toSessionSnapshot = (
 					reviewFacts: [],
 				}),
 			};
-		case "complete":
+		case "complete": {
 			if (!context.documentsStageEntered) {
 				return {
 					kind: "scope-check-complete",
@@ -3591,8 +3674,10 @@ const toSessionSnapshot = (
 								severity: "review",
 								factKeys: [],
 								affectedResults: ["Current-year analysis"],
-								explanation: "Source-document and fact analysis has not started.",
-								recoveryAction: "Complete the supported scope check and continue to source documents.",
+								explanation:
+									"Source-document and fact analysis has not started.",
+								recoveryAction:
+									"Complete the supported scope check and continue to source documents.",
 								targetId: undefined,
 							}),
 						],
@@ -3608,51 +3693,49 @@ const toSessionSnapshot = (
 				regimeComparison: context.regimeComparison,
 				primaryRegime: context.primaryRegime,
 			});
-		return {
-			kind: "document-intake",
-			workflow: "documents",
-			rulePackId: context.rulePack.identity.id,
-			completedScopeCheck: context.scopeCheck.completion,
-			documents: context.documents,
-			extractions: context.extractions,
-			factConflicts: context.reconciliation.conflicts,
-			acceptedFacts: context.reconciliation.acceptedFacts,
-			factResolutions: resolutionsOf(context.resolutionDecisions),
-			questionnaire: context.questionnaire,
-			factAnswers: answersOf(context.answerDecisions),
-			...(context.analysisScopeEvaluation === undefined
-				? {}
-				: { analysisScope: context.analysisScopeEvaluation }),
-			salaryComputation: context.salaryComputation,
-			estimateComputation: context.estimateComputation,
-			housePropertyComputation: context.housePropertyComputation,
-			otherSourcesComputation: context.otherSourcesComputation,
-			section112aCapitalGainComputation:
-				context.section112aCapitalGainComputation,
-			agriculturalIncomeComputation:
-				context.agriculturalIncomeComputation,
-			savingsPensionDeductionComputation:
-				context.savingsPensionDeductionComputation,
-			healthDisabilityDeductionComputation:
-				context.healthDisabilityDeductionComputation,
-			loanInterestDeductionComputation:
-				context.loanInterestDeductionComputation,
-			donationDeductionComputation:
-				context.donationDeductionComputation,
-			remainingDeductionComputation:
-				context.remainingDeductionComputation,
-			newRegimeComputation: context.newRegimeComputation,
-			oldRegimeComputation: context.oldRegimeComputation,
-			regimeComparison: context.regimeComparison,
-			primaryRegime: context.primaryRegime,
-			analysisReport,
-			analysisReadiness: analysisReadinessFor(context, analysisReport),
-			finalReviewConfirmation: context.finalReviewConfirmation,
-			pendingRecomputation:
-				context.pendingRecomputation.kind === "pending"
-					? { kind: "pending" }
-					: { kind: "idle" },
-		};
+			return {
+				kind: "document-intake",
+				workflow: "documents",
+				rulePackId: context.rulePack.identity.id,
+				completedScopeCheck: context.scopeCheck.completion,
+				documents: context.documents,
+				extractions: context.extractions,
+				factConflicts: context.reconciliation.conflicts,
+				acceptedFacts: context.reconciliation.acceptedFacts,
+				factResolutions: resolutionsOf(context.resolutionDecisions),
+				questionnaire: context.questionnaire,
+				factAnswers: answersOf(context.answerDecisions),
+				...(context.analysisScopeEvaluation === undefined
+					? {}
+					: { analysisScope: context.analysisScopeEvaluation }),
+				salaryComputation: context.salaryComputation,
+				estimateComputation: context.estimateComputation,
+				housePropertyComputation: context.housePropertyComputation,
+				otherSourcesComputation: context.otherSourcesComputation,
+				section112aCapitalGainComputation:
+					context.section112aCapitalGainComputation,
+				agriculturalIncomeComputation: context.agriculturalIncomeComputation,
+				savingsPensionDeductionComputation:
+					context.savingsPensionDeductionComputation,
+				healthDisabilityDeductionComputation:
+					context.healthDisabilityDeductionComputation,
+				loanInterestDeductionComputation:
+					context.loanInterestDeductionComputation,
+				donationDeductionComputation: context.donationDeductionComputation,
+				remainingDeductionComputation: context.remainingDeductionComputation,
+				newRegimeComputation: context.newRegimeComputation,
+				oldRegimeComputation: context.oldRegimeComputation,
+				regimeComparison: context.regimeComparison,
+				primaryRegime: context.primaryRegime,
+				analysisReport,
+				analysisReadiness: analysisReadinessFor(context, analysisReport),
+				finalReviewConfirmation: context.finalReviewConfirmation,
+				pendingRecomputation:
+					context.pendingRecomputation.kind === "pending"
+						? { kind: "pending" }
+						: { kind: "idle" },
+			};
+		}
 		default: {
 			const _exhaustive: never = context.scopeCheck;
 			return _exhaustive;
@@ -3725,7 +3808,10 @@ export const createSessionOrchestrator = ({
 	};
 
 	const releaseCandidate = (candidateKey: number) => {
-		for (const controllers of [activeControllers, activeExtractionControllers]) {
+		for (const controllers of [
+			activeControllers,
+			activeExtractionControllers,
+		]) {
 			const controller = controllers.get(candidateKey);
 			if (controller !== undefined) {
 				controller.abort();
@@ -3825,10 +3911,7 @@ export const createSessionOrchestrator = ({
 			if (rereadIdentity.contentSha256 !== documentId) {
 				// The file changed between inspection and extraction; its
 				// observations could never match the inspected identity.
-				return createExtractionRejectionOutcome(
-					"content-mismatch",
-					documentId,
-				);
+				return createExtractionRejectionOutcome("content-mismatch", documentId);
 			}
 			return facility.extract(
 				buildInspectableInput(file, documentId, bytes),
@@ -4026,9 +4109,7 @@ export const createSessionOrchestrator = ({
 					}
 					let answeredAt: IsoTimestamp;
 					try {
-						answeredAt = parseIsoTimestamp(
-							command.executionContext.answerTime,
-						);
+						answeredAt = parseIsoTimestamp(command.executionContext.answerTime);
 					} catch {
 						throw new Error(
 							`Invalid scope answer timestamp: ${command.executionContext.answerTime}`,
@@ -4053,9 +4134,7 @@ export const createSessionOrchestrator = ({
 					return;
 				}
 				case "remove-source-document": {
-					const candidateKey = resolveActiveCandidateKey(
-						command.documentId,
-					);
+					const candidateKey = resolveActiveCandidateKey(command.documentId);
 					if (candidateKey === undefined) {
 						return;
 					}
@@ -4064,9 +4143,7 @@ export const createSessionOrchestrator = ({
 					return;
 				}
 				case "cancel-document-inspection": {
-					const candidateKey = resolveActiveCandidateKey(
-						command.documentId,
-					);
+					const candidateKey = resolveActiveCandidateKey(command.documentId);
 					if (candidateKey === undefined) {
 						return;
 					}
@@ -4094,11 +4171,9 @@ export const createSessionOrchestrator = ({
 						extractions: snapshot.extractions,
 						resolutions: snapshot.factResolutions,
 					});
-					let answeredAt;
+					let answeredAt: ReturnType<typeof parseIsoTimestamp>;
 					try {
-						answeredAt = parseIsoTimestamp(
-							command.executionContext.answerTime,
-						);
+						answeredAt = parseIsoTimestamp(command.executionContext.answerTime);
 					} catch {
 						throw new Error(
 							`Invalid answer timestamp: ${command.executionContext.answerTime}`,
@@ -4197,11 +4272,9 @@ export const createSessionOrchestrator = ({
 							`Rejected fact resolution (${command.groupId}): conflict-not-found`,
 						);
 					}
-					let recordedAt;
+					let recordedAt: ReturnType<typeof parseIsoTimestamp>;
 					try {
-						recordedAt = parseIsoTimestamp(
-							command.executionContext.recordedAt,
-						);
+						recordedAt = parseIsoTimestamp(command.executionContext.recordedAt);
 					} catch {
 						throw new Error(
 							`Invalid resolution timestamp: ${command.executionContext.recordedAt}`,

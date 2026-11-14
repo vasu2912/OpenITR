@@ -2,10 +2,10 @@ const SHIFTS = readonlyShiftTable();
 
 function readonlyShiftTable(): readonly number[] {
 	return [
-		7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
-		5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
-		4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
-		6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+		7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 5, 9, 14, 20, 5,
+		9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11,
+		16, 23, 4, 11, 16, 23, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10,
+		15, 21,
 	];
 }
 
@@ -28,19 +28,14 @@ const add32 = (...values: number[]): number =>
 
 export const md5 = (input: Uint8Array): Uint8Array<ArrayBuffer> => {
 	const originalLength = input.length;
-	const paddedLength =
-		((originalLength + 8) >>> 6 << 6) + 64;
+	const paddedLength = (((originalLength + 8) >>> 6) << 6) + 64;
 	const message = new Uint8Array(paddedLength);
 	message.set(input);
 	message[originalLength] = 0x80;
 	const bitLength = originalLength * 8;
 	const view = new DataView(message.buffer);
 	view.setUint32(paddedLength - 8, bitLength >>> 0, true);
-	view.setUint32(
-		paddedLength - 4,
-		Math.floor(bitLength / 2 ** 32) >>> 0,
-		true,
-	);
+	view.setUint32(paddedLength - 4, Math.floor(bitLength / 2 ** 32) >>> 0, true);
 
 	let a0 = 0x67452301;
 	let b0 = 0xefcdab89;

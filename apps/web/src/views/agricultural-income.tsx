@@ -1,7 +1,5 @@
 import type { AgriculturalIncomeComputation } from "@openitr/itr1-ay2026-27";
-import {
-	Title,
-} from "@patternfly/react-core";
+import { Title } from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 import { IssueAlert } from "./plain-language";
@@ -14,46 +12,46 @@ export const AgriculturalIncomeView = ({
 	}
 	return (
 		<section className="openitr-agricultural-income-card">
-				<Title headingLevel="h2" size="lg">
-					Agricultural-income explanation
-				</Title>
-				{computation.kind === "computed" ? (
-					<>
-						<dl className="openitr-result-details openitr-agricultural-income-summary">
-							<div>
-								<dt>Agricultural income reported as exempt</dt>
-								<dd>₹ {rupeeFormat(computation.exemptIncome)}</dd>
-							</div>
-							<div>
-								<dt>Included in taxable total income</dt>
-								<dd>₹ {rupeeFormat(computation.includedInTaxableIncome)}</dd>
-							</div>
-						</dl>
-						<p className="openitr-trace-heading">Cited treatment details</p>
-						<div className="openitr-trace-list">
-							{computation.trace.map((node) => (
-								<details className="openitr-trace-node" key={String(node.ruleId)}>
-									<summary>
-										<strong>{node.label}</strong>
-										<span className="openitr-trace-node-value">
-											₹ {rupeeFormat(node.result)}
-										</span>
-									</summary>
-									<dl className="openitr-trace-details">
-										<dt>Rule</dt>
-										<dd>{node.ruleId}</dd>
-										<dt>Operation</dt>
-										<dd>{node.operation}</dd>
-										<dt>Inputs</dt>
-										<dd>{node.inputs.map(String).join(", ")}</dd>
-									</dl>
-								</details>
-							))}
+			<Title headingLevel="h2" size="lg">
+				Agricultural-income explanation
+			</Title>
+			{computation.kind === "computed" ? (
+				<>
+					<dl className="openitr-result-details openitr-agricultural-income-summary">
+						<div>
+							<dt>Agricultural income reported as exempt</dt>
+							<dd>₹ {rupeeFormat(computation.exemptIncome)}</dd>
 						</div>
-					</>
-				) : (
-					<IssueAlert issue={computation.issue} />
-				)}
+						<div>
+							<dt>Included in taxable total income</dt>
+							<dd>₹ {rupeeFormat(computation.includedInTaxableIncome)}</dd>
+						</div>
+					</dl>
+					<p className="openitr-trace-heading">Cited treatment details</p>
+					<div className="openitr-trace-list">
+						{computation.trace.map((node) => (
+							<details className="openitr-trace-node" key={String(node.ruleId)}>
+								<summary>
+									<strong>{node.label}</strong>
+									<span className="openitr-trace-node-value">
+										₹ {rupeeFormat(node.result)}
+									</span>
+								</summary>
+								<dl className="openitr-trace-details">
+									<dt>Rule</dt>
+									<dd>{node.ruleId}</dd>
+									<dt>Operation</dt>
+									<dd>{node.operation}</dd>
+									<dt>Inputs</dt>
+									<dd>{node.inputs.map(String).join(", ")}</dd>
+								</dl>
+							</details>
+						))}
+					</div>
+				</>
+			) : (
+				<IssueAlert issue={computation.issue} />
+			)}
 		</section>
 	);
 };

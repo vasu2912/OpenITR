@@ -5,9 +5,8 @@ import type {
 	TdsObservation,
 	TextTdsSourceRecord,
 } from "@openitr/model";
-
-import { compareByCodepoint } from "../extraction-support";
 import type { AdapterIdentity } from "../extraction-support";
+import { compareByCodepoint } from "../extraction-support";
 import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
 import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import type { Form26AsTextDocument } from "./form26as-text-revision";
@@ -152,7 +151,11 @@ export const extractTdsObservations = ({
 	}
 
 	let columnHeaderLine = -1;
-	for (let index = sectionStart + 1; index < document.lines.length; index += 1) {
+	for (
+		let index = sectionStart + 1;
+		index < document.lines.length;
+		index += 1
+	) {
 		const candidate = document.lines[index];
 		if (candidate === undefined || candidate.trim() === "") {
 			continue;
@@ -192,8 +195,7 @@ export const extractTdsObservations = ({
 			break;
 		}
 		const firstCellEnd = line.indexOf("\t");
-		const firstCell =
-			firstCellEnd < 0 ? line : line.slice(0, firstCellEnd);
+		const firstCell = firstCellEnd < 0 ? line : line.slice(0, firstCellEnd);
 		if (firstCell.trim() === AGGREGATE_ROW_LABEL) {
 			continue;
 		}

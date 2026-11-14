@@ -1,3 +1,4 @@
+import { auditTaxAnalysisModuleContribution } from "@openitr/contribution-gate";
 import {
 	itr1Ay202627RulePackManifest,
 	itr1Ay202627RulePackManifest20260824,
@@ -19,7 +20,6 @@ import {
 	itr1Ay202627RulePackManifest20260917,
 	itr1Ay202627TaxAnalysisModuleArtifact,
 } from "@openitr/itr1-ay2026-27";
-import { auditTaxAnalysisModuleContribution } from "@openitr/contribution-gate";
 import { describe, expect, test } from "vitest";
 
 import { activeAnalysisRelease } from "./release-manifest";
@@ -55,8 +55,6 @@ describe("release contribution gate", () => {
 	});
 
 	test("the release pins the contributed revision", () => {
-		expect(activeAnalysisRelease.rulePack.id).toBe(
-			"itr1-ay2026-27.2026-09-17",
-		);
+		expect(activeAnalysisRelease.rulePack.id).toBe("itr1-ay2026-27.2026-09-17");
 	});
 });

@@ -1,15 +1,15 @@
-import {
-	exactMoneyFromWholeRupees,
-	minExactMoney,
-	parseFactKey,
-	parseIssueCode,
-} from "@openitr/model";
 import type {
 	ExactMoney,
 	FactKey,
 	IssueCode,
 	RuleId,
 	ScopeRulePack,
+} from "@openitr/model";
+import {
+	exactMoneyFromWholeRupees,
+	minExactMoney,
+	parseFactKey,
+	parseIssueCode,
 } from "@openitr/model";
 
 const FACT_KEYS = Object.freeze({
@@ -95,7 +95,7 @@ const issue = (
 	recoveryAction,
 });
 
-const valueOf = (
+const factValueOf = (
 	facts: readonly SelfOccupiedHousePropertyFact[],
 	factKey: FactKey,
 ): SelfOccupiedHousePropertyFact["value"] | undefined =>
@@ -164,7 +164,7 @@ export const computeSelfOccupiedHouseProperty = ({
 		};
 	}
 
-	const owned = valueOf(facts, FACT_KEYS.ownedByTaxpayer);
+	const owned = factValueOf(facts, FACT_KEYS.ownedByTaxpayer);
 	if (owned === undefined) {
 		return missing(
 			"FACT_HOUSE_PROPERTY_OWNERSHIP_MISSING",
@@ -183,7 +183,7 @@ export const computeSelfOccupiedHouseProperty = ({
 		};
 	}
 
-	const selfOccupied = valueOf(facts, FACT_KEYS.usedThroughoutYear);
+	const selfOccupied = factValueOf(facts, FACT_KEYS.usedThroughoutYear);
 	if (selfOccupied === undefined) {
 		return missing(
 			"FACT_HOUSE_PROPERTY_OCCUPANCY_MISSING",
@@ -202,7 +202,7 @@ export const computeSelfOccupiedHouseProperty = ({
 		};
 	}
 
-	const interest = valueOf(facts, FACT_KEYS.interest);
+	const interest = factValueOf(facts, FACT_KEYS.interest);
 	if (typeof interest !== "string") {
 		return missing(
 			"FACT_HOUSE_PROPERTY_INTEREST_MISSING",
@@ -228,7 +228,7 @@ export const computeSelfOccupiedHouseProperty = ({
 	if (interest !== zero) {
 		enhancedLimitApplies = true;
 		for (const [index, factKey] of conditionKeys.entries()) {
-			const condition = valueOf(facts, factKey);
+			const condition = factValueOf(facts, factKey);
 			if (condition === undefined) {
 				return missing(
 					conditionCodes[index] ?? "FACT_HOUSE_PROPERTY_CONDITION_MISSING",
@@ -284,7 +284,8 @@ export const computeSelfOccupiedHouseProperty = ({
 					label: "New-regime interest deduction",
 					ruleId: constants.newRegimeInterestRuleId,
 					inputs: [FACT_KEYS.interest],
-					operation: "Disallow section 24(b) interest for self-occupied property",
+					operation:
+						"Disallow section 24(b) interest for self-occupied property",
 					result: zero,
 				},
 			],
