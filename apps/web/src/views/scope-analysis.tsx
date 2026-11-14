@@ -6,9 +6,6 @@ import type {
 import {
 	Alert,
 	Button,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 import { useState } from "react";
@@ -349,13 +346,10 @@ export const ScopeAnalysisView = ({
 	}
 
 	return (
-	<Card className="openitr-scope-analysis-card" component="section">
-		<CardTitle>
+	<section className="openitr-scope-analysis-card">
 			<Title headingLevel="h2" size="lg">
 				{sectionTitle[section]}
 			</Title>
-		</CardTitle>
-		<CardBody>
 			{section === "decisions" ? <Alert
 				aria-live="polite"
 				isInline
@@ -453,7 +447,6 @@ export const ScopeAnalysisView = ({
 					{evaluation.educationalLimitations.join(" ")}
 				</p>
 			) : null}
-		</CardBody>
-	</Card>
+	</section>
 	);
 };

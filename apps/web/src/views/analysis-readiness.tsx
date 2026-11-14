@@ -1,8 +1,5 @@
 import {
 	Alert,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 
@@ -14,13 +11,10 @@ export const AnalysisReadinessView = ({
 }: Readonly<{ readiness: AnalysisReadiness }>) => {
 	const state = readinessPresentationOf(readiness);
 	return (
-		<Card className="openitr-analysis-readiness" component="section">
-			<CardTitle>
+		<section className="openitr-analysis-readiness">
 				<Title headingLevel="h2" size="lg">
 					Analysis readiness
 				</Title>
-			</CardTitle>
-			<CardBody>
 				<Alert isInline title={state.title} variant={state.variant}>
 					{state.explanation} This status describes educational analysis only. It
 					does not mean filing-ready, portal-accepted, or guaranteed correct.
@@ -80,7 +74,6 @@ export const AnalysisReadinessView = ({
 						))}
 					</ul>
 				</section>
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

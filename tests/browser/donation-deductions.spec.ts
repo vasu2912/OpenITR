@@ -97,7 +97,6 @@ test.describe("donation deductions", () => {
 	}) => {
 		await page.setViewportSize({ width: 390, height: 844 });
 		await openDeductions(page);
-		await expect(page.locator(".openitr-sidebar")).toBeHidden();
 		for (const [prompt, value] of [
 			[prompts.present, "yes"],
 			[prompts.amount, "2001"],

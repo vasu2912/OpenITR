@@ -1,5 +1,8 @@
 import type { AgriculturalIncomeComputation } from "@openitr/itr1-ay2026-27";
-import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Title,
+} from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
@@ -10,13 +13,10 @@ export const AgriculturalIncomeView = ({
 		return null;
 	}
 	return (
-		<Card className="openitr-agricultural-income-card" component="section">
-			<CardTitle>
+		<section className="openitr-agricultural-income-card">
 				<Title headingLevel="h2" size="lg">
 					Agricultural-income explanation
 				</Title>
-			</CardTitle>
-			<CardBody>
 				{computation.kind === "computed" ? (
 					<>
 						<dl className="openitr-result-details openitr-agricultural-income-summary">
@@ -60,7 +60,6 @@ export const AgriculturalIncomeView = ({
 						{computation.issue.recoveryAction}
 					</Alert>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

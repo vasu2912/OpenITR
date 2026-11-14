@@ -33,7 +33,7 @@ test.describe("full ITR-1 analysis scope", () => {
 		);
 		await expect(totalIncome).toHaveValue("");
 		await expect(page.getByRole("button", { name: "Record scope answer" }).first()).toBeDisabled();
-		await page.getByRole("button", { name: "Decision", exact: true }).click();
+		await page.getByRole("tab", { name: "Decision", exact: true }).click();
 		await expect(page.getByText(/Missing fact key: scope\.total-income/)).toBeVisible();
 	});
 
@@ -159,8 +159,8 @@ test.describe("full ITR-1 analysis scope", () => {
 			"data-current-scope-question",
 			"scope-total-income",
 		);
-		await page.getByRole("button", { name: "Decision", exact: true }).click();
-		await page.getByRole("button", { name: "Questions", exact: true }).click();
+		await page.getByRole("tab", { name: "Decision", exact: true }).click();
+		await page.getByRole("tab", { name: "Questions", exact: true }).click();
 		await expect(currentQuestion).not.toHaveAttribute(
 			"data-current-scope-question",
 			"scope-total-income",
@@ -181,7 +181,7 @@ test.describe("full ITR-1 analysis scope", () => {
 		await expect(recorded.getByLabel(/What was your total income/)).toHaveValue("5000000");
 		await recorded.getByLabel(/What was your total income/).fill("5000000.01");
 		await recorded.getByRole("button", { name: "Record scope answer" }).click();
-		await page.getByRole("button", { name: "Decision", exact: true }).click();
+		await page.getByRole("tab", { name: "Decision", exact: true }).click();
 		await expect(page.getByText(/Total income above ₹50,00,000/)).toBeVisible();
 	});
 
@@ -189,7 +189,7 @@ test.describe("full ITR-1 analysis scope", () => {
 		await openScopeQuestion(page);
 		await answerScopeCheck(page, "Yes");
 		await expect(page.getByRole("heading", { name: "Select source documents" })).toHaveCount(0);
-		await page.getByRole("button", { name: /^Documents / }).click();
+		await page.getByRole("button", { name: /^\d+\. Documents/ }).click();
 		await expect(page.getByText(/Complete the mandatory scope questions before selecting source documents/i)).toBeVisible();
 	});
 });

@@ -6,9 +6,6 @@ import type {
 import {
 	Alert,
 	Button,
-	Card,
-	CardBody,
-	CardTitle,
 	Radio,
 	TextArea,
 	Title,
@@ -196,17 +193,13 @@ export const FactConflictsView = ({
 	}
 
 	return (
-		<Card
+		<section
 			aria-live="polite"
 			className="openitr-conflicts-card"
-			component="section"
 		>
-			<CardTitle>
 				<Title headingLevel="h2" size="lg">
 					Cross-source conflicts
 				</Title>
-			</CardTitle>
-			<CardBody>
 				{conflicts.length > 0 ? (
 					<Alert
 						isInline
@@ -302,7 +295,6 @@ export const FactConflictsView = ({
 						</dl>
 					</div>
 				) : null}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

@@ -30,7 +30,7 @@ test.describe("old-regime computation", () => {
 		page,
 	}) => {
 		await openDocumentIntake(page, { "scope-total-income": "1100000" });
-		await page.getByRole("button", { name: /^Scope check / }).click();
+		await page.getByRole("button", { name: /^\d+\. Scope check/ }).click();
 		const bankInterestScope = page.locator(
 			'[data-scope-question="scope-bank-interest"]',
 		);
@@ -39,7 +39,7 @@ test.describe("old-regime computation", () => {
 		await bankInterestScope
 			.getByRole("button", { name: "Record scope answer" })
 			.click();
-		await page.getByRole("button", { name: /^Documents / }).click();
+		await page.getByRole("button", { name: /^\d+\. Documents/ }).click();
 		await selectSourceFiles(page, [
 			{
 				name: "synthetic-old-regime-salary.pdf",

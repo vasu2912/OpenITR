@@ -3,7 +3,10 @@ import type {
 	SavingsPensionDeductionComputation,
 	SavingsPensionRegimeResult,
 } from "@openitr/itr1-ay2026-27";
-import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Title,
+} from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
@@ -69,13 +72,10 @@ export const SavingsPensionDeductionsView = ({
 }>) => {
 	if (computation === undefined) return null;
 	return (
-		<Card className="openitr-savings-pension-card" component="section">
-			<CardTitle>
+		<section className="openitr-savings-pension-card">
 				<Title headingLevel="h2" size="lg">
 					Savings and pension-contribution deductions
 				</Title>
-			</CardTitle>
-			<CardBody>
 				{computation.kind !== "computed" ? (
 					<Alert
 						isInline
@@ -155,7 +155,6 @@ export const SavingsPensionDeductionsView = ({
 						)}
 					</>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

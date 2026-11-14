@@ -1,9 +1,6 @@
 import {
 	Alert,
 	Button,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 
@@ -98,13 +95,10 @@ export const FinalReviewView = ({
 		intake.pendingRecomputation.kind === "idle";
 
 	return (
-		<Card className="openitr-final-review" component="section" id="final-review-heading">
-			<CardTitle>
+		<section className="openitr-final-review" id="final-review-heading">
 				<Title headingLevel="h2" size="lg">
 					Final fact and evidence review
 				</Title>
-			</CardTitle>
-			<CardBody>
 				<p>
 					Inspect the accepted facts, their provenance, transformations, and
 					downstream uses before confirming this analysis.
@@ -217,7 +211,6 @@ export const FinalReviewView = ({
 									: "This confirmation is stored only for the current fact-set revision and session."}
 					</p>
 				</div>
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

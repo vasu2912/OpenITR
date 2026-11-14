@@ -12,9 +12,6 @@ import {
 import {
 	Alert,
 	Button,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 import { useState } from "react";
@@ -202,17 +199,13 @@ export const MissingFactQuestionsView = ({
 	}
 
 	return (
-		<Card
+		<section
 			aria-live="polite"
 			className="openitr-missing-facts-card"
-			component="section"
 		>
-			<CardTitle>
 				<Title headingLevel="h2" size="lg">
 					Missing facts
 				</Title>
-			</CardTitle>
-			<CardBody>
 				{questionnaire.questions.length === 0 ? (
 					<Alert
 						isInline
@@ -273,7 +266,6 @@ export const MissingFactQuestionsView = ({
 						</ul>
 					</div>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

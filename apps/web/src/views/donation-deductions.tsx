@@ -2,7 +2,10 @@ import type {
 	DonationDeductionComputation,
 	DonationDeductionFact,
 } from "@openitr/itr1-ay2026-27";
-import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Title,
+} from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
@@ -42,13 +45,10 @@ export const DonationDeductionsView = ({
 }>) => {
 	if (computation === undefined) return null;
 	return (
-		<Card className="openitr-donation-card" component="section">
-			<CardTitle>
+		<section className="openitr-donation-card">
 				<Title headingLevel="h2" size="lg">
 					Donation deduction
 				</Title>
-			</CardTitle>
-			<CardBody>
 				<Alert isInline title="Section 80G analysis" variant="info">
 					OpenITR derives the allowed amount from the recipient category,
 					payment mode, qualifying percentage, and adjusted-GTI treatment. It
@@ -168,7 +168,6 @@ export const DonationDeductionsView = ({
 						)}
 					</>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

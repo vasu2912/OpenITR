@@ -84,7 +84,6 @@ test.describe("loan-interest deductions", () => {
 	test("shows an unsupported electric-vehicle purpose as a recoverable mobile blocker without overflow", async ({ page }) => {
 		await page.setViewportSize({ width: 390, height: 844 });
 		await openDeductions(page);
-		await expect(page.locator(".openitr-sidebar")).toBeHidden();
 		expect(
 			await page.locator("#openitr-main").evaluate(
 				(element) => element.getBoundingClientRect().width,

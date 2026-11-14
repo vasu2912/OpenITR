@@ -1,8 +1,5 @@
 import {
 	Alert,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 
@@ -85,13 +82,10 @@ export const CompleteAnalyticsView = ({
 	if (report === undefined) return null;
 	const current = report.currentYear;
 	return (
-		<Card className="openitr-complete-analytics" component="section">
-			<CardTitle>
+		<section className="openitr-complete-analytics">
 				<Title headingLevel="h2" size="lg">
 					Complete analysis
 				</Title>
-			</CardTitle>
-			<CardBody>
 				<Alert isInline title={`${regimeLabel(report.regime)} selected`} variant="info">
 					All current-year values below come from fact-set revision {report.factSetRevision} and rule-pack revision {report.rulePackRevision}. Change the primary scenario above to rebuild this report from the other completed computation.
 				</Alert>
@@ -181,7 +175,6 @@ export const CompleteAnalyticsView = ({
 						))}
 					</ul>
 				</section>
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

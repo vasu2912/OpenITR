@@ -3,7 +3,10 @@ import type {
 	LoanInterestDeductionFact,
 } from "@openitr/itr1-ay2026-27";
 import { isIsoDate } from "@openitr/model";
-import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Title,
+} from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
@@ -32,11 +35,8 @@ export const LoanInterestDeductionsView = ({
 }>) => {
 	if (computation === undefined) return null;
 	return (
-		<Card className="openitr-loan-interest-card" component="section">
-			<CardTitle>
+		<section className="openitr-loan-interest-card">
 				<Title headingLevel="h2" size="lg">Loan-interest deductions</Title>
-			</CardTitle>
-			<CardBody>
 				<Alert isInline title="Separate from house-property interest" variant="info">
 					Sections 80EE and 80EEA use only eligible interest left after section 24(b).
 					OpenITR also checks the pinned purpose, sanction-date, amount, first-home,
@@ -116,7 +116,6 @@ export const LoanInterestDeductionsView = ({
 						)}
 					</>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

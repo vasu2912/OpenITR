@@ -1,9 +1,6 @@
 import type { NewRegimeComputation } from "@openitr/itr1-ay2026-27";
 import {
 	Alert,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 
@@ -160,13 +157,10 @@ export const NewRegimeComputationView = ({
 	if (computation === undefined) return null;
 
 	return (
-		<Card className="openitr-new-regime-card" component="section">
-			<CardTitle>
+		<section className="openitr-new-regime-card">
 				<Title headingLevel="h2" size="lg">
 					New-regime tax computation
 				</Title>
-			</CardTitle>
-			<CardBody>
 				{computation.kind === "computed" ? (
 					<>
 						<section aria-labelledby="new-regime-income-heading">
@@ -218,7 +212,6 @@ export const NewRegimeComputationView = ({
 						))}
 					</>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };
