@@ -5,7 +5,28 @@ import type {
 	Regime,
 	RegimeComparison,
 } from "@openitr/itr1-ay2026-27";
-import { Radio, Title } from "@patternfly/react-core";
+import {
+	Content,
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	FormGroup,
+	FormHelperText,
+	HelperText,
+	HelperTextItem,
+	Radio,
+	Title,
+} from "@patternfly/react-core";
+import {
+	Caption,
+	Table,
+	Tbody,
+	Td,
+	Th,
+	Thead,
+	Tr,
+} from "@patternfly/react-table";
 
 import type { SessionOrchestrator } from "../session/session-orchestrator";
 import { rupeeFormat } from "./computation-trace-view";
@@ -53,20 +74,26 @@ const RegimeSummary = ({
 }>) => (
 	<section className="openitr-regime-summary">
 		<h3>{name}</h3>
-		<dl>
-			<div>
-				<dt>Fact-set revision</dt>
-				<dd>{factSetRevision}</dd>
-			</div>
-			<div>
-				<dt>Rule-pack revision</dt>
-				<dd>{rulePackRevision}</dd>
-			</div>
-			<div>
-				<dt>Estimated balance</dt>
-				<dd>{balanceText(balance)}</dd>
-			</div>
-		</dl>
+		<DescriptionList isCompact isHorizontal>
+			<DescriptionListGroup>
+				<DescriptionListTerm>Fact-set revision</DescriptionListTerm>
+				<DescriptionListDescription>
+					{factSetRevision}
+				</DescriptionListDescription>
+			</DescriptionListGroup>
+			<DescriptionListGroup>
+				<DescriptionListTerm>Rule-pack revision</DescriptionListTerm>
+				<DescriptionListDescription>
+					{rulePackRevision}
+				</DescriptionListDescription>
+			</DescriptionListGroup>
+			<DescriptionListGroup>
+				<DescriptionListTerm>Estimated balance</DescriptionListTerm>
+				<DescriptionListDescription>
+					{balanceText(balance)}
+				</DescriptionListDescription>
+			</DescriptionListGroup>
+		</DescriptionList>
 	</section>
 );
 
@@ -119,47 +146,54 @@ export const RegimeComparisonView = ({
 					rulePackRevision={comparison.newRegime.rulePackRevision}
 				/>
 			</div>
-			<div className="openitr-regime-table-wrap">
-				<table>
-					<caption>Exact comparison of calculated amounts</caption>
-					<thead>
-						<tr>
-							<th scope="col">Result</th>
-							<th scope="col">Old regime</th>
-							<th scope="col">New regime</th>
-							<th scope="col">Exact difference</th>
-						</tr>
-					</thead>
-					<tbody>
-						{comparison.rows.map((row) => (
-							<tr data-comparison-row={row.id} key={row.id}>
-								<th scope="row">{row.label}</th>
-								<td data-label="Old regime">
-									₹ {rupeeFormat(row.oldRegimeAmount)}
-								</td>
-								<td data-label="New regime">
-									₹ {rupeeFormat(row.newRegimeAmount)}
-								</td>
-								<td data-label="Exact difference">
-									{differenceText(row.difference)}
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</div>
+			<Table
+				aria-label="Exact comparison of calculated amounts"
+				variant="compact"
+			>
+				<Caption>Exact comparison of calculated amounts</Caption>
+				<Thead>
+					<Tr>
+						<Th>Result</Th>
+						<Th>Old regime</Th>
+						<Th>New regime</Th>
+						<Th>Exact difference</Th>
+					</Tr>
+				</Thead>
+				<Tbody>
+					{comparison.rows.map((row) => (
+						<Tr data-comparison-row={row.id} key={row.id}>
+							<Th dataLabel="Result" scope="row">
+								{row.label}
+							</Th>
+							<Td dataLabel="Old regime">
+								₹ {rupeeFormat(row.oldRegimeAmount)}
+							</Td>
+							<Td dataLabel="New regime">
+								₹ {rupeeFormat(row.newRegimeAmount)}
+							</Td>
+							<Td dataLabel="Exact difference">
+								{differenceText(row.difference)}
+							</Td>
+						</Tr>
+					))}
+				</Tbody>
+			</Table>
 			<p className="openitr-regime-balance-note">
 				{comparison.balanceDifference.kind === "equal"
 					? "Both estimated balances are equal."
 					: `The estimated balances differ by ₹ ${rupeeFormat(comparison.balanceDifference.amount)}.`}{" "}
 				Both use taxes paid of ₹ {rupeeFormat(comparison.taxesPaid)}.
 			</p>
-			<fieldset className="openitr-primary-regime">
-				<legend>Choose the primary analysis scenario</legend>
-				<p id="primary-regime-help">
+			<FormGroup
+				fieldId="primary-regime"
+				isStack
+				label="Choose the primary analysis scenario"
+				role="radiogroup"
+			>
+				<Content component="p" id="primary-regime-help">
 					Choose explicitly after reviewing the exact differences. You can
 					change the choice while these facts remain current.
-				</p>
+				</Content>
 				<Radio
 					aria-describedby="primary-regime-help"
 					id="primary-regime-old"
@@ -176,12 +210,16 @@ export const RegimeComparisonView = ({
 					name="primary-regime"
 					onChange={() => choose("new")}
 				/>
-				<p aria-live="polite" className="openitr-primary-regime-status">
-					{selectedRegime === undefined
-						? "No primary scenario selected."
-						: `${selectedRegime === "old" ? "Old" : "New"} regime is the primary analysis scenario for ${comparison.factSetRevision}.`}
-				</p>
-			</fieldset>
+				<FormHelperText>
+					<HelperText isLiveRegion>
+						<HelperTextItem>
+							{selectedRegime === undefined
+								? "No primary scenario selected."
+								: `${selectedRegime === "old" ? "Old" : "New"} regime is the primary analysis scenario for ${comparison.factSetRevision}.`}
+						</HelperTextItem>
+					</HelperText>
+				</FormHelperText>
+			</FormGroup>
 		</section>
 	);
 };

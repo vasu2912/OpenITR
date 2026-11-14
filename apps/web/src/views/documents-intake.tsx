@@ -8,6 +8,13 @@ import type { LabelProps } from "@patternfly/react-core";
 import {
 	Alert,
 	Button,
+	Content,
+	DataList,
+	DataListAction,
+	DataListCell,
+	DataListItem,
+	DataListItemCells,
+	DataListItemRow,
 	Label,
 	MultipleFileUpload,
 	MultipleFileUploadMain,
@@ -15,6 +22,7 @@ import {
 	Title,
 } from "@patternfly/react-core";
 
+import LockIcon from "@patternfly/react-icons/dist/esm/icons/lock-icon";
 import type { SessionOrchestrator } from "../session/session-orchestrator";
 
 const CANDIDATE_STATUS_PRESENTATION: Readonly<
@@ -34,20 +42,32 @@ const CANDIDATE_STATUS_PRESENTATION: Readonly<
 	removed: Object.freeze({ label: "Removed", status: "custom" }),
 });
 
+const documentKindNames: Readonly<Record<string, string>> = {
+	"ais-csv": "Annual Information Statement (CSV)",
+	"ais-json": "Annual Information Statement (JSON)",
+	"epay-tax-receipt-pdf": "e-Pay Tax receipt (PDF)",
+	"form16-pdf": "Form 16 (PDF)",
+	"form16a-pdf": "Form 16A (PDF)",
+	form26as: "Form 26AS",
+	"form26as-text": "Form 26AS (text)",
+	"prefilled-itr1-json": "Prefilled ITR-1 (JSON)",
+};
+
 const formatDocumentType = (
 	documentKind: DocumentKind,
 	templateRevision: TemplateRevision,
-): string => `${documentKind} (${templateRevision})`;
+): string =>
+	`${documentKindNames[documentKind] ?? documentKind} · template ${templateRevision}`;
 
 const candidateDetailLine = (candidate: CandidateDocument): string => {
 	switch (candidate.status) {
 		case "identified":
-			return `Document type: ${formatDocumentType(
+			return formatDocumentType(
 				candidate.identification.documentKind,
 				candidate.identification.templateRevision,
-			)}`;
+			);
 		case "rejected":
-			return `${String(candidate.issue.code)} — ${candidate.issue.recoveryAction}`;
+			return candidate.issue.recoveryAction;
 		case "queued":
 		case "inspecting":
 		case "cancelled":
@@ -136,12 +156,14 @@ export const DocumentsIntakeView = ({
 			</Title>
 			<Stack hasGutter>
 				<Alert
+					customIcon={<LockIcon />}
 					isInline
+					isPlain
 					title="Your documents stay in this browser"
-					variant="info"
+					variant="custom"
 				>
-					OpenITR inspects every file locally in this tab. No document bytes,
-					file names, or extracted values leave your browser.
+					OpenITR reads every file in this tab. No file contents, names, or
+					extracted values leave your device.
 				</Alert>
 
 				<MultipleFileUpload
@@ -151,9 +173,9 @@ export const DocumentsIntakeView = ({
 					}}
 				>
 					<MultipleFileUploadMain
-						browseButtonText="Browse source documents"
-						infoText="Supported formats include PDF, JSON, CSV, XLS, XLSX, and TXT."
-						titleText="Drag and drop source documents here"
+						browseButtonText="Choose files"
+						infoText="Form 16, Form 16A, AIS, Form 26AS, prefilled ITR-1 and e-Pay Tax receipts. PDF, JSON, CSV, XLS, XLSX or TXT."
+						titleText="Drop your tax documents here"
 						titleTextSeparator="or"
 					/>
 				</MultipleFileUpload>
@@ -180,69 +202,94 @@ export const DocumentsIntakeView = ({
 					);
 				})()}
 
-				<ul className="openitr-document-list">
-					{documents.map((candidate) => {
-						const presentation =
-							CANDIDATE_STATUS_PRESENTATION[candidate.status];
-						const detail = candidateDetailLine(candidate);
-						return (
-							<li
-								className="openitr-document-row"
-								data-candidate={candidate.displayName}
-								data-status={candidate.status}
-								key={candidate.candidateKey}
-							>
-								<Label isCompact status={presentation.status}>
-									{presentation.label}
-								</Label>
-								<span className="openitr-document-summary">
-									<strong>{candidate.displayName}</strong>
-									{detail ? <small>{detail}</small> : null}
-								</span>
-								{(candidate.status === "queued" ||
-									candidate.status === "inspecting") && (
-									<Button
-										onClick={() =>
-											session.send({
-												kind: "cancel-document-inspection",
-												documentId: candidate.documentId,
-											})
-										}
-										variant="link"
-									>
-										Cancel inspection
-									</Button>
-								)}
-								{(() => {
-									const extractionLine = extractionStatusLine(
-										extractions.find(
-											(record) =>
-												record.candidateKey === candidate.candidateKey,
-										),
-									);
-									return extractionLine ? (
-										<small className="openitr-extraction-status">
-											{extractionLine}
-										</small>
-									) : null;
-								})()}
-								{candidate.status !== "removed" && (
-									<Button
-										onClick={() =>
-											session.send({
-												kind: "remove-source-document",
-												documentId: candidate.documentId,
-											})
-										}
-										variant="secondary"
-									>
-										Remove
-									</Button>
-								)}
-							</li>
-						);
-					})}
-				</ul>
+				{documents.length === 0 ? null : (
+					<DataList aria-label="Selected documents">
+						{documents.map((candidate) => {
+							const presentation =
+								CANDIDATE_STATUS_PRESENTATION[candidate.status];
+							const detail = candidateDetailLine(candidate);
+							const extractionLine = extractionStatusLine(
+								extractions.find(
+									(record) => record.candidateKey === candidate.candidateKey,
+								),
+							);
+							const isBusy =
+								candidate.status === "queued" ||
+								candidate.status === "inspecting";
+							const nameId = `document-${candidate.candidateKey}-name`;
+							return (
+								<DataListItem
+									aria-labelledby={nameId}
+									data-candidate={candidate.displayName}
+									data-status={candidate.status}
+									key={candidate.candidateKey}
+								>
+									<DataListItemRow>
+										<DataListItemCells
+											dataListCells={[
+												<DataListCell isFilled={false} key="status">
+													<Label isCompact status={presentation.status}>
+														{presentation.label}
+													</Label>
+												</DataListCell>,
+												<DataListCell key="name" width={3}>
+													<Stack>
+														<strong id={nameId}>{candidate.displayName}</strong>
+														{detail ? (
+															<Content component="small">{detail}</Content>
+														) : null}
+														{candidate.status === "rejected" ? (
+															<Content component="small">
+																Code {String(candidate.issue.code)}
+															</Content>
+														) : null}
+													</Stack>
+												</DataListCell>,
+												<DataListCell alignRight key="extraction" width={2}>
+													<Content component="small">{extractionLine}</Content>
+												</DataListCell>,
+											]}
+										/>
+										<DataListAction
+											aria-label="Document actions"
+											aria-labelledby={nameId}
+											id={`document-${candidate.candidateKey}-actions`}
+										>
+											{isBusy ? (
+												<Button
+													onClick={() =>
+														session.send({
+															kind: "cancel-document-inspection",
+															documentId: candidate.documentId,
+														})
+													}
+													variant="link"
+												>
+													Cancel
+												</Button>
+											) : null}
+											{candidate.status === "removed" ? null : (
+												<Button
+													aria-label={`Remove ${candidate.displayName}`}
+													isDanger
+													onClick={() =>
+														session.send({
+															kind: "remove-source-document",
+															documentId: candidate.documentId,
+														})
+													}
+													variant="link"
+												>
+													Remove
+												</Button>
+											)}
+										</DataListAction>
+									</DataListItemRow>
+								</DataListItem>
+							);
+						})}
+					</DataList>
+				)}
 			</Stack>
 		</section>
 	);

@@ -1,6 +1,12 @@
 import type { NewRegimeSalaryComputation } from "@openitr/itr1-ay2026-27";
 import type { CandidateDocument } from "@openitr/model";
-import { Title } from "@patternfly/react-core";
+import {
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	Title,
+} from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
 import { IssueAlert } from "./plain-language";
@@ -100,38 +106,48 @@ export const SalaryComputationView = ({
 														.join(", ")
 												: `Document ${String(source.documentId).slice(0, 12)}…`}
 										</p>
-										<dl>
-											<div>
-												<dt>Gross salary</dt>
-												<dd>₹ {rupeeFormat(source.grossSalary)}</dd>
-											</div>
-											<div>
-												<dt>Section 10 exemptions</dt>
-												<dd>₹ {rupeeFormat(source.exemptAllowances)}</dd>
-											</div>
-											<div>
-												<dt>Taxable salary contribution</dt>
-												<dd>₹ {rupeeFormat(source.taxableSalary)}</dd>
-											</div>
-										</dl>
+										<DescriptionList isCompact isHorizontal>
+											<DescriptionListGroup>
+												<DescriptionListTerm>Gross salary</DescriptionListTerm>
+												<DescriptionListDescription>
+													₹ {rupeeFormat(source.grossSalary)}
+												</DescriptionListDescription>
+											</DescriptionListGroup>
+											<DescriptionListGroup>
+												<DescriptionListTerm>
+													Section 10 exemptions
+												</DescriptionListTerm>
+												<DescriptionListDescription>
+													₹ {rupeeFormat(source.exemptAllowances)}
+												</DescriptionListDescription>
+											</DescriptionListGroup>
+											<DescriptionListGroup>
+												<DescriptionListTerm>
+													Taxable salary contribution
+												</DescriptionListTerm>
+												<DescriptionListDescription>
+													₹ {rupeeFormat(source.taxableSalary)}
+												</DescriptionListDescription>
+											</DescriptionListGroup>
+										</DescriptionList>
 									</article>
 								);
 							})}
 						</div>
 					</section>
-					<dl className="openitr-result-details">
+					<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
 						{summaryRows(computation).map((row) => (
-							<div key={row.label}>
-								<dt>{row.label}</dt>
-								<dd>
+							<DescriptionListGroup key={row.label}>
+								<DescriptionListTerm>{row.label}</DescriptionListTerm>
+								<DescriptionListDescription>
 									<strong>{row.value}</strong>
 									{row.hint ? (
 										<small className="openitr-summary-hint"> {row.hint}</small>
 									) : null}
-								</dd>
-							</div>
+								</DescriptionListDescription>
+							</DescriptionListGroup>
 						))}
-					</dl>
+					</DescriptionList>
 					<ComputationTraceList nodes={computation.nodes} />
 				</>
 			)}

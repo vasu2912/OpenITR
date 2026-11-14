@@ -1,7 +1,13 @@
 import type { AgriculturalIncomeComputation } from "@openitr/itr1-ay2026-27";
-import { Title } from "@patternfly/react-core";
+import {
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	Title,
+} from "@patternfly/react-core";
 
-import { rupeeFormat } from "./computation-trace-view";
+import { rupeeFormat, TraceDetail, TraceStep } from "./computation-trace-view";
 import { IssueAlert } from "./plain-language";
 
 export const AgriculturalIncomeView = ({
@@ -17,35 +23,38 @@ export const AgriculturalIncomeView = ({
 			</Title>
 			{computation.kind === "computed" ? (
 				<>
-					<dl className="openitr-result-details openitr-agricultural-income-summary">
-						<div>
-							<dt>Agricultural income reported as exempt</dt>
-							<dd>₹ {rupeeFormat(computation.exemptIncome)}</dd>
-						</div>
-						<div>
-							<dt>Included in taxable total income</dt>
-							<dd>₹ {rupeeFormat(computation.includedInTaxableIncome)}</dd>
-						</div>
-					</dl>
-					<p className="openitr-trace-heading">Cited treatment details</p>
-					<div className="openitr-trace-list">
+					<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
+						<DescriptionListGroup>
+							<DescriptionListTerm>
+								Agricultural income reported as exempt
+							</DescriptionListTerm>
+							<DescriptionListDescription>
+								₹ {rupeeFormat(computation.exemptIncome)}
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+						<DescriptionListGroup>
+							<DescriptionListTerm>
+								Included in taxable total income
+							</DescriptionListTerm>
+							<DescriptionListDescription>
+								₹ {rupeeFormat(computation.includedInTaxableIncome)}
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+					</DescriptionList>
+					<p>Cited treatment details</p>
+					<div>
 						{computation.trace.map((node) => (
-							<details className="openitr-trace-node" key={String(node.ruleId)}>
-								<summary>
-									<strong>{node.label}</strong>
-									<span className="openitr-trace-node-value">
-										₹ {rupeeFormat(node.result)}
-									</span>
-								</summary>
-								<dl className="openitr-trace-details">
-									<dt>Rule</dt>
-									<dd>{node.ruleId}</dd>
-									<dt>Operation</dt>
-									<dd>{node.operation}</dd>
-									<dt>Inputs</dt>
-									<dd>{node.inputs.map(String).join(", ")}</dd>
-								</dl>
-							</details>
+							<TraceStep
+								key={String(node.ruleId)}
+								label={node.label}
+								value={`₹ ${rupeeFormat(node.result)}`}
+							>
+								<TraceDetail term="Rule">{node.ruleId}</TraceDetail>
+								<TraceDetail term="Operation">{node.operation}</TraceDetail>
+								<TraceDetail term="Inputs">
+									{node.inputs.map(String).join(", ")}
+								</TraceDetail>
+							</TraceStep>
 						))}
 					</div>
 				</>

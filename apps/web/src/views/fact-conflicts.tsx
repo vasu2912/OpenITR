@@ -6,9 +6,17 @@ import type { CandidateDocument } from "@openitr/model";
 import {
 	Alert,
 	Button,
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
 	FormGroup,
+	InputGroup,
+	InputGroupItem,
+	InputGroupText,
 	Radio,
 	TextArea,
+	TextInput,
 	Title,
 } from "@patternfly/react-core";
 import type { FormEvent } from "react";
@@ -97,8 +105,12 @@ const ConflictForm = ({
 			aria-label={`Resolve the ${String(conflict.factKey)} conflict`}
 			onSubmit={handleSubmit}
 		>
-			<fieldset className="openitr-conflict-options">
-				<legend>Decide one value for this fact</legend>
+			<FormGroup
+				fieldId={`resolve-${conflict.conflictId}`}
+				isStack
+				label="Decide one value for this fact"
+				role="radiogroup"
+			>
 				{conflict.candidates.map((candidate) => (
 					<Radio
 						id={`${conflict.conflictId}-${candidate.observationId}`}
@@ -107,7 +119,7 @@ const ConflictForm = ({
 							selectedObservationId === candidate.observationId
 						}
 						key={candidate.observationId}
-						label={`${rupeeText(candidate.value)} — ${displayNameOf(String(candidate.sourceDocumentId))}`}
+						label={`${rupeeText(candidate.value)} from ${displayNameOf(String(candidate.sourceDocumentId))}`}
 						name={`resolve-${conflict.conflictId}`}
 						onChange={() => {
 							setAttestSelected(false);
@@ -118,34 +130,36 @@ const ConflictForm = ({
 					/>
 				))}
 				{conflict.attestationPermitted ? (
-					<span className="openitr-conflict-attest">
-						<Radio
-							id={`${conflict.conflictId}-attest`}
-							isChecked={attestSelected}
-							label="Attest the correct amount instead"
-							name={`resolve-${conflict.conflictId}`}
-							onChange={() => {
-								setAttestSelected(true);
-								setError(undefined);
-							}}
-							value="attest"
-						/>
-						{attestSelected ? (
-							<label className="openitr-conflict-attest-input">
-								Attested amount
-								<input
-									aria-label="Attested amount in rupees"
-									inputMode="decimal"
-									onChange={(event) => setAttestedValue(event.target.value)}
-									placeholder="e.g. 8450"
-									type="text"
-									value={attestedValue}
-								/>
-							</label>
-						) : null}
-					</span>
+					<Radio
+						body={
+							attestSelected ? (
+								<InputGroup>
+									<InputGroupText>₹</InputGroupText>
+									<InputGroupItem>
+										<TextInput
+											aria-label="Attested amount in rupees"
+											inputMode="decimal"
+											onChange={(_event, next) => setAttestedValue(next)}
+											placeholder="e.g. 8450"
+											type="text"
+											value={attestedValue}
+										/>
+									</InputGroupItem>
+								</InputGroup>
+							) : undefined
+						}
+						id={`${conflict.conflictId}-attest`}
+						isChecked={attestSelected}
+						label="Attest the correct amount instead"
+						name={`resolve-${conflict.conflictId}`}
+						onChange={() => {
+							setAttestSelected(true);
+							setError(undefined);
+						}}
+						value="attest"
+					/>
 				) : null}
-			</fieldset>
+			</FormGroup>
 			<FormGroup
 				className="openitr-conflict-reason"
 				fieldId={`${conflict.conflictId}-reason`}
@@ -257,17 +271,17 @@ export const FactConflictsView = ({
 					<h3 className="openitr-resolutions-heading">
 						Recorded resolutions ({resolutions.length})
 					</h3>
-					<dl className="openitr-result-details openitr-resolution-list">
+					<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
 						{resolutions.map((resolution) => (
-							<div
+							<DescriptionListGroup
 								data-resolution-id={resolution.resolutionId}
 								id={`resolution-${resolution.resolutionId}`}
 								key={resolution.resolutionId}
 							>
-								<dt>
+								<DescriptionListTerm>
 									<FactLabel factKey={resolution.factKey} />
-								</dt>
-								<dd>
+								</DescriptionListTerm>
+								<DescriptionListDescription>
 									<strong>
 										{resolution.choice.kind === "attested"
 											? `${rupeeText(resolution.choice.value)} (attested by you)`
@@ -290,10 +304,10 @@ export const FactConflictsView = ({
 									>
 										Change resolution
 									</Button>
-								</dd>
-							</div>
+								</DescriptionListDescription>
+							</DescriptionListGroup>
 						))}
-					</dl>
+					</DescriptionList>
 				</div>
 			) : null}
 		</section>

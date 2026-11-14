@@ -1,4 +1,4 @@
-import { Alert, Title } from "@patternfly/react-core";
+import { Alert, DescriptionList, Title } from "@patternfly/react-core";
 
 import type {
 	AnalysisAmount,
@@ -94,30 +94,30 @@ export const CompleteAnalyticsView = ({
 			<section aria-labelledby="analysis-income-heading">
 				<h3 id="analysis-income-heading">Current-year income composition</h3>
 				<IncomeChart items={current.incomeComposition} />
-				<dl className="openitr-analysis-amounts">
+				<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
 					{current.incomeComposition.map((item) => (
 						<AmountRow item={item} key={item.id} />
 					))}
-				</dl>
+				</DescriptionList>
 			</section>
 
 			<section aria-labelledby="analysis-result-heading">
 				<h3 id="analysis-result-heading">Current-year tax summary</h3>
-				<dl className="openitr-analysis-amounts openitr-analysis-result-grid">
+				<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
 					<AmountRow item={current.taxableIncome} />
 					<AmountRow item={current.totalTaxLiability} />
 					<AmountRow item={current.taxesPaid} />
 					<AmountRow item={current.estimatedBalance} />
-				</dl>
+				</DescriptionList>
 			</section>
 
 			<section aria-labelledby="analysis-deductions-heading">
 				<h3 id="analysis-deductions-heading">Current-year deduction use</h3>
-				<dl className="openitr-analysis-amounts">
+				<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
 					{current.deductions.map((item) => (
 						<AmountRow item={item} key={item.id} />
 					))}
-				</dl>
+				</DescriptionList>
 			</section>
 
 			<section aria-labelledby="analysis-adjustments-heading">

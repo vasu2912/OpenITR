@@ -2,6 +2,17 @@ import type {
 	ComputationNodeInput,
 	ComputationTraceNode,
 } from "@openitr/itr1-ay2026-27";
+import {
+	Content,
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	ExpandableSection,
+	Flex,
+	List,
+	ListItem,
+} from "@patternfly/react-core";
 import type { ReactNode } from "react";
 import { keyed } from "./keyed";
 import { FactLabel, humanizeKey } from "./plain-language";
@@ -38,56 +49,77 @@ const inputLabel = (input: ComputationNodeInput): ReactNode => {
 	}
 };
 
+// One expandable calculation step: label and amount in the toggle, rule
+// details inside. Shared by every computation view.
+export const TraceStep = ({
+	children,
+	id,
+	label,
+	value,
+}: Readonly<{
+	children: ReactNode;
+	id?: string | undefined;
+	label: ReactNode;
+	value: ReactNode;
+}>) => (
+	<ExpandableSection
+		className="openitr-trace-step"
+		{...(id === undefined ? {} : { id })}
+		toggleContent={
+			<Flex
+				justifyContent={{ default: "justifyContentSpaceBetween" }}
+				spaceItems={{ default: "spaceItemsMd" }}
+			>
+				<strong>{label}</strong>
+				<span>{value}</span>
+			</Flex>
+		}
+	>
+		<DescriptionList isCompact isHorizontal>
+			{children}
+		</DescriptionList>
+	</ExpandableSection>
+);
+
+export const TraceDetail = ({
+	children,
+	term,
+}: Readonly<{ children: ReactNode; term: string }>) => (
+	<DescriptionListGroup>
+		<DescriptionListTerm>{term}</DescriptionListTerm>
+		<DescriptionListDescription>{children}</DescriptionListDescription>
+	</DescriptionListGroup>
+);
+
 export const ComputationNodeCard = ({
 	node,
 	targetId,
 }: Readonly<{ node: ComputationTraceNode; targetId?: string }>) => (
-	<details className="openitr-trace-node" id={targetId}>
-		<summary>
-			<strong>{humanizeKey(node.nodeId)}</strong>
-			<span className="openitr-trace-node-value">
-				₹ {rupeeFormat(node.roundedValue)}
-			</span>
-		</summary>
-		<dl className="openitr-trace-details">
-			<div>
-				<dt>Step</dt>
-				<dd>{node.nodeId}</dd>
-			</div>
-			<div>
-				<dt>Rule</dt>
-				<dd>{node.ruleId}</dd>
-			</div>
-			<div>
-				<dt>Rule-pack revision</dt>
-				<dd>{node.rulePackRevision}</dd>
-			</div>
-			<div>
-				<dt>Operation</dt>
-				<dd>{node.operation}</dd>
-			</div>
-			<div>
-				<dt>Unrounded</dt>
-				<dd>{node.unroundedValue}</dd>
-			</div>
-			<div>
-				<dt>Rounded</dt>
-				<dd>{node.roundedValue}</dd>
-			</div>
-			{Object.hasOwn(node, "roundingMode") && node.roundingMode ? (
-				<div>
-					<dt>Rounding mode</dt>
-					<dd>{node.roundingMode}</dd>
-				</div>
-			) : null}
-		</dl>
-		<ul className="openitr-trace-inputs">
-			{keyed(node.inputs, (input) => input.kind).map(({ key, item: input }) => (
-				<li key={key}>{inputLabel(input)}</li>
-			))}
-		</ul>
-		{node.note ? <p className="openitr-trace-note">{node.note}</p> : null}
-	</details>
+	<TraceStep
+		id={targetId}
+		label={humanizeKey(node.nodeId)}
+		value={`₹ ${rupeeFormat(node.roundedValue)}`}
+	>
+		<TraceDetail term="Step">{node.nodeId}</TraceDetail>
+		<TraceDetail term="Rule">{node.ruleId}</TraceDetail>
+		<TraceDetail term="Rule-pack revision">{node.rulePackRevision}</TraceDetail>
+		<TraceDetail term="Operation">{node.operation}</TraceDetail>
+		<TraceDetail term="Unrounded">{node.unroundedValue}</TraceDetail>
+		<TraceDetail term="Rounded">{node.roundedValue}</TraceDetail>
+		{Object.hasOwn(node, "roundingMode") && node.roundingMode ? (
+			<TraceDetail term="Rounding mode">{node.roundingMode}</TraceDetail>
+		) : null}
+		<TraceDetail term="Inputs">
+			<List isPlain>
+				{keyed(node.inputs, (input) => input.kind).map(
+					({ key, item: input }) => (
+						<ListItem key={key}>{inputLabel(input)}</ListItem>
+					),
+				)}
+			</List>
+		</TraceDetail>
+		{node.note ? <TraceDetail term="Note">{node.note}</TraceDetail> : null}
+	</TraceStep>
 );
 
 export const ComputationTraceList = ({
@@ -100,11 +132,11 @@ export const ComputationTraceList = ({
 	const occurrences = new Map<string, number>();
 	return (
 		<>
-			<p className="openitr-trace-heading">
+			<Content component="p">
 				How this was calculated. Open a step to see its rule, inputs, and
 				rounding.
-			</p>
-			<div className="openitr-trace-list">
+			</Content>
+			<div>
 				{nodes.map((node) => {
 					const nodeId = String(node.nodeId);
 					const occurrence = (occurrences.get(nodeId) ?? 0) + 1;

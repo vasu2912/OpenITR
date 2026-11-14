@@ -3,9 +3,15 @@ import type {
 	HousePropertyComputation,
 	SignedHousePropertyAmount,
 } from "@openitr/itr1-ay2026-27";
-import { Title } from "@patternfly/react-core";
+import {
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	Title,
+} from "@patternfly/react-core";
 
-import { rupeeFormat } from "./computation-trace-view";
+import { rupeeFormat, TraceDetail, TraceStep } from "./computation-trace-view";
 import { IssueAlert } from "./plain-language";
 
 const SignedAmount = ({
@@ -34,54 +40,54 @@ const RegimeResult = ({
 	return (
 		<section className="openitr-property-regime">
 			<h4>{name}</h4>
-			<dl className="openitr-result-details">
+			<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
 				{property.grossAnnualValue === undefined ? null : (
-					<div>
-						<dt>Gross annual value</dt>
-						<dd>₹ {rupeeFormat(property.grossAnnualValue)}</dd>
-					</div>
+					<DescriptionListGroup>
+						<DescriptionListTerm>Gross annual value</DescriptionListTerm>
+						<DescriptionListDescription>
+							₹ {rupeeFormat(property.grossAnnualValue)}
+						</DescriptionListDescription>
+					</DescriptionListGroup>
 				)}
-				<div>
-					<dt>Annual value</dt>
-					<dd>₹ {rupeeFormat(property.annualValue)}</dd>
-				</div>
-				<div>
-					<dt>Standard deduction</dt>
-					<dd>₹ {rupeeFormat(property.standardDeduction)}</dd>
-				</div>
-				<div>
-					<dt>Interest deduction</dt>
-					<dd>₹ {rupeeFormat(interestDeduction)}</dd>
-				</div>
-				<div>
-					<dt>Property income</dt>
-					<dd>
+				<DescriptionListGroup>
+					<DescriptionListTerm>Annual value</DescriptionListTerm>
+					<DescriptionListDescription>
+						₹ {rupeeFormat(property.annualValue)}
+					</DescriptionListDescription>
+				</DescriptionListGroup>
+				<DescriptionListGroup>
+					<DescriptionListTerm>Standard deduction</DescriptionListTerm>
+					<DescriptionListDescription>
+						₹ {rupeeFormat(property.standardDeduction)}
+					</DescriptionListDescription>
+				</DescriptionListGroup>
+				<DescriptionListGroup>
+					<DescriptionListTerm>Interest deduction</DescriptionListTerm>
+					<DescriptionListDescription>
+						₹ {rupeeFormat(interestDeduction)}
+					</DescriptionListDescription>
+				</DescriptionListGroup>
+				<DescriptionListGroup>
+					<DescriptionListTerm>Property income</DescriptionListTerm>
+					<DescriptionListDescription>
 						<SignedAmount amount={income} />
-					</dd>
-				</div>
-			</dl>
-			<p className="openitr-trace-heading">Cited computation details</p>
-			<div className="openitr-trace-list">
+					</DescriptionListDescription>
+				</DescriptionListGroup>
+			</DescriptionList>
+			<p>Cited computation details</p>
+			<div>
 				{trace.map((node) => (
-					<details
-						className="openitr-trace-node"
+					<TraceStep
 						key={`${name}-${node.label}-${String(node.ruleId)}`}
+						label={node.label}
+						value={`₹ ${rupeeFormat(node.result)}`}
 					>
-						<summary>
-							<strong>{node.label}</strong>
-							<span className="openitr-trace-node-value">
-								₹ {rupeeFormat(node.result)}
-							</span>
-						</summary>
-						<dl className="openitr-trace-details">
-							<dt>Rule</dt>
-							<dd>{node.ruleId}</dd>
-							<dt>Operation</dt>
-							<dd>{node.operation}</dd>
-							<dt>Inputs</dt>
-							<dd>{node.inputs.map(String).join(", ")}</dd>
-						</dl>
-					</details>
+						<TraceDetail term="Rule">{node.ruleId}</TraceDetail>
+						<TraceDetail term="Operation">{node.operation}</TraceDetail>
+						<TraceDetail term="Inputs">
+							{node.inputs.map(String).join(", ")}
+						</TraceDetail>
+					</TraceStep>
 				))}
 			</div>
 		</section>
@@ -100,20 +106,24 @@ export const HousePropertyComputationView = ({
 			</Title>{" "}
 			{computation.kind === "computed" ? (
 				<>
-					<dl className="openitr-result-details openitr-property-summary">
-						<div>
-							<dt>Old-regime combined result</dt>
-							<dd>
+					<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
+						<DescriptionListGroup>
+							<DescriptionListTerm>
+								Old-regime combined result
+							</DescriptionListTerm>
+							<DescriptionListDescription>
 								<SignedAmount amount={computation.combined} />
-							</dd>
-						</div>
-						<div>
-							<dt>New-regime combined result</dt>
-							<dd>
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+						<DescriptionListGroup>
+							<DescriptionListTerm>
+								New-regime combined result
+							</DescriptionListTerm>
+							<DescriptionListDescription>
 								<SignedAmount amount={computation.newRegimeCombined} />
-							</dd>
-						</div>
-					</dl>
+							</DescriptionListDescription>
+						</DescriptionListGroup>
+					</DescriptionList>
 					<div className="openitr-property-list">
 						{computation.properties.map((property) => (
 							<section

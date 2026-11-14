@@ -3,9 +3,15 @@ import type {
 	SavingsPensionDeductionComputation,
 	SavingsPensionRegimeResult,
 } from "@openitr/itr1-ay2026-27";
-import { Title } from "@patternfly/react-core";
+import {
+	DescriptionList,
+	DescriptionListDescription,
+	DescriptionListGroup,
+	DescriptionListTerm,
+	Title,
+} from "@patternfly/react-core";
 
-import { rupeeFormat } from "./computation-trace-view";
+import { rupeeFormat, TraceDetail, TraceStep } from "./computation-trace-view";
 import { keyed } from "./keyed";
 import { IssueAlert } from "./plain-language";
 
@@ -35,34 +41,52 @@ const RegimeBreakdown = ({
 }>) => (
 	<section aria-label={title} className="openitr-deduction-regime">
 		<h3>{title}</h3>
-		<dl className="openitr-result-details">
-			<div>
-				<dt>80C, 80CCC, and 80CCD(1) before shared limit</dt>
-				<dd>₹ {rupeeFormat(result.sharedClaimed)}</dd>
-			</div>
-			<div>
-				<dt>
+		<DescriptionList columnModifier={{ default: "1Col", lg: "2Col" }}>
+			<DescriptionListGroup>
+				<DescriptionListTerm>
+					80C, 80CCC, and 80CCD(1) before shared limit
+				</DescriptionListTerm>
+				<DescriptionListDescription>
+					₹ {rupeeFormat(result.sharedClaimed)}
+				</DescriptionListDescription>
+			</DescriptionListGroup>
+			<DescriptionListGroup>
+				<DescriptionListTerm>
 					{newRegime ? "Shared categories allowed" : "After shared limit"}
-				</dt>
-				<dd>₹ {rupeeFormat(result.sharedAllowed)}</dd>
-			</div>
-			<div>
-				<dt>Additional 80CCD(1B) allowed</dt>
-				<dd>₹ {rupeeFormat(result.section80ccd1bAllowed)}</dd>
-			</div>
-			<div>
-				<dt>Government-employer 80CCD(2) allowed</dt>
-				<dd>₹ {rupeeFormat(result.governmentEmployerAllowed)}</dd>
-			</div>
-			<div>
-				<dt>Other-employer 80CCD(2) allowed</dt>
-				<dd>₹ {rupeeFormat(result.otherEmployerAllowed)}</dd>
-			</div>
-			<div>
-				<dt>Total allowed</dt>
-				<dd>₹ {rupeeFormat(result.totalAllowed)}</dd>
-			</div>
-		</dl>
+				</DescriptionListTerm>
+				<DescriptionListDescription>
+					₹ {rupeeFormat(result.sharedAllowed)}
+				</DescriptionListDescription>
+			</DescriptionListGroup>
+			<DescriptionListGroup>
+				<DescriptionListTerm>Additional 80CCD(1B) allowed</DescriptionListTerm>
+				<DescriptionListDescription>
+					₹ {rupeeFormat(result.section80ccd1bAllowed)}
+				</DescriptionListDescription>
+			</DescriptionListGroup>
+			<DescriptionListGroup>
+				<DescriptionListTerm>
+					Government-employer 80CCD(2) allowed
+				</DescriptionListTerm>
+				<DescriptionListDescription>
+					₹ {rupeeFormat(result.governmentEmployerAllowed)}
+				</DescriptionListDescription>
+			</DescriptionListGroup>
+			<DescriptionListGroup>
+				<DescriptionListTerm>
+					Other-employer 80CCD(2) allowed
+				</DescriptionListTerm>
+				<DescriptionListDescription>
+					₹ {rupeeFormat(result.otherEmployerAllowed)}
+				</DescriptionListDescription>
+			</DescriptionListGroup>
+			<DescriptionListGroup>
+				<DescriptionListTerm>Total allowed</DescriptionListTerm>
+				<DescriptionListDescription>
+					₹ {rupeeFormat(result.totalAllowed)}
+				</DescriptionListDescription>
+			</DescriptionListGroup>
+		</DescriptionList>
 	</section>
 );
 
@@ -117,26 +141,23 @@ export const SavingsPensionDeductionsView = ({
 					</div>
 					{computation.trace.length === 0 ? null : (
 						<>
-							<p className="openitr-trace-heading">Cited computation trace</p>
-							<div className="openitr-trace-list">
+							<p>Cited computation trace</p>
+							<div>
 								{keyed(computation.trace, (node) => String(node.ruleId)).map(
 									({ key, item: node }) => (
-										<details className="openitr-trace-node" key={key}>
-											<summary>
-												<strong>{node.label}</strong>
-												<span className="openitr-trace-node-value">
-													₹ {rupeeFormat(node.result)}
-												</span>
-											</summary>
-											<dl className="openitr-trace-details">
-												<dt>Rule</dt>
-												<dd>{node.ruleId}</dd>
-												<dt>Operation</dt>
-												<dd>{node.operation}</dd>
-												<dt>Inputs</dt>
-												<dd>{node.inputs.map(String).join(", ")}</dd>
-											</dl>
-										</details>
+										<TraceStep
+											key={key}
+											label={node.label}
+											value={`₹ ${rupeeFormat(node.result)}`}
+										>
+											<TraceDetail term="Rule">{node.ruleId}</TraceDetail>
+											<TraceDetail term="Operation">
+												{node.operation}
+											</TraceDetail>
+											<TraceDetail term="Inputs">
+												{node.inputs.map(String).join(", ")}
+											</TraceDetail>
+										</TraceStep>
 									),
 								)}
 							</div>

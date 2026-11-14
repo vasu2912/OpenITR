@@ -2,9 +2,9 @@ import type {
 	RemainingDeductionComputation,
 	RemainingDeductionFact,
 } from "@openitr/itr1-ay2026-27";
-import { Alert, Title } from "@patternfly/react-core";
+import { Alert, ExpandableSection, Title } from "@patternfly/react-core";
 
-import { rupeeFormat } from "./computation-trace-view";
+import { rupeeFormat, TraceDetail, TraceStep } from "./computation-trace-view";
 import { keyed } from "./keyed";
 import { FactLabel, IssueAlert } from "./plain-language";
 
@@ -92,8 +92,7 @@ export const RemainingDeductionsView = ({
 							</small>
 						</section>
 					</div>
-					<details className="openitr-health-facts">
-						<summary>Recorded facts and origins</summary>
+					<ExpandableSection toggleText="Recorded facts and origins">
 						<ul>
 							{keyed(computation.facts, (fact) => String(fact.factKey)).map(
 								({ key, item: fact }) => (
@@ -107,29 +106,26 @@ export const RemainingDeductionsView = ({
 								),
 							)}
 						</ul>
-					</details>
+					</ExpandableSection>
 					{computation.trace.length === 0 ? null : (
 						<>
-							<p className="openitr-trace-heading">Cited computation trace</p>
-							<div className="openitr-trace-list">
+							<p>Cited computation trace</p>
+							<div>
 								{keyed(computation.trace, (node) => String(node.ruleId)).map(
 									({ key, item: node }) => (
-										<details className="openitr-trace-node" key={key}>
-											<summary>
-												<strong>{node.label}</strong>
-												<span className="openitr-trace-node-value">
-													₹ {rupeeFormat(node.result)}
-												</span>
-											</summary>
-											<dl className="openitr-trace-details">
-												<dt>Rule</dt>
-												<dd>{node.ruleId}</dd>
-												<dt>Operation</dt>
-												<dd>{node.operation}</dd>
-												<dt>Inputs</dt>
-												<dd>{node.inputs.map(String).join(", ")}</dd>
-											</dl>
-										</details>
+										<TraceStep
+											key={key}
+											label={node.label}
+											value={`₹ ${rupeeFormat(node.result)}`}
+										>
+											<TraceDetail term="Rule">{node.ruleId}</TraceDetail>
+											<TraceDetail term="Operation">
+												{node.operation}
+											</TraceDetail>
+											<TraceDetail term="Inputs">
+												{node.inputs.map(String).join(", ")}
+											</TraceDetail>
+										</TraceStep>
 									),
 								)}
 							</div>

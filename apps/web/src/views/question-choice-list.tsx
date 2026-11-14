@@ -1,3 +1,17 @@
+import {
+	Card,
+	CardHeader,
+	CardTitle,
+	FormHelperText,
+	Gallery,
+	HelperText,
+	HelperTextItem,
+	InputGroup,
+	InputGroupItem,
+	InputGroupText,
+	TextInput,
+} from "@patternfly/react-core";
+
 export type QuestionChoice = Readonly<{
 	label: string;
 	value: string;
@@ -8,10 +22,12 @@ export const yesNoQuestionChoices: readonly QuestionChoice[] = Object.freeze([
 	{ label: "No", value: "no" },
 ]);
 
+// Answers render as PatternFly single-select cards: the whole card is the
+// click target and the selected card carries PatternFly's selected state.
 export const QuestionChoiceList = ({
 	describedBy,
 	hasError,
-	legend,
+	labelledBy,
 	name,
 	onValueChange,
 	options,
@@ -19,39 +35,102 @@ export const QuestionChoiceList = ({
 }: Readonly<{
 	describedBy: string;
 	hasError: boolean;
-	legend: string;
+	labelledBy: string;
 	name: string;
 	onValueChange: (value: string) => void;
 	options: readonly QuestionChoice[];
 	value: string;
 }>) => (
-	<fieldset
+	<div
 		aria-describedby={describedBy}
 		aria-invalid={hasError}
-		className="openitr-question-choice-fieldset"
+		aria-labelledby={labelledBy}
+		className="openitr-measure"
+		role="radiogroup"
 	>
-		<legend>{legend}</legend>
-		<div className="openitr-question-choice-list">
+		<Gallery hasGutter minWidths={{ default: "10rem" }}>
 			{options.map((option) => {
 				const optionId = `${name}-${option.value}`;
+				const isChecked = value === option.value;
 				return (
-					<label
-						className="openitr-question-choice"
-						htmlFor={optionId}
+					<Card
+						id={`${optionId}-card`}
+						isCompact
+						isSelectable
+						isSelected={isChecked}
 						key={option.value}
 					>
-						<input
-							checked={value === option.value}
-							id={optionId}
-							name={name}
-							onChange={() => onValueChange(option.value)}
-							type="radio"
-							value={option.value}
-						/>
-						<span>{option.label}</span>
-					</label>
+						<CardHeader
+							selectableActions={{
+								hasNoOffset: true,
+								isChecked,
+								name,
+								onChange: () => onValueChange(option.value),
+								selectableActionAriaLabelledby: `${optionId}-label`,
+								selectableActionId: optionId,
+								variant: "single",
+							}}
+						>
+							<CardTitle id={`${optionId}-label`}>{option.label}</CardTitle>
+						</CardHeader>
+					</Card>
 				);
 			})}
-		</div>
-	</fieldset>
+		</Gallery>
+	</div>
+);
+
+export const AmountInput = ({
+	describedBy,
+	error,
+	errorId,
+	id,
+	inputMode = "decimal",
+	labelledBy,
+	onValueChange,
+	placeholder,
+	showRupee,
+	type = "text",
+	value,
+}: Readonly<{
+	describedBy: string;
+	error: string | undefined;
+	errorId: string;
+	id: string;
+	inputMode?: "decimal" | "numeric";
+	labelledBy: string;
+	onValueChange: (value: string) => void;
+	placeholder?: string | undefined;
+	showRupee: boolean;
+	type?: "text" | "date";
+	value: string;
+}>) => (
+	<div className="openitr-field">
+		<InputGroup>
+			{showRupee ? <InputGroupText>₹</InputGroupText> : null}
+			<InputGroupItem isFill>
+				<TextInput
+					aria-describedby={describedBy}
+					aria-labelledby={labelledBy}
+					autoComplete="off"
+					id={id}
+					inputMode={type === "date" ? undefined : inputMode}
+					onChange={(_event, next) => onValueChange(next)}
+					{...(placeholder === undefined ? {} : { placeholder })}
+					type={type}
+					validated={error === undefined ? "default" : "error"}
+					value={value}
+				/>
+			</InputGroupItem>
+		</InputGroup>
+		{error === undefined ? null : (
+			<FormHelperText>
+				<HelperText isLiveRegion>
+					<HelperTextItem id={errorId} variant="error">
+						{error}
+					</HelperTextItem>
+				</HelperText>
+			</FormHelperText>
+		)}
+	</div>
 );
