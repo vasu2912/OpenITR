@@ -3,7 +3,10 @@ import type {
 	HousePropertyComputation,
 	SignedHousePropertyAmount,
 } from "@openitr/itr1-ay2026-27";
-import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Title,
+} from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
@@ -57,10 +60,8 @@ export const HousePropertyComputationView = ({
 }: Readonly<{ computation: HousePropertyComputation | undefined }>) => {
 	if (computation === undefined || computation.kind === "not-applicable") return null;
 	return (
-		<Card className="openitr-property-card" component="section">
-			<CardTitle><Title headingLevel="h2" size="lg">House-property analysis</Title></CardTitle>
-			<CardBody>
-				{computation.kind === "computed" ? (
+		<section className="openitr-property-card">
+<Title headingLevel="h2" size="lg">House-property analysis</Title>				{computation.kind === "computed" ? (
 					<>
 						<dl className="openitr-result-details openitr-property-summary">
 							<div><dt>Old-regime combined result</dt><dd><SignedAmount amount={computation.combined} /></dd></div>
@@ -87,7 +88,6 @@ export const HousePropertyComputationView = ({
 						{computation.issue.recoveryAction}
 					</Alert>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

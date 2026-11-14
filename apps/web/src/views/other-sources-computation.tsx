@@ -2,7 +2,10 @@ import type {
 	OtherSourceCategory,
 	OtherSourcesComputation,
 } from "@openitr/itr1-ay2026-27";
-import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Title,
+} from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
@@ -17,11 +20,8 @@ export const OtherSourcesComputationView = ({
 }: Readonly<{ computation: OtherSourcesComputation | undefined }>) => {
 	if (computation === undefined || computation.kind === "not-applicable") return null;
 	return (
-		<Card className="openitr-other-sources-card" component="section">
-			<CardTitle>
+		<section className="openitr-other-sources-card">
 				<Title headingLevel="h2" size="lg">Income from other sources analysis</Title>
-			</CardTitle>
-			<CardBody>
 				{computation.kind === "computed" ? (
 					<>
 						<dl className="openitr-result-details openitr-other-sources-summary">
@@ -63,7 +63,6 @@ export const OtherSourcesComputationView = ({
 						{computation.issue.recoveryAction}
 					</Alert>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

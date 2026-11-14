@@ -269,10 +269,22 @@ const openWorkflowStage = async (
 	page: Page,
 	stage: "documents" | "review" | "computations" | "analysis" | "final-review",
 ): Promise<void> => {
-	await page
-		.locator(`[data-workflow-stage="${stage}"]`)
-		.filter({ visible: true })
-		.click();
+	const stageLabels = {
+		documents: "Documents",
+		review: "Review facts",
+		computations: "Computations",
+		analysis: "Analysis",
+		"final-review": "Final review",
+	} as const;
+	const stageLink = page
+		.getByRole("navigation", { name: "Analysis workflow" })
+		.getByRole("button", { name: new RegExp(`^\\d+\\. ${stageLabels[stage]}`) });
+	if (!(await stageLink.isVisible())) {
+		await page
+			.getByRole("button", { name: "Analysis workflow navigation" })
+			.click();
+	}
+	await stageLink.click();
 };
 
 export const openReviewFacts = async (page: Page): Promise<void> => {
@@ -281,17 +293,17 @@ export const openReviewFacts = async (page: Page): Promise<void> => {
 
 export const openIncomeComputations = async (page: Page): Promise<void> => {
 	await openWorkflowStage(page, "computations");
-	await page.getByRole("button", { name: "Income", exact: true }).click();
+	await page.getByRole("tab", { name: "Income", exact: true }).click();
 };
 
 export const openDeductions = async (page: Page): Promise<void> => {
 	await openWorkflowStage(page, "computations");
-	await page.getByRole("button", { name: "Deductions", exact: true }).click();
+	await page.getByRole("tab", { name: "Deductions", exact: true }).click();
 };
 
 export const openTaxComparison = async (page: Page): Promise<void> => {
 	await openWorkflowStage(page, "computations");
-	await page.getByRole("button", { name: "Tax comparison", exact: true }).click();
+	await page.getByRole("tab", { name: "Tax comparison", exact: true }).click();
 };
 
 export const openAnalysis = async (page: Page): Promise<void> => {

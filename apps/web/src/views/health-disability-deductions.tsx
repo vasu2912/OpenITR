@@ -3,7 +3,10 @@ import type {
 	HealthDisabilityDeductionComputation,
 	HealthDisabilityDeductionFact,
 } from "@openitr/itr1-ay2026-27";
-import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Title,
+} from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
@@ -36,13 +39,10 @@ export const HealthDisabilityDeductionsView = ({
 }>) => {
 	if (computation === undefined) return null;
 	return (
-		<Card className="openitr-health-disability-card" component="section">
-			<CardTitle>
+		<section className="openitr-health-disability-card">
 				<Title headingLevel="h2" size="lg">
 					Health and disability deductions
 				</Title>
-			</CardTitle>
-			<CardBody>
 				{computation.kind !== "computed" ? (
 					<div className="openitr-deduction-issues">
 						{computation.issues.map((currentIssue) => (
@@ -138,7 +138,6 @@ export const HealthDisabilityDeductionsView = ({
 						)}
 					</>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

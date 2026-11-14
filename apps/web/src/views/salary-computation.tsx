@@ -4,9 +4,6 @@ import type {
 import type { CandidateDocument } from "@openitr/model";
 import {
 	Alert,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 
@@ -67,13 +64,10 @@ export const SalaryComputationView = ({
 	}
 
 	return (
-		<Card className="openitr-computation-card" component="section">
-			<CardTitle>
+		<section className="openitr-computation-card">
 				<Title headingLevel="h2" size="lg">
 					New-regime salary scenario
 				</Title>
-			</CardTitle>
-			<CardBody>
 				{computation.kind === "blocked" ? (
 					computation.issues.map((issue) => (
 						<Alert
@@ -145,7 +139,6 @@ export const SalaryComputationView = ({
 						<ComputationTraceList nodes={computation.nodes} />
 					</>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

@@ -1,5 +1,8 @@
 import type { RemainingDeductionComputation, RemainingDeductionFact } from "@openitr/itr1-ay2026-27";
-import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Title,
+} from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
@@ -14,10 +17,8 @@ const valueLabel = (fact: RemainingDeductionFact): string =>
 export const RemainingDeductionsView = ({ computation }: Readonly<{ computation: RemainingDeductionComputation | undefined }>) => {
 	if (computation === undefined) return null;
 	return (
-		<Card className="openitr-remaining-deductions-card" component="section">
-			<CardTitle><Title headingLevel="h2" size="lg">Deposit-interest and remaining deductions</Title></CardTitle>
-			<CardBody>
-				<Alert isInline title="Named ITR-1 categories only" variant="info">
+		<section className="openitr-remaining-deductions-card">
+<Title headingLevel="h2" size="lg">Deposit-interest and remaining deductions</Title>				<Alert isInline title="Named ITR-1 categories only" variant="info">
 					OpenITR applies sections 80TTA and 80TTB once from the recorded interest and taxpayer category. Other supported sections use their named facts and pinned limits; no generic deduction amount is accepted.
 				</Alert>
 				{computation.kind !== "computed" ? (
@@ -60,7 +61,6 @@ export const RemainingDeductionsView = ({ computation }: Readonly<{ computation:
 						</div></>}
 					</>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

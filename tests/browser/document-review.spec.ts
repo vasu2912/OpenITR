@@ -189,7 +189,7 @@ test.describe("Form 16 salary observation review", () => {
 			"₹ 15,00,000",
 		);
 
-		await page.getByRole("button", { name: /^Documents / }).click();
+		await page.getByRole("button", { name: /^\d+\. Documents/ }).click();
 		await page
 			.locator('[data-candidate="synthetic-pension-form16.pdf"]')
 			.getByRole("button", { name: "Remove" })

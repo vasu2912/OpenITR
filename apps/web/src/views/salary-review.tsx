@@ -12,9 +12,6 @@ import { epayChallanReferenceOf } from "@openitr/model";
 import {
 	Alert,
 	Button,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 import { useState } from "react";
@@ -356,13 +353,10 @@ export const SalaryReviewView = ({
 	}
 
 	return (
-		<Card className="openitr-review-card" component="section">
-			<CardTitle>
+		<section className="openitr-review-card">
 				<Title headingLevel="h2" size="lg">
 					Extracted observations
 				</Title>
-			</CardTitle>
-			<CardBody>
 				<Alert
 					isInline
 					title="Review every observation against its evidence"
@@ -425,7 +419,6 @@ export const SalaryReviewView = ({
 						) : null}
 					</section>
 				))}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

@@ -4,9 +4,6 @@ import type {
 } from "@openitr/itr1-ay2026-27";
 import {
 	Alert,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 
@@ -128,13 +125,10 @@ export const EstimateView = ({
 
 	if (estimate.kind === "blocked") {
 		return (
-			<Card className="openitr-estimate-card" component="section">
-				<CardTitle>
+			<section className="openitr-estimate-card">
 					<Title headingLevel="h2" size="lg">
 						Estimated refund or amount payable
 					</Title>
-				</CardTitle>
-				<CardBody>
 					<p>
 						A final estimate needs accepted facts from every slice below.
 						The missing or disputed items need review first.
@@ -148,21 +142,17 @@ export const EstimateView = ({
 							{issue.recoveryAction}
 						</Alert>
 					))}
-				</CardBody>
-			</Card>
+			</section>
 		);
 	}
 
 	const presentation = outcomePresentation(estimate);
 
 	return (
-		<Card className="openitr-estimate-card" component="section">
-			<CardTitle>
+		<section className="openitr-estimate-card">
 				<Title headingLevel="h2" size="lg">
 					Estimated refund or amount payable
 				</Title>
-			</CardTitle>
-			<CardBody>
 				<Alert
 					isInline
 					title={presentation.heading}
@@ -220,7 +210,6 @@ export const EstimateView = ({
 					nodes={estimate.nodes}
 					targetPrefix="estimate"
 				/>
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

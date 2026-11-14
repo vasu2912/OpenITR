@@ -1,9 +1,6 @@
 import type { OldRegimeComputation } from "@openitr/itr1-ay2026-27";
 import {
 	Alert,
-	Card,
-	CardBody,
-	CardTitle,
 	Title,
 } from "@patternfly/react-core";
 
@@ -149,13 +146,10 @@ export const OldRegimeComputationView = ({
 	}
 
 	return (
-		<Card className="openitr-old-regime-card" component="section">
-			<CardTitle>
+		<section className="openitr-old-regime-card">
 				<Title headingLevel="h2" size="lg">
 					Old-regime tax computation
 				</Title>
-			</CardTitle>
-			<CardBody>
 				{computation.kind === "computed" ? (
 					<>
 						<p>
@@ -210,7 +204,6 @@ export const OldRegimeComputationView = ({
 						))}
 					</>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

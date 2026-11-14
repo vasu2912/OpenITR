@@ -7,9 +7,6 @@ import type {
 import {
 	Alert,
 	Button,
-	Card,
-	CardBody,
-	CardTitle,
 	Label,
 	MultipleFileUpload,
 	MultipleFileUploadMain,
@@ -132,13 +129,10 @@ export const DocumentsIntakeView = ({
 	).length;
 
 	return (
-		<Card className="openitr-documents-card" component="section">
-			<CardTitle>
+		<section className="openitr-documents-card">
 				<Title headingLevel="h2" size="lg">
 					Select source documents
 				</Title>
-			</CardTitle>
-			<CardBody>
 				<Stack hasGutter>
 					<Alert isInline title="Your documents stay in this browser" variant="info">
 						OpenITR inspects every file locally in this tab. No document bytes,
@@ -245,7 +239,6 @@ export const DocumentsIntakeView = ({
 						})}
 					</ul>
 				</Stack>
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

@@ -39,7 +39,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 		if (message.type() === "error") consoleErrors.push(message.text());
 	});
 	await openDocumentIntake(page, { "scope-total-income": "1100000" });
-	await page.getByRole("button", { name: /^Scope check / }).click();
+	await page.getByRole("button", { name: /^\d+\. Scope check/ }).click();
 	const bankInterestScope = page.locator(
 		'[data-scope-question="scope-bank-interest"]',
 	);
@@ -47,7 +47,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await bankInterestScope
 		.getByRole("button", { name: "Record scope answer" })
 		.click();
-	await page.getByRole("button", { name: /^Documents / }).click();
+	await page.getByRole("button", { name: /^\d+\. Documents/ }).click();
 	await selectSourceFiles(page, [
 		{
 			name: "synthetic-regime-comparison.pdf",
@@ -276,6 +276,9 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	).toHaveCount(0);
 
 	await page.setViewportSize({ width: 390, height: 844 });
+	await expect(
+		page.getByRole("navigation", { name: "Analysis workflow" }),
+	).toBeHidden();
 	await openTaxComparison(page);
 	await expect(comparison).toBeVisible();
 	await openAnalysis(page);

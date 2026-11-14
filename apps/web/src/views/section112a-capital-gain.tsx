@@ -1,5 +1,8 @@
 import type { Section112aCapitalGainComputation } from "@openitr/itr1-ay2026-27";
-import { Alert, Card, CardBody, CardTitle, Title } from "@patternfly/react-core";
+import {
+	Alert,
+	Title,
+} from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
 
@@ -12,13 +15,10 @@ export const Section112aCapitalGainView = ({
 		return null;
 	}
 	return (
-		<Card className="openitr-section112a-card" component="section">
-			<CardTitle>
+		<section className="openitr-section112a-card">
 				<Title headingLevel="h2" size="lg">
 					Section 112A capital-gain analysis
 				</Title>
-			</CardTitle>
-			<CardBody>
 				{computation.kind === "computed" ? (
 					<>
 						<dl className="openitr-result-details openitr-section112a-summary">
@@ -82,7 +82,6 @@ export const Section112aCapitalGainView = ({
 						{computation.issue.recoveryAction}
 					</Alert>
 				)}
-			</CardBody>
-		</Card>
+		</section>
 	);
 };

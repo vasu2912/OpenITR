@@ -6,9 +6,6 @@ import type {
 	RegimeComparison,
 } from "@openitr/itr1-ay2026-27";
 import {
-	Card,
-	CardBody,
-	CardTitle,
 	Radio,
 	Title,
 } from "@patternfly/react-core";
@@ -97,13 +94,10 @@ export const RegimeComparisonView = ({
 	};
 
 	return (
-		<Card className="openitr-regime-comparison" component="section" id="regime-comparison-heading">
-			<CardTitle>
+		<section className="openitr-regime-comparison" id="regime-comparison-heading">
 				<Title headingLevel="h2" size="lg">
 					Compare old and new regimes
 				</Title>
-			</CardTitle>
-			<CardBody>
 				<p>
 					Both calculations use the same accepted facts. OpenITR does not choose
 					a regime or describe either one as universally better.
@@ -187,7 +181,6 @@ export const RegimeComparisonView = ({
 							: `${selectedRegime === "old" ? "Old" : "New"} regime is the primary analysis scenario for ${comparison.factSetRevision}.`}
 					</p>
 				</fieldset>
-			</CardBody>
-		</Card>
+		</section>
 	);
 };
