@@ -8,6 +8,7 @@ import {
 } from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
+import { FactLabel, IssueAlert } from "./plain-language";
 
 const originLabel = (fact: DonationDeductionFact): string =>
 	fact.origin.kind === "attested-answer"
@@ -57,18 +58,7 @@ export const DonationDeductionsView = ({
 				{computation.kind !== "computed" ? (
 					<div className="openitr-deduction-issues">
 						{computation.issues.map((currentIssue) => (
-							<Alert
-								isInline
-								key={String(currentIssue.code)}
-								title={String(currentIssue.code)}
-								variant="warning"
-							>
-								<p>{currentIssue.recoveryAction}</p>
-								<p>
-									Affected facts:{" "}
-									{currentIssue.affectedFacts.map(String).join(", ")}
-								</p>
-							</Alert>
+							<IssueAlert issue={currentIssue} key={String(currentIssue.code)} />
 						))}
 					</div>
 				) : (
@@ -99,14 +89,7 @@ export const DonationDeductionsView = ({
 						{computation.issues.length === 0 ? null : (
 							<div className="openitr-deduction-issues">
 								{computation.issues.map((currentIssue) => (
-									<Alert
-										isInline
-										key={String(currentIssue.code)}
-										title={String(currentIssue.code)}
-										variant="warning"
-									>
-										{currentIssue.recoveryAction}
-									</Alert>
+									<IssueAlert issue={currentIssue} key={String(currentIssue.code)} />
 								))}
 							</div>
 						)}
@@ -132,7 +115,7 @@ export const DonationDeductionsView = ({
 							<ul>
 								{computation.facts.map((fact, index) => (
 									<li key={`${String(fact.factKey)}:${index}`}>
-										<strong>{String(fact.factKey)}</strong>: {valueLabel(fact)}
+										<strong><FactLabel factKey={fact.factKey} /></strong>: {valueLabel(fact)}
 										<small>{originLabel(fact)}</small>
 									</li>
 								))}

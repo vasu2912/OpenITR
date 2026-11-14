@@ -1,4 +1,7 @@
 import type { ComputationNodeInput, ComputationTraceNode } from "@openitr/itr1-ay2026-27";
+import type { ReactNode } from "react";
+
+import { FactLabel, humanizeKey } from "./plain-language";
 
 // Display-only grouping of an exact decimal string. Arithmetic never passes
 // through here.
@@ -11,12 +14,16 @@ export const rupeeFormat = (value: string): string => {
 	return fraction === undefined ? grouped : `${grouped}.${fraction}`;
 };
 
-const inputLabel = (input: ComputationNodeInput): string => {
+const inputLabel = (input: ComputationNodeInput): ReactNode => {
 	switch (input.kind) {
 		case "fact":
-			return `Fact ${input.factKey} = ₹ ${rupeeFormat(input.value)}`;
+			return (
+				<>
+					<FactLabel factKey={input.factKey} />: ₹ {rupeeFormat(input.value)}
+				</>
+			);
 		case "node":
-			return `From ${input.nodeId} = ₹ ${rupeeFormat(input.value)}`;
+			return `${humanizeKey(input.nodeId)}: ₹ ${rupeeFormat(input.value)}`;
 		case "rule-pack-constant":
 			return `Rule-pack constant ${input.name} = ${input.wholeRupees}`;
 		case "user-answer":
@@ -34,12 +41,16 @@ export const ComputationNodeCard = ({
 }: Readonly<{ node: ComputationTraceNode; targetId?: string }>) => (
 	<details className="openitr-trace-node" id={targetId}>
 		<summary>
-			<strong>{node.nodeId}</strong>
+			<strong>{humanizeKey(node.nodeId)}</strong>
 			<span className="openitr-trace-node-value">
 				₹ {rupeeFormat(node.roundedValue)}
 			</span>
 		</summary>
 		<dl className="openitr-trace-details">
+			<div>
+				<dt>Step</dt>
+				<dd>{node.nodeId}</dd>
+			</div>
 			<div>
 				<dt>Rule</dt>
 				<dd>{node.ruleId}</dd>
@@ -89,8 +100,8 @@ export const ComputationTraceList = ({
 	return (
 		<>
 			<p className="openitr-trace-heading">
-				Computation trace — every node cites its rule, revision, unrounded
-				result, and rounded result
+				How this was calculated. Open a step to see its rule, inputs, and
+				rounding.
 			</p>
 			<div className="openitr-trace-list">
 				{nodes.map((node) => {

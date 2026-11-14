@@ -40,6 +40,8 @@ import {
 import { useContext, useEffect, useState, useSyncExternalStore } from "react";
 import type { FormEvent, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
+import { FORM16_SALARY_FIELD_DEFINITIONS } from "@openitr/document-adapters";
+
 import { loadRulePack } from "../session/load-rule-pack";
 import { createSessionOrchestrator } from "../session/session-orchestrator";
 import type {
@@ -69,11 +71,20 @@ import { SalaryReviewView } from "../views/salary-review";
 import { SavingsPensionDeductionsView } from "../views/savings-pension-deductions";
 import { ScopeAnalysisView } from "../views/scope-analysis";
 import { Section112aCapitalGainView } from "../views/section112a-capital-gain";
+import {
+	createFactLabeler,
+	FactLabelProvider,
+	type FactLabeler,
+} from "../views/plain-language";
 import { activeAnalysisRelease } from "./release-manifest";
 
 type SessionLoadState =
 	| Readonly<{ kind: "loading" }>
-	| Readonly<{ kind: "ready"; session: SessionOrchestrator }>
+	| Readonly<{
+			kind: "ready";
+			session: SessionOrchestrator;
+			labelFact: FactLabeler;
+	  }>
 	| Readonly<{
 			kind: "failed";
 			incidentCode: "ANALYSIS_RULE_PACK_LOAD_FAILED";
@@ -895,7 +906,14 @@ export const App = () => {
 					rulePack,
 					documents: workerInspectionFacility(),
 				});
-				setLoadState({ kind: "ready", session: sessionToStop });
+				setLoadState({
+					kind: "ready",
+					session: sessionToStop,
+					labelFact: createFactLabeler(
+						rulePack,
+						FORM16_SALARY_FIELD_DEFINITIONS,
+					),
+				});
 			})
 			.catch(() => {
 				if (!isDisposed) {
@@ -922,7 +940,11 @@ export const App = () => {
 				</AppFrame>
 			);
 		case "ready":
-			return <ScopeInteraction session={loadState.session} />;
+			return (
+				<FactLabelProvider value={loadState.labelFact}>
+					<ScopeInteraction session={loadState.session} />
+				</FactLabelProvider>
+			);
 		case "failed":
 			return (
 				<AppFrame scopeStatus="blocked">

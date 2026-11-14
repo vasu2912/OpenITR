@@ -4,11 +4,11 @@ import type {
 	SavingsPensionRegimeResult,
 } from "@openitr/itr1-ay2026-27";
 import {
-	Alert,
 	Title,
 } from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
+import { IssueAlert } from "./plain-language";
 
 const personLabel: Readonly<
 	Record<SavingsPensionDeductionClaim["applicablePerson"], string>
@@ -77,24 +77,11 @@ export const SavingsPensionDeductionsView = ({
 					Savings and pension-contribution deductions
 				</Title>
 				{computation.kind !== "computed" ? (
-					<Alert
-						isInline
-						title={`${String(computation.issue.code)}: ${computation.issue.affectedFacts.map(String).join(", ")}`}
-						variant="warning"
-					>
-						{computation.issue.recoveryAction}
-					</Alert>
+					<IssueAlert issue={computation.issue} />
 				) : (
 					<>
 						{computation.issues.map((currentIssue) => (
-							<Alert
-								isInline
-								key={String(currentIssue.code)}
-								title={String(currentIssue.code)}
-								variant="warning"
-							>
-								{currentIssue.recoveryAction}
-							</Alert>
+							<IssueAlert issue={currentIssue} key={String(currentIssue.code)} />
 						))}
 						{computation.claims.length === 0 ? (
 							<p>No savings or pension contribution was reported for this analysis.</p>

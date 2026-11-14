@@ -302,7 +302,7 @@ test("compares regimes neutrally and records a changeable primary scenario", asy
 	await openFinalReview(page);
 	const seniorReviewFact = page.locator(".openitr-final-review")
 		.locator('[data-origin="user-attestation"]')
-		.filter({ hasText: "taxpayer.senior-citizen" });
+		.filter({ hasText: "Were you a resident senior citizen for FY 2025-26?" });
 	const answerTarget = await seniorReviewFact
 		.getByRole("link", { name: "Return to source or decision" })
 		.getAttribute("href");

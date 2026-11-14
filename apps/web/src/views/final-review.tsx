@@ -9,6 +9,7 @@ import type {
 	DocumentIntakeSnapshot,
 	SessionOrchestrator,
 } from "../session/session-orchestrator";
+import { FactLabel } from "./plain-language";
 
 const originLabels = Object.freeze({
 	"source-observation": "Source observation",
@@ -38,7 +39,7 @@ const computationIssuesOf = (
 			? []
 			: computation.issues.map((issue) => ({
 					id: `${label}-${String(issue.code)}`,
-					label: `${String(issue.code)}: ${issue.recoveryAction}`,
+					label: issue.recoveryAction,
 					affectedResults: Object.freeze([label]),
 				})),
 	);
@@ -148,7 +149,7 @@ export const FinalReviewView = ({
 									{topic.facts.map((fact) => (
 										<li data-origin={fact.originKind} key={fact.id}>
 											<header>
-												<code>{fact.factKey}</code>
+												<FactLabel factKey={fact.factKey} />
 												<strong>{fact.value}</strong>
 											</header>
 											<dl>

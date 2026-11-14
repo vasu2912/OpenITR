@@ -154,9 +154,9 @@ test.describe("complete new-regime computation", () => {
 		await computation
 			.locator("details")
 			.filter({
-				hasText: "derived.total-tax-liability-rounded-section-288b",
+				hasText: "Total tax liability rounded section 288B",
 			})
-			.getByText("derived.total-tax-liability-rounded-section-288b")
+			.getByText("Total tax liability rounded section 288B")
 			.click();
 		await expect(computation.getByText("ITR1-TAX-ROUNDING-288B")).toBeVisible();
 

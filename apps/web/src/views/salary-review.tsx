@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 
 import { rupeeFormat } from "./computation-trace-view";
+import { FactLabel, IssueAlert } from "./plain-language";
 
 type PagesList = Extract<DocumentExtractionRecord, { status: "done" }>["pages"];
 
@@ -247,7 +248,7 @@ const ObservationCard = ({
 			id={`observation-${observation.observationId}`}
 		>
 			<header className="openitr-observation-header">
-				<strong>{observation.factKey}</strong>
+				<strong><FactLabel factKey={observation.factKey} /></strong>
 				<span className="openitr-observation-value">
 					₹ {observation.valueText}
 				</span>
@@ -382,13 +383,7 @@ export const SalaryReviewView = ({
 							<small>Document {String(record.documentId).slice(0, 12)}…</small>
 						</header>
 						{record.issues.map((issue, issueIndex) => (
-							<Alert
-								key={`${String(issue.code)}-${issueIndex}`}
-								title={`${String(issue.code)}: ${issue.affectedFactKeys.join(", ")}`}
-								variant="warning"
-							>
-								{issue.recoveryAction}
-							</Alert>
+							<IssueAlert issue={issue} key={`${String(issue.code)}-${issueIndex}`} />
 						))}
 						{groupsOfRecord(record).map(
 							(group) =>

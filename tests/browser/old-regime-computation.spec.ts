@@ -157,8 +157,8 @@ test.describe("old-regime computation", () => {
 
 		await computation
 			.locator("details")
-			.filter({ hasText: "derived.old-regime-total-tax-liability" })
-			.getByText("derived.old-regime-total-tax-liability")
+			.filter({ hasText: "Old regime total tax liability" })
+			.getByText("Old regime total tax liability")
 			.click();
 		await expect(computation.getByText("ITR1-TAX-ROUNDING-288B")).toBeVisible();
 	});

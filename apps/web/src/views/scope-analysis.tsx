@@ -17,6 +17,7 @@ import {
 	type QuestionChoice,
 	yesNoQuestionChoices,
 } from "./question-choice-list";
+import { FactLabel } from "./plain-language";
 
 const housePropertyCountChoices: readonly QuestionChoice[] = Object.freeze([
 	{ label: "No properties", value: "0" },
@@ -376,7 +377,7 @@ export const ScopeAnalysisView = ({
 							<strong>{decisionLabel(decision.kind)}</strong>:{" "}
 							{decision.explanation}
 							<small>
-								Fact <code>{String(decision.factKey)}</code> · State{" "}
+								<FactLabel factKey={decision.factKey} /> · State{" "}
 								<code>{decision.fact.state}</code> · Value{" "}
 								<code>{displayFactValue(decision.fact)}</code> · Rule{" "}
 								<code>{String(decision.rule.id)}</code> · Pinned revision{" "}

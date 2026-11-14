@@ -46,7 +46,7 @@ test.describe("Form 16A non-salary TDS review", () => {
 			incomeGroup.getByText("Non-salary income evidence"),
 		).toBeVisible();
 		await expect(
-			incomeGroup.getByText("non-salary-income.interest-other-than-securities"),
+			incomeGroup.getByText("How much permitted interest outside savings accounts and deposits did you receive in FY 2025-26?"),
 		).toBeVisible();
 		const interestCard = incomeGroup.locator(
 			'.openitr-observation[data-fact-key="non-salary-income.interest-other-than-securities"]',
@@ -58,7 +58,7 @@ test.describe("Form 16A non-salary TDS review", () => {
 		);
 		await expect(taxesPaidGroup.getByText("Tax-paid evidence")).toBeVisible();
 		await expect(
-			taxesPaidGroup.getByText("tds.tds-deposited", { exact: true }),
+			taxesPaidGroup.getByText("TDS deposited", { exact: true }),
 		).toBeVisible();
 
 		const toggle = interestCard.getByRole("button");

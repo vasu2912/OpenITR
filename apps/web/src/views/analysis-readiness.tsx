@@ -5,6 +5,7 @@ import {
 
 import type { AnalysisReadiness } from "../session/analysis-readiness";
 import { readinessPresentationOf } from "./analysis-readiness-presentation";
+import { FactLabel } from "./plain-language";
 
 export const AnalysisReadinessView = ({
 	readiness,
@@ -28,7 +29,7 @@ export const AnalysisReadinessView = ({
 								<li key={issue.id}>
 									<strong>{issue.explanation}</strong>
 									<p>
-										Facts: {issue.factKeys.length === 0 ? "Not applicable" : issue.factKeys.join(", ")}
+										Facts: {issue.factKeys.length === 0 ? "Not applicable" : issue.factKeys.map((factKey, index) => (<span key={factKey}>{index === 0 ? "" : ", "}<FactLabel factKey={factKey} /></span>))}
 									</p>
 									<p>Affects: {issue.affectedResults.join(", ")}</p>
 									<p>

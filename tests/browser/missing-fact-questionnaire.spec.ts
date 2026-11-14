@@ -161,14 +161,12 @@ test.describe("missing-fact questionnaire", () => {
 			.click();
 		await expect(questionnaire.getByText("17 missing facts can be answered")).toBeVisible();
 		await expect(
-			questionnaire.getByText("bank-interest.savings-account", { exact: true }),
+			questionnaire.locator(".openitr-recorded-answers").getByText("How much savings-account interest did you receive in FY 2025-26?"),
 		).toBeVisible();
 		await openTaxComparison(page);
 		await expect(
-			page.getByRole("heading", {
-				name: /FACT_BANK_INTEREST_EVIDENCE_REQUIRED: bank-interest\.deposits/,
-			}),
-		).toBeVisible();
+			page.getByText(/Code FACT_BANK_INTEREST_EVIDENCE_REQUIRED.*bank-interest\.deposits/).first(),
+		).toBeAttached();
 		await openReviewFacts(page);
 
 		const depositsInput = questionnaire.getByLabel(
@@ -220,9 +218,7 @@ test.describe("missing-fact questionnaire", () => {
 		).toBeVisible();
 		await openTaxComparison(page);
 		await expect(
-			page.getByRole("heading", {
-				name: /FACT_BANK_INTEREST_EVIDENCE_REQUIRED/,
-			}),
+			page.getByText(/Code FACT_BANK_INTEREST_EVIDENCE_REQUIRED/),
 		).toHaveCount(0);
 	});
 
@@ -242,7 +238,7 @@ test.describe("missing-fact questionnaire", () => {
 		await expect(
 			page
 				.locator(".openitr-review-card")
-				.getByText("bank-interest.savings-account", { exact: true }),
+				.getByText("How much savings-account interest did you receive in FY 2025-26?", { exact: true }).first(),
 		).toBeVisible({ timeout: 30_000 });
 		const questionnaire = page.locator(".openitr-missing-facts-card");
 		await expect(

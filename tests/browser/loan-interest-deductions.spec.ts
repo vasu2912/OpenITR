@@ -104,7 +104,7 @@ test.describe("loan-interest deductions", () => {
 		] as const) await record(page, prompt, value);
 		await openDeductionsPage(page);
 		const card = page.locator(".openitr-loan-interest-card");
-		await expect(card).toContainText("80EEB: FACT_80EEB_PURPOSE_INELIGIBLE");
+		await expect(card).toContainText("FACT_80EEB_PURPOSE_INELIGIBLE");
 		await expect(card).toContainText("exclusively electric vehicle");
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 	});

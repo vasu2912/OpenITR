@@ -14,6 +14,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 
 import type { SessionOrchestrator } from "../session/session-orchestrator";
+import { FactLabel } from "./plain-language";
 
 const shortDigest = (digest: string): string => `${digest.slice(0, 12)}…`;
 
@@ -232,7 +233,7 @@ export const FactConflictsView = ({
 							key={conflict.conflictId}
 						>
 							<h3 className="openitr-conflict-heading">
-								<code>{String(conflict.factKey)}</code>
+								<FactLabel factKey={conflict.factKey} />
 							</h3>
 							{conflict.affectedResults.length > 0 ? (
 								<p className="openitr-conflict-affected">
@@ -264,7 +265,7 @@ export const FactConflictsView = ({
 									key={resolution.resolutionId}
 								>
 									<dt>
-										<code>{String(resolution.factKey)}</code>
+										<FactLabel factKey={resolution.factKey} />
 									</dt>
 									<dd>
 										<strong>

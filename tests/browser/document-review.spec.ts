@@ -41,11 +41,11 @@ test.describe("Form 16 salary observation review", () => {
 		await openReviewFacts(page);
 
 		const reviewSection = page.locator(".openitr-review-card");
-		await expect(reviewSection.getByText("salary.section-17-1")).toBeVisible();
+		await expect(reviewSection.getByText("Salary as per provisions contained in section 17(1)", { exact: true })).toBeVisible();
 		await expect(
-			reviewSection.getByText("salary.exempt-allowances-section-10"),
+			reviewSection.getByText("Less: Allowance to the extent exempt u/s 10", { exact: true }),
 		).toBeVisible();
-		await expect(reviewSection.getByText("salary.taxable-total")).toBeVisible();
+		await expect(reviewSection.getByText("Taxable salary", { exact: true })).toBeVisible();
 
 		const observationCard = reviewSection.locator(
 			'.openitr-observation[data-fact-key="salary.section-17-1"]',
@@ -106,7 +106,7 @@ test.describe("Form 16 salary observation review", () => {
 		await openReviewFacts(page);
 
 		const reviewSection = page.locator(".openitr-review-card");
-		await expect(reviewSection.getByText("salary.taxable-total")).toBeVisible({
+		await expect(reviewSection.getByText("Taxable salary", { exact: true })).toBeVisible({
 			timeout: 30_000,
 		});
 		await openIncomeComputations(page);
@@ -126,12 +126,12 @@ test.describe("Form 16 salary observation review", () => {
 		await expect(summary).toContainText("₹ 0");
 
 		const rebateNode = computation.locator(
-			'.openitr-trace-node summary:has-text("derived.rebate-section-87a")',
+			'.openitr-trace-node summary:has-text("Rebate section 87A")',
 		);
 		await rebateNode.click();
 		const expanded = computation
 			.locator(
-				'.openitr-trace-node:has(summary:has-text("derived.rebate-section-87a"))',
+				'.openitr-trace-node:has(summary:has-text("Rebate section 87A"))',
 			)
 			.first();
 		await expect(expanded).toContainText("ITR1-NR-REBATE-SECTION-87A");
@@ -219,7 +219,7 @@ test.describe("Form 16 salary observation review", () => {
 
 		const reviewSection = page.locator(".openitr-review-card");
 		await expect(
-			reviewSection.getByText("salary.taxable-total"),
+			reviewSection.getByText("Taxable salary", { exact: true }),
 		).toBeVisible({ timeout: 30_000 });
 		await page.waitForTimeout(1_500);
 

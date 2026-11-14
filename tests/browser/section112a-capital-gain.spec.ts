@@ -90,7 +90,7 @@ test.describe("limited section 112A capital-gain analysis", () => {
 		);
 		await openReviewFacts(page);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
-			"capital-gains.section112a-sale-consideration",
+			"What was the total sale consideration for the supported section 112A disposals?",
 		);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
 			"Question revision 2026-09-17",

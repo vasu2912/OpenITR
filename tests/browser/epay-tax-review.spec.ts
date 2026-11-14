@@ -125,9 +125,10 @@ test.describe("e-Pay Tax receipt review", () => {
 		await openReviewFacts(page);
 
 		const reviewSection = page.locator(".openitr-review-card");
-		await expect(
-			reviewSection.getByText(/DOCUMENT_EPAY_RECEIPT_TYPE_OF_PAYMENT_UNKNOWN/),
-		).toBeVisible({ timeout: 30_000 });
+		await expect(reviewSection).toContainText(
+			"DOCUMENT_EPAY_RECEIPT_TYPE_OF_PAYMENT_UNKNOWN",
+			{ timeout: 30_000 },
+		);
 		await expect(
 			reviewSection.getByText(/Type of Payment this revision/),
 		).toBeVisible();
