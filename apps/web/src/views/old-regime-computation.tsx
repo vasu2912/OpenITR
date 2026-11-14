@@ -1,10 +1,10 @@
 import type { OldRegimeComputation } from "@openitr/itr1-ay2026-27";
 import {
-	Alert,
 	Title,
 } from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
+import { IssueAlert } from "./plain-language";
 
 type ComputedOldRegime = Extract<OldRegimeComputation, { kind: "computed" }>;
 
@@ -193,14 +193,7 @@ export const OldRegimeComputationView = ({
 							or a permitted recorded answer.
 						</p>
 						{computation.issues.map((issue, index) => (
-							<Alert
-								isInline
-								key={`${String(issue.code)}-${index}`}
-								title={`${String(issue.code)}: ${issue.affectedFacts.map(String).join(", ") || "required facts"}`}
-								variant="warning"
-							>
-								{issue.recoveryAction}
-							</Alert>
+							<IssueAlert issue={issue} key={`${String(issue.code)}-${index}`} />
 						))}
 					</>
 				)}

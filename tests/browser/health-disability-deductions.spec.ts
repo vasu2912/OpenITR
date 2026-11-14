@@ -145,7 +145,7 @@ test.describe("health and disability deductions", () => {
 		await recordUnselectedCategories(page);
 		await openDeductionsPage(page);
 		const card = page.locator(".openitr-health-disability-card");
-		await expect(card).toContainText("80D: FACT_80D_MEDICAL_WITH_INSURANCE_PREMIUM");
+		await expect(card).toContainText("FACT_80D_MEDICAL_WITH_INSURANCE_PREMIUM");
 		await expect(card).toContainText("Remove self and family medical expenditure");
 	});
 
@@ -163,7 +163,7 @@ test.describe("health and disability deductions", () => {
 		await openDeductionsPage(page);
 
 		const card = page.locator(".openitr-health-disability-card");
-		await expect(card).toContainText("80U: FACT_80U_CERTIFICATE_REQUIRED");
+		await expect(card).toContainText("FACT_80U_CERTIFICATE_REQUIRED");
 		await expect(card).toContainText("Provide the disability-certificate");
 		expect(
 			await page.evaluate(

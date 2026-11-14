@@ -70,16 +70,14 @@ test.describe("estimated refund or amount payable", () => {
 			estimateSection.getByText("Source evidence behind the estimate"),
 		).toBeVisible();
 		await expect(
-			estimateSection.getByText("bank-interest.savings-account", {
-				exact: true,
-			}),
+			estimateSection.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
 		).toBeVisible();
 		await expect(
-			estimateSection.getByText("tds.tds-deposited", { exact: true }),
+			estimateSection.getByText("TDS deposited").first(),
 		).toBeVisible();
 
 		const traceHeading = estimateSection.getByText(
-			/Computation trace — every node cites its rule/,
+			/How this was calculated/,
 		);
 		await expect(traceHeading).toBeVisible();
 	});
@@ -100,12 +98,11 @@ test.describe("estimated refund or amount payable", () => {
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await expect(estimateSection).toBeVisible({ timeout: 30_000 });
 
-		await expect(
-			estimateSection.getByText(/FACT_BANK_INTEREST_EVIDENCE_REQUIRED/),
-		).toBeVisible({ timeout: 30_000 });
-		await expect(
-			estimateSection.getByText(/FACT_TDS_EVIDENCE_REQUIRED/),
-		).toBeVisible();
+		await expect(estimateSection).toContainText(
+			"FACT_BANK_INTEREST_EVIDENCE_REQUIRED",
+			{ timeout: 30_000 },
+		);
+		await expect(estimateSection).toContainText("FACT_TDS_EVIDENCE_REQUIRED");
 		await expect(
 			estimateSection.getByText(/need review first/i),
 		).toBeVisible();

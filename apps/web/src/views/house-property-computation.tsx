@@ -4,11 +4,11 @@ import type {
 	SignedHousePropertyAmount,
 } from "@openitr/itr1-ay2026-27";
 import {
-	Alert,
 	Title,
 } from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
+import { IssueAlert } from "./plain-language";
 
 const SignedAmount = ({ amount }: Readonly<{ amount: SignedHousePropertyAmount }>) => (
 	<>₹ {rupeeFormat(amount.amount)} {amount.kind}</>
@@ -80,13 +80,7 @@ export const HousePropertyComputationView = ({
 						</div>
 					</>
 				) : (
-					<Alert
-						isInline
-						title={`${String(computation.issue.code)}: ${computation.issue.affectedFacts.map(String).join(", ")}`}
-						variant="warning"
-					>
-						{computation.issue.recoveryAction}
-					</Alert>
+					<IssueAlert issue={computation.issue} />
 				)}
 		</section>
 	);

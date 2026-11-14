@@ -103,7 +103,7 @@ test.describe("cross-source conflict resolution", () => {
 			conflictsCard.getByText("1 unresolved conflict blocking affected results below"),
 		).toBeVisible({ timeout: 30_000 });
 		await expect(
-			conflictsCard.getByText("bank-interest.savings-account"),
+			conflictsCard.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
 		).toBeVisible();
 		await expect(conflictsCard.getByText(/Affects:/)).toContainText(
 			"Estimated refund or amount payable",
@@ -117,9 +117,7 @@ test.describe("cross-source conflict resolution", () => {
 
 		const estimateSection = page.locator(".openitr-estimate-card");
 		await openTaxComparison(page);
-		await expect(
-			estimateSection.getByText(/FACT_TAX_FACT_CONFLICTED/),
-		).toBeVisible();
+		await expect(estimateSection).toContainText("FACT_TAX_FACT_CONFLICTED");
 
 		// The salary scenario needs none of the disputed facts.
 		await openIncomeComputations(page);
@@ -137,7 +135,7 @@ test.describe("cross-source conflict resolution", () => {
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
-			conflictsCard.getByText("bank-interest.savings-account"),
+			conflictsCard.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
 		).toBeVisible({ timeout: 30_000 });
 
 		// Submitting without a reason is refused inline.
@@ -191,7 +189,7 @@ test.describe("cross-source conflict resolution", () => {
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
-			conflictsCard.getByText("bank-interest.savings-account"),
+			conflictsCard.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
 		).toBeVisible({ timeout: 30_000 });
 
 		await conflictsCard
@@ -232,7 +230,7 @@ test.describe("cross-source conflict resolution", () => {
 
 		const conflictsCard = page.locator(".openitr-conflicts-card");
 		await expect(
-			conflictsCard.getByText("bank-interest.savings-account"),
+			conflictsCard.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
 		).toBeVisible({ timeout: 30_000 });
 		await expect(
 			conflictsCard.getByRole("radio", {

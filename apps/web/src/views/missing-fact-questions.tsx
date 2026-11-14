@@ -22,6 +22,7 @@ import {
 	QuestionChoiceList,
 	yesNoQuestionChoices,
 } from "./question-choice-list";
+import { FactLabel } from "./plain-language";
 
 const wholeRupeeText = (value: number): string =>
 	`₹ ${value.toLocaleString("en-IN")}`;
@@ -239,7 +240,7 @@ export const MissingFactQuestionsView = ({
 						<ul>
 							{answers.map((answer) => (
 								<li id={`answer-${answer.answerId}`} key={answer.answerId}>
-									<code>{String(answer.factKey)}</code>:{" "}
+									<FactLabel factKey={answer.factKey} />:{" "}
 									{typeof answer.value === "boolean"
 										? answer.value
 											? "Yes"

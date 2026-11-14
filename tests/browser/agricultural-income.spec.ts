@@ -89,7 +89,7 @@ test.describe("agricultural-income explanation", () => {
 		);
 		await openReviewFacts(page);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
-			"scope.agriculture-income",
+			"Agricultural income",
 		);
 		await expect(page.locator(".openitr-recorded-answers")).toContainText(
 			"Question revision 2026-09-17",

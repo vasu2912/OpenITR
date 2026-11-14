@@ -8,6 +8,7 @@ import {
 } from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
+import { FactLabel, IssueAlert } from "./plain-language";
 
 const roleLabels: Readonly<Record<EstimateEvidenceRole, string>> =
 	Object.freeze({
@@ -134,13 +135,7 @@ export const EstimateView = ({
 						The missing or disputed items need review first.
 					</p>
 					{estimate.issues.map((issue, index) => (
-						<Alert
-							key={`${String(issue.code)}-${index}`}
-							title={`${String(issue.code)}: ${issue.affectedFactKeys.join(", ") || "required facts"}`}
-							variant="warning"
-						>
-							{issue.recoveryAction}
-						</Alert>
+						<IssueAlert issue={issue} key={`${String(issue.code)}-${index}`} />
 					))}
 			</section>
 		);
@@ -184,7 +179,7 @@ export const EstimateView = ({
 					{estimate.sources.map((source) => (
 						<li key={`${source.role}-${String(source.factKey)}`}>
 							<strong>{roleLabels[source.role]}</strong>{" "}
-							<code>{String(source.factKey)}</code> ·{" "}
+							<FactLabel factKey={source.factKey} /> ·{" "}
 							{source.observationIds.length} observation
 							{source.observationIds.length === 1 ? "" : "s"} · document{" "}
 							<code>{String(source.sourceDocumentId).slice(0, 16)}…</code>
@@ -197,7 +192,7 @@ export const EstimateView = ({
 								: contribution.origin.answerId;
 						return <li key={originId}>
 							<strong>Attested by you</strong>{" "}
-							<code>{String(contribution.factKey)}</code> ·{" "}
+							<FactLabel factKey={contribution.factKey} /> ·{" "}
 							{rupeeFormat(contribution.value)} ·{" "}
 							{contribution.origin.kind === "fact-resolution"
 								? "resolution"

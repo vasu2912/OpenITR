@@ -1,10 +1,10 @@
 import type { Section112aCapitalGainComputation } from "@openitr/itr1-ay2026-27";
 import {
-	Alert,
 	Title,
 } from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
+import { IssueAlert } from "./plain-language";
 
 export const Section112aCapitalGainView = ({
 	computation,
@@ -74,13 +74,7 @@ export const Section112aCapitalGainView = ({
 						</div>
 					</>
 				) : (
-					<Alert
-						isInline
-						title={`${String(computation.issue.code)}: ${computation.issue.affectedFacts.map(String).join(", ")}`}
-						variant="warning"
-					>
-						{computation.issue.recoveryAction}
-					</Alert>
+					<IssueAlert issue={computation.issue} />
 				)}
 		</section>
 	);

@@ -3,11 +3,11 @@ import type {
 } from "@openitr/itr1-ay2026-27";
 import type { CandidateDocument } from "@openitr/model";
 import {
-	Alert,
 	Title,
 } from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
+import { IssueAlert } from "./plain-language";
 
 type SummaryRow = Readonly<{ label: string; value: string; hint?: string }>;
 
@@ -70,13 +70,7 @@ export const SalaryComputationView = ({
 				</Title>
 				{computation.kind === "blocked" ? (
 					computation.issues.map((issue) => (
-						<Alert
-							key={String(issue.code)}
-							title={`${String(issue.code)}: ${issue.affectedFactKeys.join(", ") || "salary facts"}`}
-							variant="warning"
-						>
-							{issue.recoveryAction}
-						</Alert>
+						<IssueAlert issue={issue} key={String(issue.code)} />
 					))
 				) : (
 					<>

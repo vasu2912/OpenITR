@@ -1,10 +1,10 @@
 import type { AgriculturalIncomeComputation } from "@openitr/itr1-ay2026-27";
 import {
-	Alert,
 	Title,
 } from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
+import { IssueAlert } from "./plain-language";
 
 export const AgriculturalIncomeView = ({
 	computation,
@@ -52,13 +52,7 @@ export const AgriculturalIncomeView = ({
 						</div>
 					</>
 				) : (
-					<Alert
-						isInline
-						title={`${String(computation.issue.code)}: ${computation.issue.affectedFacts.map(String).join(", ")}`}
-						variant="warning"
-					>
-						{computation.issue.recoveryAction}
-					</Alert>
+					<IssueAlert issue={computation.issue} />
 				)}
 		</section>
 	);
