@@ -1,5 +1,5 @@
-import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect } from "@playwright/test";
 
 export const privacySentinel = "openitr-privacy-sentinel-f21a3c";
 export const seededStorageJson = `{"visitor-seed":"${privacySentinel}"}`;
@@ -25,7 +25,9 @@ export const seedVisitorStorage = (page: Page): void => {
 			const OriginalBroadcastChannel = globalThis.BroadcastChannel;
 			if (OriginalBroadcastChannel) {
 				class CountingBroadcastChannel extends OriginalBroadcastChannel {
-					constructor(...channelArgs: ConstructorParameters<typeof BroadcastChannel>) {
+					constructor(
+						...channelArgs: ConstructorParameters<typeof BroadcastChannel>
+					) {
 						super(...channelArgs);
 						probe.broadcastChannels += 1;
 					}
@@ -33,9 +35,8 @@ export const seedVisitorStorage = (page: Page): void => {
 				globalThis.BroadcastChannel = CountingBroadcastChannel;
 			}
 
-			const OriginalSharedWorker = (
-				globalThis as Record<string, unknown>
-			).SharedWorker;
+			const OriginalSharedWorker = (globalThis as Record<string, unknown>)
+				.SharedWorker;
 			if (typeof OriginalSharedWorker === "function") {
 				const SharedWorkerConstructor = OriginalSharedWorker as new (
 					...workerArgs: unknown[]
@@ -132,8 +133,12 @@ export const expectInitialScopeAnswer = async ({
 	if (answer === "Yes") {
 		await expect(individual).toContainText("Recorded answer: Yes");
 	} else {
-		await expect(individual.getByRole("radio", { name: "Yes" })).not.toBeChecked();
-		await expect(individual.getByRole("radio", { name: "No" })).not.toBeChecked();
+		await expect(
+			individual.getByRole("radio", { name: "Yes" }),
+		).not.toBeChecked();
+		await expect(
+			individual.getByRole("radio", { name: "No" }),
+		).not.toBeChecked();
 	}
 };
 
@@ -177,7 +182,9 @@ export const expectNoStoredSessionData = async (
 			navigator.serviceWorker.getRegistrations().then((r) => r.length),
 		),
 	).toBe(0);
-	expect(await page.evaluate(() => navigator.serviceWorker.controller)).toBeNull();
+	expect(
+		await page.evaluate(() => navigator.serviceWorker.controller),
+	).toBeNull();
 	expect(
 		await page.evaluate(
 			() =>
@@ -273,7 +280,9 @@ const openWorkflowStage = async (
 	} as const;
 	const stageLink = page
 		.getByRole("navigation", { name: "Analysis workflow" })
-		.getByRole("button", { name: new RegExp(`^\\d+\\. ${stageLabels[stage]}`) });
+		.getByRole("button", {
+			name: new RegExp(`^\\d+\\. ${stageLabels[stage]}`),
+		});
 	if (!(await stageLink.isVisible())) {
 		await page
 			.getByRole("button", { name: "Analysis workflow navigation" })

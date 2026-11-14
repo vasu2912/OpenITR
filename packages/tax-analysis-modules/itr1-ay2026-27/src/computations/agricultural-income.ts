@@ -1,15 +1,15 @@
-import {
-	compareExactMoney,
-	exactMoneyFromWholeRupees,
-	parseFactKey,
-	parseIssueCode,
-} from "@openitr/model";
 import type {
 	ExactMoney,
 	FactKey,
 	IssueCode,
 	RuleId,
 	ScopeRulePack,
+} from "@openitr/model";
+import {
+	compareExactMoney,
+	exactMoneyFromWholeRupees,
+	parseFactKey,
+	parseIssueCode,
 } from "@openitr/model";
 
 export const AGRICULTURAL_INCOME_FACT_KEY = parseFactKey(

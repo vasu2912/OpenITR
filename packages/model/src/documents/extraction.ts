@@ -1,6 +1,5 @@
-import type { FactKey } from "../primitives";
+import type { FactKey, IssueCode, Sha256Digest } from "../primitives";
 import { parseIssueCode } from "../primitives";
-import type { IssueCode, Sha256Digest } from "../primitives";
 import type {
 	DocumentInspectionIssue,
 	DocumentRejection,
@@ -43,15 +42,9 @@ export const DOCUMENT_REVIEW_ISSUE_CODES = Object.freeze({
 	form16aRecordMalformed: parseIssueCode("DOCUMENT_FORM16A_RECORD_MALFORMED"),
 	form16aRecordAmbiguous: parseIssueCode("DOCUMENT_FORM16A_RECORD_AMBIGUOUS"),
 	form16aCategoryUnknown: parseIssueCode("DOCUMENT_FORM16A_CATEGORY_UNKNOWN"),
-	epayRecordMalformed: parseIssueCode(
-		"DOCUMENT_EPAY_RECEIPT_RECORD_MALFORMED",
-	),
-	epayRecordAmbiguous: parseIssueCode(
-		"DOCUMENT_EPAY_RECEIPT_RECORD_AMBIGUOUS",
-	),
-	epayStatusNotPaid: parseIssueCode(
-		"DOCUMENT_EPAY_RECEIPT_STATUS_NOT_PAID",
-	),
+	epayRecordMalformed: parseIssueCode("DOCUMENT_EPAY_RECEIPT_RECORD_MALFORMED"),
+	epayRecordAmbiguous: parseIssueCode("DOCUMENT_EPAY_RECEIPT_RECORD_AMBIGUOUS"),
+	epayStatusNotPaid: parseIssueCode("DOCUMENT_EPAY_RECEIPT_STATUS_NOT_PAID"),
 	epayTypeOfPaymentUnknown: parseIssueCode(
 		"DOCUMENT_EPAY_RECEIPT_TYPE_OF_PAYMENT_UNKNOWN",
 	),

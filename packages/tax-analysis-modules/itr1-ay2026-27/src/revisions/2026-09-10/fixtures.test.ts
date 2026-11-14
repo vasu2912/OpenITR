@@ -33,12 +33,9 @@ describe("2026-09-10 health and disability deduction rule pack", () => {
 			taxpayerDisabilityAmountWholeRupees: 75_000,
 			taxpayerSevereDisabilityAmountWholeRupees: 125_000,
 			healthNewRegimeExclusionRuleId: "ITR1-NR-80D-EXCLUSION",
-			dependentDisabilityNewRegimeExclusionRuleId:
-				"ITR1-NR-80DD-EXCLUSION",
-			specifiedDiseaseNewRegimeExclusionRuleId:
-				"ITR1-NR-80DDB-EXCLUSION",
-			taxpayerDisabilityNewRegimeExclusionRuleId:
-				"ITR1-NR-80U-EXCLUSION",
+			dependentDisabilityNewRegimeExclusionRuleId: "ITR1-NR-80DD-EXCLUSION",
+			specifiedDiseaseNewRegimeExclusionRuleId: "ITR1-NR-80DDB-EXCLUSION",
+			taxpayerDisabilityNewRegimeExclusionRuleId: "ITR1-NR-80U-EXCLUSION",
 		});
 	});
 
@@ -59,9 +56,7 @@ describe("2026-09-10 health and disability deduction rule pack", () => {
 			},
 		});
 		expect(
-			questions.find(
-				(question) => question.id === "deduction-80u-certificate",
-			),
+			questions.find((question) => question.id === "deduction-80u-certificate"),
 		).toMatchObject({
 			visibility: {
 				kind: "fact-boolean-equals",

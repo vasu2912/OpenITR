@@ -1,12 +1,3 @@
-import {
-	parseExactMoney,
-	parseFactKey,
-	parseIsoTimestamp,
-	parseQuestionId,
-	parseRuleId,
-	parseSha256Digest,
-	subtractExactMoney,
-} from "@openitr/model";
 import type {
 	AttestedAnswer,
 	BankInterestObservation,
@@ -16,25 +7,34 @@ import type {
 	TaxPaymentObservation,
 	TdsObservation,
 } from "@openitr/model";
+import {
+	parseExactMoney,
+	parseFactKey,
+	parseIsoTimestamp,
+	parseQuestionId,
+	parseRuleId,
+	parseSha256Digest,
+	subtractExactMoney,
+} from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { itr1Ay202627RulePack20260824b } from "../revisions/2026-08-24b/rule-pack";
-import {
-	SALARY_FACT_KEYS,
-	computeNewRegimeSalaryScenario,
-} from "./new-regime-salary";
-import type { AcceptedSalaryDocumentFacts } from "./new-regime-salary";
+import type {
+	AcceptedBankInterestDocumentFacts,
+	AcceptedNonSalaryIncomeDocumentFacts,
+	AcceptedTaxPaymentDocumentFacts,
+	AcceptedTdsDocumentFacts,
+	RefundOrAmountPayableEstimate,
+} from "./estimate-refund-or-payable";
 import {
 	computeRefundOrAmountPayableEstimate,
 	estimateRefundOrAmountPayableFromSalaryScenario,
 } from "./estimate-refund-or-payable";
-import type {
-	AcceptedBankInterestDocumentFacts,
-	AcceptedNonSalaryIncomeDocumentFacts,
-	AcceptedTdsDocumentFacts,
-	AcceptedTaxPaymentDocumentFacts,
-	RefundOrAmountPayableEstimate,
-} from "./estimate-refund-or-payable";
+import type { AcceptedSalaryDocumentFacts } from "./new-regime-salary";
+import {
+	computeNewRegimeSalaryScenario,
+	SALARY_FACT_KEYS,
+} from "./new-regime-salary";
 
 const salaryDocumentId = parseSha256Digest("ab".repeat(32));
 const aisDocumentId = parseSha256Digest("cd".repeat(32));
@@ -169,22 +169,21 @@ const reviewedSalaryDocument = (): AcceptedSalaryDocumentFacts => ({
 	],
 });
 
-const reviewedBankInterestDocument =
-	(): AcceptedBankInterestDocumentFacts => ({
-		documentId: aisDocumentId,
-		observations: [
-			bankInterestObservation({
-				factKey: "bank-interest.savings-account",
-				amount: "7890.25",
-				pointer: "/interestInformation/bankInterest/0",
-			}),
-			bankInterestObservation({
-				factKey: "bank-interest.deposits",
-				amount: "45678.90",
-				pointer: "/interestInformation/bankInterest/1",
-			}),
-		],
-	});
+const reviewedBankInterestDocument = (): AcceptedBankInterestDocumentFacts => ({
+	documentId: aisDocumentId,
+	observations: [
+		bankInterestObservation({
+			factKey: "bank-interest.savings-account",
+			amount: "7890.25",
+			pointer: "/interestInformation/bankInterest/0",
+		}),
+		bankInterestObservation({
+			factKey: "bank-interest.deposits",
+			amount: "45678.90",
+			pointer: "/interestInformation/bankInterest/1",
+		}),
+	],
+});
 
 const reviewedTdsDocument = (): AcceptedTdsDocumentFacts => ({
 	documentId: form26asDocumentId,
@@ -208,7 +207,11 @@ const form16aIncomeObservation = ({
 	factKey,
 	amount,
 	row,
-}: Readonly<{ factKey: string; amount: string; row: number }>): NonSalaryIncomeObservation => ({
+}: Readonly<{
+	factKey: string;
+	amount: string;
+	row: number;
+}>): NonSalaryIncomeObservation => ({
 	observationId: `${factKey}@${form16aDocumentId}:1:${row}`,
 	factKey: parseFactKey(factKey),
 	sourceDocumentId: form16aDocumentId,
@@ -355,8 +358,9 @@ const computeReviewedEstimate = (
 		rulePack: itr1Ay202627RulePack20260824b,
 		residentAnswer: overrides.answer ?? residentAnswer(),
 		salaryDocuments: overrides.salaryDocuments ?? [reviewedSalaryDocument()],
-		bankInterestDocuments:
-			overrides.bankInterestDocuments ?? [reviewedBankInterestDocument()],
+		bankInterestDocuments: overrides.bankInterestDocuments ?? [
+			reviewedBankInterestDocument(),
+		],
 		nonSalaryIncomeDocuments: overrides.nonSalaryIncomeDocuments ?? [],
 		tdsDocuments: overrides.tdsDocuments ?? [reviewedTdsDocument()],
 		taxPaymentDocuments: overrides.taxPaymentDocuments ?? [],
@@ -475,9 +479,7 @@ describe("refund or payable estimate", () => {
 		expect(aggregate.note).toContain("Section 288A rounds total income once");
 
 		const rounded = nodeById("derived.total-income-rounded-section-288a");
-		expect(rounded.ruleId).toBe(
-			parseRuleId("ITR1-TOTAL-INCOME-ROUNDING-288A"),
-		);
+		expect(rounded.ruleId).toBe(parseRuleId("ITR1-TOTAL-INCOME-ROUNDING-288A"));
 		expect(rounded.roundedValue).toBe("1028570");
 
 		expect(nodeById("derived.taxes-paid-total")).toEqual(
@@ -755,8 +757,7 @@ describe("blocked estimates fail closed and name what needs review", () => {
 			documentId: aisDocumentId,
 			observations: reviewedBankInterestDocument().observations.filter(
 				(observation) =>
-					observation.factKey ===
-					parseFactKey("bank-interest.savings-account"),
+					observation.factKey === parseFactKey("bank-interest.savings-account"),
 			),
 		});
 		const depositsOnly = (): AcceptedBankInterestDocumentFacts => ({
@@ -829,7 +830,9 @@ describe("blocked estimates fail closed and name what needs review", () => {
 				}),
 			],
 		});
-		const estimate = computeReviewedEstimate({ salaryDocuments: [inconsistent()] });
+		const estimate = computeReviewedEstimate({
+			salaryDocuments: [inconsistent()],
+		});
 
 		expect(estimate.kind).toBe("blocked");
 		expect(issueCodesOf(estimate)).toEqual(["FACT_SALARY_TOTAL_MISMATCH"]);
@@ -1039,8 +1042,7 @@ describe("accepted e-Pay Tax receipts", () => {
 				sourceDocumentId: epayDocumentId,
 				factKey: "tax-payment.self-assessment-tax",
 				amount: "45670",
-				challanReference:
-					"BSR 0004321 · Serial 00517 · dated 26/03/2026",
+				challanReference: "BSR 0004321 · Serial 00517 · dated 26/03/2026",
 			},
 		]);
 
@@ -1082,9 +1084,7 @@ describe("accepted e-Pay Tax receipts", () => {
 
 		expect(estimate.summary.taxesPaid).toBe("121920");
 		expect(
-			estimate.acceptedTaxPayments.map((receipt) =>
-				receipt.challanReference,
-			),
+			estimate.acceptedTaxPayments.map((receipt) => receipt.challanReference),
 		).toEqual([
 			"BSR 0004322 · Serial 00612 · dated 15/06/2025",
 			"BSR 0004321 · Serial 00517 · dated 26/03/2026",

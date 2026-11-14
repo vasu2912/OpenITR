@@ -116,8 +116,7 @@ const parseContentTypes = (root: XmlElementNode): boolean => {
 	const requiredDefaults = [
 		{
 			Extension: "rels",
-			ContentType:
-				"application/vnd.openxmlformats-package.relationships+xml",
+			ContentType: "application/vnd.openxmlformats-package.relationships+xml",
 		},
 		{ Extension: "xml", ContentType: "application/xml" },
 	];
@@ -240,7 +239,10 @@ const parseCellReference = (
 	for (const letter of letters) {
 		columnIndex = columnIndex * 26 + (COLUMN_LETTERS.indexOf(letter) + 1);
 	}
-	return { rowNumber: Number.parseInt(digits, 10), columnIndex: columnIndex - 1 };
+	return {
+		rowNumber: Number.parseInt(digits, 10),
+		columnIndex: columnIndex - 1,
+	};
 };
 
 const parseSharedStrings = (

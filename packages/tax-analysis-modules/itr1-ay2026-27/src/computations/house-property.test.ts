@@ -1,7 +1,4 @@
-import {
-	exactMoneyFromWholeRupees,
-	parseFactKey,
-} from "@openitr/model";
+import { exactMoneyFromWholeRupees, parseFactKey } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { itr1Ay202627RulePack20260905 } from "../revisions/2026-09-05/rule-pack";
@@ -12,7 +9,14 @@ import {
 
 const booleanFact = (
 	propertyNumber: 1 | 2,
-	name: "owned-by-taxpayer" | "self-occupied-throughout-year" | "vacancy-reduced-rent" | "loan-for-acquisition-or-construction" | "loan-on-or-after-1999-04-01" | "completed-within-five-years" | "interest-certificate-available",
+	name:
+		| "owned-by-taxpayer"
+		| "self-occupied-throughout-year"
+		| "vacancy-reduced-rent"
+		| "loan-for-acquisition-or-construction"
+		| "loan-on-or-after-1999-04-01"
+		| "completed-within-five-years"
+		| "interest-certificate-available",
 	value: boolean,
 ): HousePropertyFact => ({
 	propertyNumber,
@@ -22,7 +26,11 @@ const booleanFact = (
 
 const moneyFact = (
 	propertyNumber: 1 | 2,
-	name: "expected-rent" | "actual-rent" | "municipal-taxes-paid" | "interest-on-borrowed-capital",
+	name:
+		| "expected-rent"
+		| "actual-rent"
+		| "municipal-taxes-paid"
+		| "interest-on-borrowed-capital",
 	value: number,
 ): HousePropertyFact => ({
 	propertyNumber,
@@ -44,9 +52,21 @@ const letOutFacts = (
 	booleanFact(propertyNumber, "self-occupied-throughout-year", false),
 	moneyFact(propertyNumber, "expected-rent", overrides.expectedRent ?? 240000),
 	moneyFact(propertyNumber, "actual-rent", overrides.actualRent ?? 300000),
-	booleanFact(propertyNumber, "vacancy-reduced-rent", overrides.vacancyReducedRent ?? false),
-	moneyFact(propertyNumber, "municipal-taxes-paid", overrides.municipalTaxes ?? 20000),
-	moneyFact(propertyNumber, "interest-on-borrowed-capital", overrides.interest ?? 50000),
+	booleanFact(
+		propertyNumber,
+		"vacancy-reduced-rent",
+		overrides.vacancyReducedRent ?? false,
+	),
+	moneyFact(
+		propertyNumber,
+		"municipal-taxes-paid",
+		overrides.municipalTaxes ?? 20000,
+	),
+	moneyFact(
+		propertyNumber,
+		"interest-on-borrowed-capital",
+		overrides.interest ?? 50000,
+	),
 ];
 
 const selfOccupiedFacts = (
@@ -67,7 +87,15 @@ describe("computeHouseProperties", () => {
 		const result = computeHouseProperties({
 			rulePack: itr1Ay202627RulePack20260905,
 			propertyCount: 2,
-			facts: [...letOutFacts(1), ...letOutFacts(2, { actualRent: 180000, municipalTaxes: 10000, interest: 30000, vacancyReducedRent: true })],
+			facts: [
+				...letOutFacts(1),
+				...letOutFacts(2, {
+					actualRent: 180000,
+					municipalTaxes: 10000,
+					interest: 30000,
+					vacancyReducedRent: true,
+				}),
+			],
 		});
 
 		expect(result.kind).toBe("computed");
@@ -104,10 +132,18 @@ describe("computeHouseProperties", () => {
 		const result = computeHouseProperties({
 			rulePack: itr1Ay202627RulePack20260905,
 			propertyCount: 1,
-			facts: letOutFacts(1, { expectedRent: 240000, actualRent: 180000, vacancyReducedRent: false }),
+			facts: letOutFacts(1, {
+				expectedRent: 240000,
+				actualRent: 180000,
+				vacancyReducedRent: false,
+			}),
 		});
 
-		expect(result.kind === "computed" ? result.properties[0]?.grossAnnualValue : undefined).toBe("240000");
+		expect(
+			result.kind === "computed"
+				? result.properties[0]?.grossAnnualValue
+				: undefined,
+		).toBe("240000");
 	});
 
 	test("applies the shared self-occupied interest limit across two properties", () => {
@@ -119,14 +155,17 @@ describe("computeHouseProperties", () => {
 
 		expect(result.kind).toBe("computed");
 		if (result.kind !== "computed") return;
-		expect(result.properties.map((property) => property.interestDeduction)).toEqual(["150000", "50000"]);
+		expect(
+			result.properties.map((property) => property.interestDeduction),
+		).toEqual(["150000", "50000"]);
 		expect(result.combined).toEqual({ kind: "loss", amount: "200000" });
 		expect(result.newRegimeCombined).toEqual({ kind: "income", amount: "0" });
 	});
 
 	test("does not add the basic self-occupied limit on top of the shared enhanced limit", () => {
 		const secondProperty = selfOccupiedFacts(2, 50000).map((fact) =>
-			fact.factKey === parseFactKey("house-property.2.loan-for-acquisition-or-construction")
+			fact.factKey ===
+			parseFactKey("house-property.2.loan-for-acquisition-or-construction")
 				? booleanFact(2, "loan-for-acquisition-or-construction", false)
 				: fact,
 		);
@@ -136,24 +175,31 @@ describe("computeHouseProperties", () => {
 			facts: [...selfOccupiedFacts(1, 190000), ...secondProperty],
 		});
 
-		expect(result.kind === "computed" ? result.properties.map((property) => property.interestDeduction) : undefined).toEqual(["190000", "10000"]);
+		expect(
+			result.kind === "computed"
+				? result.properties.map((property) => property.interestDeduction)
+				: undefined,
+		).toEqual(["190000", "10000"]);
 	});
 
-	test.each([3, -1, 1.5])("rejects property count %s outside the approved ITR-1 scope", (propertyCount) => {
-		const result = computeHouseProperties({
-			rulePack: itr1Ay202627RulePack20260905,
-			propertyCount,
-			facts: [],
-		});
+	test.each([3, -1, 1.5])(
+		"rejects property count %s outside the approved ITR-1 scope",
+		(propertyCount) => {
+			const result = computeHouseProperties({
+				rulePack: itr1Ay202627RulePack20260905,
+				propertyCount,
+				facts: [],
+			});
 
-		expect(result).toMatchObject({
-			kind: "unsupported",
-			issue: {
-				code: "RULE_HOUSE_PROPERTY_COUNT_OUTSIDE_ITR1",
-				affectedFacts: ["scope.house-property-count"],
-			},
-		});
-	});
+			expect(result).toMatchObject({
+				kind: "unsupported",
+				issue: {
+					code: "RULE_HOUSE_PROPERTY_COUNT_OUTSIDE_ITR1",
+					affectedFacts: ["scope.house-property-count"],
+				},
+			});
+		},
+	);
 
 	test("keeps missing let-out rent unknown", () => {
 		const result = computeHouseProperties({

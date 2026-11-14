@@ -4,11 +4,9 @@ import { keyed } from "./keyed";
 
 describe("keyed", () => {
 	it("keys items by content and numbers repeats", () => {
-		expect(keyed(["a", "b", "a"], (value) => value).map(({ key }) => key)).toEqual([
-			"a",
-			"b",
-			"a#2",
-		]);
+		expect(
+			keyed(["a", "b", "a"], (value) => value).map(({ key }) => key),
+		).toEqual(["a", "b", "a#2"]);
 	});
 
 	it("keeps a key when an earlier, different item is removed", () => {

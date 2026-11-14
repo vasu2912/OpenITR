@@ -1,3 +1,10 @@
+import type {
+	AssessmentYear,
+	FinancialYear,
+	RulePackIdentity,
+	TaxAnalysisModuleArtifactIdentity,
+	TaxFormId,
+} from "@openitr/model";
 import {
 	parseAssessmentYear,
 	parseFinancialYear,
@@ -5,13 +12,6 @@ import {
 	parseSha256Digest,
 	parseTaxAnalysisModuleId,
 	parseTaxFormId,
-} from "@openitr/model";
-import type {
-	AssessmentYear,
-	FinancialYear,
-	RulePackIdentity,
-	TaxAnalysisModuleArtifactIdentity,
-	TaxFormId,
 } from "@openitr/model";
 
 export type AnalysisRelease = Readonly<{

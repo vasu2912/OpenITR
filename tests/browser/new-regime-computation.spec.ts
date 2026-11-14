@@ -1,6 +1,6 @@
 import { createForm16SalaryPdfFixture } from "@openitr/document-adapters/testing";
-import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
 	openDocumentIntake,
@@ -56,10 +56,7 @@ test.describe("complete new-regime computation", () => {
 		).toBeVisible({ timeout: 30_000 });
 
 		for (const [label, value] of [
-			[
-				"How much savings-account interest did you receive in FY 2025-26?",
-				"0",
-			],
+			["How much savings-account interest did you receive in FY 2025-26?", "0"],
 			[
 				"How much interest on deposits (fixed or recurring) did you receive in FY 2025-26?",
 				"0",
@@ -80,10 +77,7 @@ test.describe("complete new-regime computation", () => {
 				"Do you want to analyze section 80DDB medical treatment for a specified disease?",
 				"no",
 			],
-			[
-				"Do you want to analyze section 80U for your own disability?",
-				"no",
-			],
+			["Do you want to analyze section 80U for your own disability?", "no"],
 			[
 				"Do you want to analyze interest on a higher-education loan under section 80E?",
 				"no",
@@ -107,10 +101,7 @@ test.describe("complete new-regime computation", () => {
 				"no",
 			],
 			["Do you want to analyze rent paid under section 80GG?", "no"],
-			[
-				"Do you want to analyze a contribution under section 80GGA?",
-				"no",
-			],
+			["Do you want to analyze a contribution under section 80GGA?", "no"],
 			[
 				"Do you want to analyze a political contribution under section 80GGC?",
 				"no",

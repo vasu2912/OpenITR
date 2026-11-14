@@ -1,15 +1,15 @@
-import {
-	exactMoneyFromWholeRupees,
-	minExactMoney,
-	parseFactKey,
-	parseIssueCode,
-} from "@openitr/model";
 import type {
 	ExactMoney,
 	FactKey,
 	IssueCode,
 	RuleId,
 	ScopeRulePack,
+} from "@openitr/model";
+import {
+	exactMoneyFromWholeRupees,
+	minExactMoney,
+	parseFactKey,
+	parseIssueCode,
 } from "@openitr/model";
 
 const FACT_KEYS = Object.freeze({
@@ -284,7 +284,8 @@ export const computeSelfOccupiedHouseProperty = ({
 					label: "New-regime interest deduction",
 					ruleId: constants.newRegimeInterestRuleId,
 					inputs: [FACT_KEYS.interest],
-					operation: "Disallow section 24(b) interest for self-occupied property",
+					operation:
+						"Disallow section 24(b) interest for self-occupied property",
 					result: zero,
 				},
 			],

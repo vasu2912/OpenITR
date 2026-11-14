@@ -9,8 +9,8 @@ import {
 	EPAY_SENTINEL_BANK_REFERENCE,
 	EPAY_SENTINEL_BSR_CODE,
 	EPAY_SENTINEL_CHALLAN_SERIAL,
-	EPAY_SENTINEL_PAYMENT_DATE,
 	EPAY_SENTINEL_PAN,
+	EPAY_SENTINEL_PAYMENT_DATE,
 	EPAY_SENTINEL_TAXPAYER_NAME,
 	EPAY_SENTINEL_TOTAL_TAX_PAID,
 	utf8Bytes,
@@ -33,13 +33,11 @@ const extractFixture = async (
 	if (extract === undefined) {
 		throw new Error("the e-Pay Tax adapter must support extraction");
 	}
-	return extract(
-		{
-			identity: identityOf("e"),
-			displayName: "epay-tax-receipt.pdf",
-			bytes: copyBytes(bytes),
-		},
-	);
+	return extract({
+		identity: identityOf("e"),
+		displayName: "epay-tax-receipt.pdf",
+		bytes: copyBytes(bytes),
+	});
 };
 
 const extractedOrThrow = async (
@@ -105,9 +103,7 @@ describe("e-Pay Tax receipt payment extraction", () => {
 		if (observation === undefined) {
 			return;
 		}
-		expect(String(observation.factKey)).toBe(
-			"tax-payment.self-assessment-tax",
-		);
+		expect(String(observation.factKey)).toBe("tax-payment.self-assessment-tax");
 		expect(observation.adapterId).toBe("epay-tax-receipt-pdf");
 		expect(observation.adapterVersion).toBe("1");
 		expect(observation.originalValue).toBe(
@@ -219,9 +215,7 @@ describe("e-Pay Tax fail-closed extraction", () => {
 	test("rejects a receipt page that prints no challan fields at all", async () => {
 		const outcome = await extractFixture(
 			buildSyntheticPdf({
-				pages: [
-					{ textLines: ["e-Pay Tax Receipt", "Income Tax Department"] },
-				],
+				pages: [{ textLines: ["e-Pay Tax Receipt", "Income Tax Department"] }],
 			}),
 		);
 
@@ -240,17 +234,18 @@ describe("e-Pay Tax fail-closed extraction", () => {
 			name: "missing challan identity fields",
 			options: { omitChallanDetails: true },
 		},
-	])("reports $name as malformed and creates no payment", async ({
-		options,
-	}) => {
-		const outcome = await extractedOrThrow(createEpayTaxPdfFixture(options));
+	])(
+		"reports $name as malformed and creates no payment",
+		async ({ options }) => {
+			const outcome = await extractedOrThrow(createEpayTaxPdfFixture(options));
 
-		expect(outcome.taxPaymentObservations).toEqual([]);
-		expect(outcome.issues.map((issue) => String(issue.code))).toEqual([
-			"DOCUMENT_EPAY_RECEIPT_RECORD_MALFORMED",
-		]);
-		expect(outcome.issues[0]?.affectedFactKeys.length).toBeGreaterThan(0);
-	});
+			expect(outcome.taxPaymentObservations).toEqual([]);
+			expect(outcome.issues.map((issue) => String(issue.code))).toEqual([
+				"DOCUMENT_EPAY_RECEIPT_RECORD_MALFORMED",
+			]);
+			expect(outcome.issues[0]?.affectedFactKeys.length).toBeGreaterThan(0);
+		},
+	);
 
 	test("reports a receipt whose status is not Paid as unsupported and creates no payment", async () => {
 		const outcome = await extractedOrThrow(
@@ -332,17 +327,17 @@ describe("e-Pay Tax rejection classes stay closed at extraction", () => {
 				buildSyntheticPdf({ pages: [{ imageOnly: true }] }),
 			rejection: "image-only",
 		},
-	])("rejects a %s receipt before extracting any fact", async ({
-		bytes,
-		rejection,
-	}) => {
-		const outcome = await extractFixture(bytes());
+	])(
+		"rejects a %s receipt before extracting any fact",
+		async ({ bytes, rejection }) => {
+			const outcome = await extractFixture(bytes());
 
-		expect(outcome.kind).toBe("rejected");
-		if (outcome.kind === "rejected") {
-			expect(outcome.rejection).toBe(rejection);
-		}
-	});
+			expect(outcome.kind).toBe("rejected");
+			if (outcome.kind === "rejected") {
+				expect(outcome.rejection).toBe(rejection);
+			}
+		},
+	);
 
 	test("rejects non-PDF bytes that no adapter claims", async () => {
 		const outcome = await extractFixture(utf8Bytes("not a pdf at all"));

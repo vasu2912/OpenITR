@@ -57,8 +57,7 @@ export const itr1Ay202627RulePackManifest20260915 = Object.freeze({
 			...priorConstants.newRegime,
 			completeComputation: Object.freeze({
 				itr1NormalRateIncomeLimitWholeRupees: 5_000_000,
-				itr1NormalRateIncomeLimitRuleId:
-					rules.itr1NormalRateIncomeLimit.id,
+				itr1NormalRateIncomeLimitRuleId: rules.itr1NormalRateIncomeLimit.id,
 				incomeAggregationRuleId: rules.incomeAggregation.id,
 				housePropertyLossSetoffRuleId: rules.housePropertyLossSetoff.id,
 				deductionCompositionRuleId: rules.deductionComposition.id,

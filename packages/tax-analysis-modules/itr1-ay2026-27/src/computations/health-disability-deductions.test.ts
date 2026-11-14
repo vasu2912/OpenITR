@@ -96,76 +96,85 @@ describe("health and disability deductions", () => {
 	test.each([
 		[false, "75000"],
 		[true, "125000"],
-	] as const)("uses the fixed section 80DD amount at the severe-disability boundary %s", (severe, amount) => {
-		const result = computeHealthDisabilityDeductions({
-			rulePack: itr1Ay202627RulePack20260910,
-			facts: selections({
-				"deductions.80dd-present": true,
-				"deductions.80dd-eligible-dependent": true,
-				"deductions.80dd-qualifying-payment": true,
-				"deductions.80dd-severe": severe,
-				"deductions.80dd-certificate": true,
-			}),
-		});
-		expect(result).toMatchObject({
-			kind: "computed",
-			categories: [
-				{
-					category: "80DD",
-					oldRegimeAllowed: amount,
-					newRegimeAllowed: "0",
-					applicablePerson: "eligible-dependent",
-				},
-			],
-		});
-	});
+	] as const)(
+		"uses the fixed section 80DD amount at the severe-disability boundary %s",
+		(severe, amount) => {
+			const result = computeHealthDisabilityDeductions({
+				rulePack: itr1Ay202627RulePack20260910,
+				facts: selections({
+					"deductions.80dd-present": true,
+					"deductions.80dd-eligible-dependent": true,
+					"deductions.80dd-qualifying-payment": true,
+					"deductions.80dd-severe": severe,
+					"deductions.80dd-certificate": true,
+				}),
+			});
+			expect(result).toMatchObject({
+				kind: "computed",
+				categories: [
+					{
+						category: "80DD",
+						oldRegimeAllowed: amount,
+						newRegimeAllowed: "0",
+						applicablePerson: "eligible-dependent",
+					},
+				],
+			});
+		},
+	);
 
 	test.each([
 		[false, "40000"],
 		[true, "100000"],
-	] as const)("caps reimbursed section 80DDB expenditure for senior status %s", (senior, amount) => {
-		const result = computeHealthDisabilityDeductions({
-			rulePack: itr1Ay202627RulePack20260910,
-			facts: selections({
-				"deductions.80ddb-present": true,
-				"deductions.80ddb-eligible-person": true,
-				"deductions.80ddb-specified-disease": true,
-				"deductions.80ddb-senior": senior,
-				"deductions.80ddb-expenditure": "140000",
-				"deductions.80ddb-reimbursement": "10000",
-				"deductions.80ddb-prescription": true,
-			}),
-		});
-		expect(result).toMatchObject({
-			kind: "computed",
-			categories: [
-				{
-					category: "80DDB",
-					claimedAmount: "130000",
-					oldRegimeAllowed: amount,
-					newRegimeAllowed: "0",
-				},
-			],
-		});
-	});
+	] as const)(
+		"caps reimbursed section 80DDB expenditure for senior status %s",
+		(senior, amount) => {
+			const result = computeHealthDisabilityDeductions({
+				rulePack: itr1Ay202627RulePack20260910,
+				facts: selections({
+					"deductions.80ddb-present": true,
+					"deductions.80ddb-eligible-person": true,
+					"deductions.80ddb-specified-disease": true,
+					"deductions.80ddb-senior": senior,
+					"deductions.80ddb-expenditure": "140000",
+					"deductions.80ddb-reimbursement": "10000",
+					"deductions.80ddb-prescription": true,
+				}),
+			});
+			expect(result).toMatchObject({
+				kind: "computed",
+				categories: [
+					{
+						category: "80DDB",
+						claimedAmount: "130000",
+						oldRegimeAllowed: amount,
+						newRegimeAllowed: "0",
+					},
+				],
+			});
+		},
+	);
 
 	test.each([
 		[false, "75000"],
 		[true, "125000"],
-	] as const)("uses the fixed section 80U amount at the severe-disability boundary %s", (severe, amount) => {
-		const result = computeHealthDisabilityDeductions({
-			rulePack: itr1Ay202627RulePack20260910,
-			facts: selections({
-				"deductions.80u-present": true,
-				"deductions.80u-severe": severe,
-				"deductions.80u-certificate": true,
-			}),
-		});
-		expect(result).toMatchObject({
-			kind: "computed",
-			categories: [{ category: "80U", oldRegimeAllowed: amount }],
-		});
-	});
+	] as const)(
+		"uses the fixed section 80U amount at the severe-disability boundary %s",
+		(severe, amount) => {
+			const result = computeHealthDisabilityDeductions({
+				rulePack: itr1Ay202627RulePack20260910,
+				facts: selections({
+					"deductions.80u-present": true,
+					"deductions.80u-severe": severe,
+					"deductions.80u-certificate": true,
+				}),
+			});
+			expect(result).toMatchObject({
+				kind: "computed",
+				categories: [{ category: "80U", oldRegimeAllowed: amount }],
+			});
+		},
+	);
 
 	test("blocks incompatible medical expenditure and names only section 80D", () => {
 		const result = computeHealthDisabilityDeductions({

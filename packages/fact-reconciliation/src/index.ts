@@ -1,13 +1,10 @@
-import {
-	compareExactMoney,
-	parseExactMoney,
-} from "@openitr/model";
 import type {
 	exactMoneyFromWholeRupees,
 	FactKey,
 	IsoTimestamp,
 	Sha256Digest,
 } from "@openitr/model";
+import { compareExactMoney, parseExactMoney } from "@openitr/model";
 
 // One canonical observation offered for reconciliation: the exact money
 // value an adapter normalized out of a source document, plus the identity
@@ -215,9 +212,9 @@ export const evaluateResolutionAttempt = (
 					observationId: selected.observationId,
 					value: selected.value,
 				}),
-				decidedAgainst: Object.freeze(decidedAgainst.map((entry) =>
-					Object.freeze(entry),
-				)),
+				decidedAgainst: Object.freeze(
+					decidedAgainst.map((entry) => Object.freeze(entry)),
+				),
 				reason: input.reason,
 				recordedAt: input.recordedAt,
 			}),
@@ -271,17 +268,16 @@ const candidateOrder = (
 	left.sourceDocumentId < right.sourceDocumentId
 		? -1
 		: left.sourceDocumentId > right.sourceDocumentId
-		? 1
-		: left.observationId < right.observationId
-		? -1
-		: left.observationId > right.observationId
-		? 1
-		: 0;
+			? 1
+			: left.observationId < right.observationId
+				? -1
+				: left.observationId > right.observationId
+					? 1
+					: 0;
 
 const sortedCandidates = (
 	candidates: readonly CanonicalFactCandidate[],
-): readonly CanonicalFactCandidate[] =>
-	[...candidates].sort(candidateOrder);
+): readonly CanonicalFactCandidate[] => [...candidates].sort(candidateOrder);
 
 // Split one group's candidates into classes of equal value, preserving the
 // deterministic candidate order inside each class and across classes.
@@ -292,7 +288,8 @@ const valueClassesOf = (
 	for (const candidate of sortedCandidates(candidates)) {
 		const matching = classes.find(
 			(cls) =>
-				compareExactMoney(cls[0]?.value ?? candidate.value, candidate.value) === 0,
+				compareExactMoney(cls[0]?.value ?? candidate.value, candidate.value) ===
+				0,
 		);
 		if (matching === undefined) {
 			classes.push([candidate]);
@@ -311,12 +308,14 @@ const affectedResultsFor = ({
 	resultRequirements: readonly ResultFactRequirement[];
 }>): readonly AffectedResult[] =>
 	resultRequirements
-		.filter((requirement) =>
-			requirement.requiredGroupIds.includes(groupId),
-		)
+		.filter((requirement) => requirement.requiredGroupIds.includes(groupId))
 		.map((requirement) => requirement.result)
 		.sort((left, right) =>
-			left.resultId < right.resultId ? -1 : left.resultId > right.resultId ? 1 : 0,
+			left.resultId < right.resultId
+				? -1
+				: left.resultId > right.resultId
+					? 1
+					: 0,
 		);
 
 const conflictIdOf = ({

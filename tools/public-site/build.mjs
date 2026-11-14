@@ -1,5 +1,5 @@
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { join, resolve } from "node:path";
 
 const dist = resolve(process.argv[2] ?? "apps/web/dist");
 const origin = "https://openitr.vasu-kandagatla.workers.dev";

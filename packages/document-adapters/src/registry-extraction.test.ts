@@ -1,18 +1,17 @@
-import { computeSourceDocumentIdentity } from "@openitr/model";
 import type { Sha256Digest } from "@openitr/model";
+import { computeSourceDocumentIdentity } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { buildSyntheticPdf } from "./fixtures/pdf-fixture-builder";
+import { createDocumentInspectionRegistry } from "./registry";
 import {
 	createAisJsonBankInterestFixture,
 	createEpayTaxPdfFixture,
-	createForm16SalaryPdfFixture,
 	createForm16APdfFixture,
+	createForm16SalaryPdfFixture,
 	createForm26AsTextFixture,
 	utf8Bytes,
 } from "./testing";
-import { createDocumentInspectionRegistry } from "./registry";
-
 
 const copyBytes = (source: Uint8Array): Uint8Array<ArrayBuffer> => {
 	const out = new Uint8Array(new ArrayBuffer(source.length));
@@ -160,9 +159,7 @@ describe("registry extraction routing", () => {
 		if (outcome.kind === "extracted") {
 			expect(outcome.tdsObservations).toHaveLength(5);
 			expect(
-				outcome.tdsObservations.map(
-					(observation) => observation.adapterId,
-				),
+				outcome.tdsObservations.map((observation) => observation.adapterId),
 			).toEqual([
 				"form26as-text",
 				"form26as-text",

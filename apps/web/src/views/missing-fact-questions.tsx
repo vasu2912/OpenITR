@@ -1,28 +1,24 @@
-import type {
-	ApplicableFactQuestion,
-	AttestedAnswerFact,
-	MissingFactQuestionnaire,
-} from "@openitr/question-engine";
 import {
 	compareExactMoney,
 	exactMoneyFromWholeRupees,
 	isIsoDate,
 	parseExactMoney,
 } from "@openitr/model";
-import {
-	Alert,
-	Button,
-	Title,
-} from "@patternfly/react-core";
-import { useState } from "react";
+import type {
+	ApplicableFactQuestion,
+	AttestedAnswerFact,
+	MissingFactQuestionnaire,
+} from "@openitr/question-engine";
+import { Alert, Button, Title } from "@patternfly/react-core";
 import type { FormEvent } from "react";
+import { useState } from "react";
 
 import type { SessionOrchestrator } from "../session/session-orchestrator";
+import { FactLabel } from "./plain-language";
 import {
 	QuestionChoiceList,
 	yesNoQuestionChoices,
 } from "./question-choice-list";
-import { FactLabel } from "./plain-language";
 
 const wholeRupeeText = (value: number): string =>
 	`₹ ${value.toLocaleString("en-IN")}`;
@@ -51,15 +47,11 @@ const validationMessage = (
 	}
 	const { minimumWholeRupees, maximumWholeRupees } = question.answerSchema;
 	if (
-		compareExactMoney(
-			amount,
-			exactMoneyFromWholeRupees(minimumWholeRupees),
-		) < 0 ||
+		compareExactMoney(amount, exactMoneyFromWholeRupees(minimumWholeRupees)) <
+			0 ||
 		(maximumWholeRupees !== null &&
-			compareExactMoney(
-				amount,
-				exactMoneyFromWholeRupees(maximumWholeRupees),
-			) > 0)
+			compareExactMoney(amount, exactMoneyFromWholeRupees(maximumWholeRupees)) >
+				0)
 	) {
 		return maximumWholeRupees === null
 			? `Enter an amount of at least ${wholeRupeeText(minimumWholeRupees)}.`
@@ -200,73 +192,71 @@ export const MissingFactQuestionsView = ({
 	}
 
 	return (
-		<section
-			aria-live="polite"
-			className="openitr-missing-facts-card"
-		>
-				<Title headingLevel="h2" size="lg">
-					Missing facts
-				</Title>
-				{questionnaire.questions.length === 0 ? (
-					<Alert
-						isInline
-						title="Every permitted missing fact has been supplied"
-						variant="success"
-					>
-						Accepted evidence and your recorded answers now supply these facts.
-					</Alert>
-				) : (
-					<Alert
-						isInline
-						title={`${questionnaire.questions.length} missing ${questionnaire.questions.length === 1 ? "fact" : "facts"} can be answered`}
-						variant="warning"
-					>
-						These questions come from the pinned rule pack. Leave an answer
-						blank until you can attest it; OpenITR will keep it unknown.
-					</Alert>
-				)}
-				<ul className="openitr-missing-fact-list">
-					{questionnaire.questions.map((question) => (
-						<MissingFactQuestionForm
-							key={question.id}
-							question={question}
-							session={session}
-						/>
-					))}
-				</ul>
-				{answers.length === 0 ? null : (
-					<div className="openitr-recorded-answers">
-						<h3>Recorded answers</h3>
-						<ul>
-							{answers.map((answer) => (
-								<li id={`answer-${answer.answerId}`} key={answer.answerId}>
-									<FactLabel factKey={answer.factKey} />:{" "}
-									{typeof answer.value === "boolean"
+		<section aria-live="polite" className="openitr-missing-facts-card">
+			<Title headingLevel="h2" size="lg">
+				Missing facts
+			</Title>
+			{questionnaire.questions.length === 0 ? (
+				<Alert
+					isInline
+					title="Every permitted missing fact has been supplied"
+					variant="success"
+				>
+					Accepted evidence and your recorded answers now supply these facts.
+				</Alert>
+			) : (
+				<Alert
+					isInline
+					title={`${questionnaire.questions.length} missing ${questionnaire.questions.length === 1 ? "fact" : "facts"} can be answered`}
+					variant="warning"
+				>
+					These questions come from the pinned rule pack. Leave an answer blank
+					until you can attest it; OpenITR will keep it unknown.
+				</Alert>
+			)}
+			<ul className="openitr-missing-fact-list">
+				{questionnaire.questions.map((question) => (
+					<MissingFactQuestionForm
+						key={question.id}
+						question={question}
+						session={session}
+					/>
+				))}
+			</ul>
+			{answers.length === 0 ? null : (
+				<div className="openitr-recorded-answers">
+					<h3>Recorded answers</h3>
+					<ul>
+						{answers.map((answer) => (
+							<li id={`answer-${answer.answerId}`} key={answer.answerId}>
+								<FactLabel factKey={answer.factKey} />:{" "}
+								{typeof answer.value === "boolean"
+									? answer.value
+										? "Yes"
+										: "No"
+									: isIsoDate(answer.value)
 										? answer.value
-											? "Yes"
-											: "No"
-										: isIsoDate(answer.value)
-											? answer.value
-											: `₹ ${answer.value}`}
-									<Button
-										onClick={() =>
-											session.send({
-												kind: "remove-missing-fact-answer",
-												answerId: answer.answerId,
-											})
-										}
-										variant="link"
-									>
-										Change answer
-									</Button>
-									<small>
-										Question revision {answer.questionRevision}; recorded {answer.answeredAt}
-									</small>
-								</li>
-							))}
-						</ul>
-					</div>
-				)}
+										: `₹ ${answer.value}`}
+								<Button
+									onClick={() =>
+										session.send({
+											kind: "remove-missing-fact-answer",
+											answerId: answer.answerId,
+										})
+									}
+									variant="link"
+								>
+									Change answer
+								</Button>
+								<small>
+									Question revision {answer.questionRevision}; recorded{" "}
+									{answer.answeredAt}
+								</small>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
 		</section>
 	);
 };

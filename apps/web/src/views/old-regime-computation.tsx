@@ -1,11 +1,9 @@
 import type { OldRegimeComputation } from "@openitr/itr1-ay2026-27";
-import {
-	Title,
-} from "@patternfly/react-core";
+import { Title } from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
-import { IssueAlert } from "./plain-language";
 import { keyed } from "./keyed";
+import { IssueAlert } from "./plain-language";
 
 type ComputedOldRegime = Extract<OldRegimeComputation, { kind: "computed" }>;
 
@@ -148,56 +146,55 @@ export const OldRegimeComputationView = ({
 
 	return (
 		<section className="openitr-old-regime-card">
-				<Title headingLevel="h2" size="lg">
-					Old-regime tax computation
-				</Title>
-				{computation.kind === "computed" ? (
-					<>
+			<Title headingLevel="h2" size="lg">
+				Old-regime tax computation
+			</Title>
+			{computation.kind === "computed" ? (
+				<>
+					<p>
+						Resident age category: {ageCategoryLabels[computation.ageCategory]}.
+					</p>
+					<section aria-labelledby="old-regime-income-heading">
+						<h3 id="old-regime-income-heading">Income reconciliation</h3>
 						<p>
-							Resident age category: {ageCategoryLabels[computation.ageCategory]}.
+							Gross total income combines salary, house-property income less
+							house-property loss, bank interest, other-source income, and
+							section 112A gain.
 						</p>
-						<section aria-labelledby="old-regime-income-heading">
-							<h3 id="old-regime-income-heading">Income reconciliation</h3>
-							<p>
-								Gross total income combines salary, house-property income less
-								house-property loss, bank interest, other-source income, and
-								section 112A gain.
-							</p>
-							<SummaryRows rows={incomeRows(computation)} />
-						</section>
-						<section aria-labelledby="old-regime-taxable-income-heading">
-							<h3 id="old-regime-taxable-income-heading">
-								Taxable-income reconciliation
-							</h3>
-							<SummaryRows rows={taxableIncomeRows(computation)} />
-						</section>
-						<section aria-labelledby="old-regime-liability-heading">
-							<h3 id="old-regime-liability-heading">
-								Tax-liability reconciliation
-							</h3>
-							<p>
-								Final tax liability combines slab tax and section 112A tax, less
-								rebate and marginal relief, plus surcharge and cess, then applies
-								the statutory rounding rule.
-							</p>
-							<SummaryRows rows={liabilityRows(computation)} />
-						</section>
-						<ComputationTraceList
-							nodes={computation.nodes}
-							targetPrefix="old"
-						/>
-					</>
-				) : (
-					<>
+						<SummaryRows rows={incomeRows(computation)} />
+					</section>
+					<section aria-labelledby="old-regime-taxable-income-heading">
+						<h3 id="old-regime-taxable-income-heading">
+							Taxable-income reconciliation
+						</h3>
+						<SummaryRows rows={taxableIncomeRows(computation)} />
+					</section>
+					<section aria-labelledby="old-regime-liability-heading">
+						<h3 id="old-regime-liability-heading">
+							Tax-liability reconciliation
+						</h3>
 						<p>
-							This result is blocked until every cited fact has accepted evidence
-							or a permitted recorded answer.
+							Final tax liability combines slab tax and section 112A tax, less
+							rebate and marginal relief, plus surcharge and cess, then applies
+							the statutory rounding rule.
 						</p>
-						{keyed(computation.issues, (issue) => String(issue.code)).map(({ key, item: issue }) => (
+						<SummaryRows rows={liabilityRows(computation)} />
+					</section>
+					<ComputationTraceList nodes={computation.nodes} targetPrefix="old" />
+				</>
+			) : (
+				<>
+					<p>
+						This result is blocked until every cited fact has accepted evidence
+						or a permitted recorded answer.
+					</p>
+					{keyed(computation.issues, (issue) => String(issue.code)).map(
+						({ key, item: issue }) => (
 							<IssueAlert issue={issue} key={key} />
-						))}
-					</>
-				)}
+						),
+					)}
+				</>
+			)}
 		</section>
 	);
 };

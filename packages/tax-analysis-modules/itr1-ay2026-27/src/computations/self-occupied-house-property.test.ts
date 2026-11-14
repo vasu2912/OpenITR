@@ -1,7 +1,4 @@
-import {
-	exactMoneyFromWholeRupees,
-	parseFactKey,
-} from "@openitr/model";
+import { exactMoneyFromWholeRupees, parseFactKey } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { itr1Ay202627RulePack20260904 } from "../revisions/2026-09-04/rule-pack";
@@ -32,19 +29,21 @@ const booleanFact = (
 	value,
 });
 
-const qualifyingFacts = (interest: number): readonly SelfOccupiedHousePropertyFact[] => [
+const qualifyingFacts = (
+	interest: number,
+): readonly SelfOccupiedHousePropertyFact[] => [
 	booleanFact("house-property.self-occupied.owned-by-taxpayer", true),
 	booleanFact("house-property.self-occupied.used-throughout-year", true),
-	moneyFact("house-property.self-occupied.interest-on-borrowed-capital", interest),
+	moneyFact(
+		"house-property.self-occupied.interest-on-borrowed-capital",
+		interest,
+	),
 	booleanFact(
 		"house-property.self-occupied.loan-for-acquisition-or-construction",
 		true,
 	),
 	booleanFact("house-property.self-occupied.loan-on-or-after-1999-04-01", true),
-	booleanFact(
-		"house-property.self-occupied.completed-within-five-years",
-		true,
-	),
+	booleanFact("house-property.self-occupied.completed-within-five-years", true),
 	booleanFact(
 		"house-property.self-occupied.interest-certificate-available",
 		true,
@@ -84,16 +83,21 @@ describe("computeSelfOccupiedHouseProperty", () => {
 		{ interest: 30000, expected: "30000" },
 		{ interest: 200000, expected: "200000" },
 		{ interest: 200001, expected: "200000" },
-	])("covers the enhanced statutory limit at $interest", ({ interest, expected }) => {
-		const result = computeSelfOccupiedHouseProperty({
-			rulePack: itr1Ay202627RulePack20260904,
-			propertyCount: 1,
-			facts: qualifyingFacts(interest),
-		});
-		expect(result.kind === "computed" ? result.oldRegime.interestDeduction : undefined).toBe(
-			expected,
-		);
-	});
+	])(
+		"covers the enhanced statutory limit at $interest",
+		({ interest, expected }) => {
+			const result = computeSelfOccupiedHouseProperty({
+				rulePack: itr1Ay202627RulePack20260904,
+				propertyCount: 1,
+				facts: qualifyingFacts(interest),
+			});
+			expect(
+				result.kind === "computed"
+					? result.oldRegime.interestDeduction
+					: undefined,
+			).toBe(expected);
+		},
+	);
 
 	test("uses the thirty-thousand limit when the enhanced conditions are not met", () => {
 		const facts = qualifyingFacts(80000).map((fact) =>
@@ -111,9 +115,11 @@ describe("computeSelfOccupiedHouseProperty", () => {
 			facts,
 		});
 
-		expect(result.kind === "computed" ? result.oldRegime.interestDeduction : undefined).toBe(
-			"30000",
-		);
+		expect(
+			result.kind === "computed"
+				? result.oldRegime.interestDeduction
+				: undefined,
+		).toBe("30000");
 	});
 
 	test("blocks the property result without assuming a missing ownership fact", () => {

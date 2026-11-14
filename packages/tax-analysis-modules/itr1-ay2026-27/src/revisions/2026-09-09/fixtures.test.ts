@@ -30,14 +30,12 @@ describe("2026-09-09 savings and pension deduction rule pack", () => {
 			oldRegimeOtherEmployerSalaryPercent: 10,
 			newRegimeEmployerSalaryPercent: 14,
 			sharedLimitRuleId: "ITR1-OR-80CCE-SHARED-LIMIT",
-			section80ccd1EmployeeLimitRuleId:
-				"ITR1-OR-80CCD1-EMPLOYEE-LIMIT",
+			section80ccd1EmployeeLimitRuleId: "ITR1-OR-80CCD1-EMPLOYEE-LIMIT",
 			section80ccd1OtherLimitRuleId: "ITR1-OR-80CCD1-OTHER-LIMIT",
 			section80ccd1bLimitRuleId: "ITR1-OR-80CCD1B-LIMIT",
 			oldRegimeGovernmentEmployerLimitRuleId:
 				"ITR1-OR-80CCD2-GOVERNMENT-EMPLOYER-LIMIT",
-			oldRegimeOtherEmployerLimitRuleId:
-				"ITR1-OR-80CCD2-OTHER-EMPLOYER-LIMIT",
+			oldRegimeOtherEmployerLimitRuleId: "ITR1-OR-80CCD2-OTHER-EMPLOYER-LIMIT",
 			newRegimeEmployerLimitRuleId: "ITR1-NR-80CCD2-EMPLOYER-LIMIT",
 			newRegimeExclusionRuleId: "ITR1-NR-CHAPTER-VIA-EXCLUSIONS",
 			proofRuleId: "ITR1-SAVINGS-PENSION-SUPPORTING-DETAILS",

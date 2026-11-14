@@ -83,8 +83,7 @@ export const itr1Ay202627RulePackManifest20260824 = Object.freeze({
 	supportedRules: [
 		Object.freeze({
 			id: "ITR1-ELIGIBILITY-RESIDENT",
-			citation:
-				"Notification No. 45/2026, Form ITR-1 heading, Gazette page 16",
+			citation: "Notification No. 45/2026, Form ITR-1 heading, Gazette page 16",
 			sourceId: "cbdt-notification-45-2026",
 			sourceLocation: "Form ITR-1 heading, Gazette page 16",
 		}),
@@ -114,7 +113,8 @@ export const itr1Ay202627RulePackManifest20260824 = Object.freeze({
 			citation:
 				"The Finance Act, 2025, rebate up to sixty thousand rupees where total income does not exceed twelve lakh rupees, resident individuals only",
 			sourceId: "finance-act-2025",
-			sourceLocation: "Amendment to section 87A, clause for resident individuals",
+			sourceLocation:
+				"Amendment to section 87A, clause for resident individuals",
 		}),
 		Object.freeze({
 			id: "ITR1-NR-SLAB-TAX-115BAC",

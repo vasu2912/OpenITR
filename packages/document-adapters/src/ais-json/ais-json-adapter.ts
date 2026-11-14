@@ -2,15 +2,17 @@ import type {
 	DocumentExtractionOutcome,
 	InspectableSourceDocument,
 } from "@openitr/model";
-import { createExtractionRejectionOutcome } from "@openitr/model";
-import { parseDocumentKind, parseTemplateRevision } from "@openitr/model";
-
+import {
+	createExtractionRejectionOutcome,
+	parseDocumentKind,
+	parseTemplateRevision,
+} from "@openitr/model";
+import { decodeUtf8Strict } from "../extraction-support";
 import type {
 	AdapterVerdict,
 	DocumentAdapterManifest,
 	SourceDocumentAdapter,
 } from "../registry";
-import { decodeUtf8Strict } from "../extraction-support";
 import { parseAisJsonRevision } from "./ais-json-revision";
 import { extractBankInterestObservations } from "./bank-interest-extraction";
 
@@ -41,17 +43,11 @@ export const createAisJsonAdapter = (): SourceDocumentAdapter => ({
 		try {
 			decoded = decodeUtf8Strict(input.bytes);
 		} catch {
-			return createExtractionRejectionOutcome(
-				"unknown-format",
-				input.identity,
-			);
+			return createExtractionRejectionOutcome("unknown-format", input.identity);
 		}
 		const revision = parseAisJsonRevision(decoded);
 		if (revision.kind === "unsupported") {
-			return createExtractionRejectionOutcome(
-				"unknown-format",
-				input.identity,
-			);
+			return createExtractionRejectionOutcome("unknown-format", input.identity);
 		}
 
 		const { observations, issues } = extractBankInterestObservations({

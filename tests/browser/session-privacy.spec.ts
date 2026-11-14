@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 import {
 	answerScopeCheck,
 	captureStorageSnapshot,
-	expectNoStoredSessionData,
 	expectInitialScopeAnswer,
+	expectNoStoredSessionData,
 	openScopeQuestion,
 	seedVisitorStorage,
 } from "./helpers";

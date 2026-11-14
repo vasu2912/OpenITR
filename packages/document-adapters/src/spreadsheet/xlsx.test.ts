@@ -89,8 +89,7 @@ const buildWorkbook = (
 			options.workbookRels ?? workbookRels(),
 		),
 		"xl/sharedStrings.xml": new TextEncoder().encode(
-			options.sharedStringsXml ??
-				sharedStringsXml(options.sharedStrings ?? []),
+			options.sharedStringsXml ?? sharedStringsXml(options.sharedStrings ?? []),
 		),
 		"xl/worksheets/sheet1.xml": new TextEncoder().encode(
 			options.sheet ?? sheetXml(options.rows ?? []),
@@ -125,14 +124,29 @@ describe("parseXlsxGrid", () => {
 					{
 						rowNumber: 1,
 						cells: [
-							{ reference: "A1", rowNumber: 1, columnIndex: 0, text: "FORM 26AS" },
+							{
+								reference: "A1",
+								rowNumber: 1,
+								columnIndex: 0,
+								text: "FORM 26AS",
+							},
 						],
 					},
 					{
 						rowNumber: 2,
 						cells: [
-							{ reference: "A2", rowNumber: 2, columnIndex: 0, text: "Sr. No." },
-							{ reference: "B2", rowNumber: 2, columnIndex: 1, text: undefined },
+							{
+								reference: "A2",
+								rowNumber: 2,
+								columnIndex: 0,
+								text: "Sr. No.",
+							},
+							{
+								reference: "B2",
+								rowNumber: 2,
+								columnIndex: 1,
+								text: undefined,
+							},
 						],
 					},
 					{
@@ -153,8 +167,14 @@ describe("parseXlsxGrid", () => {
 
 	test("decodes the five predefined entities inside shared strings and cell references", () => {
 		const bytes = buildWorkbook({
-			sharedStrings: ["Deductor &amp; Co", "less &lt;than&gt;", "&quot;q&quot; &apos;r&apos;"],
-			rows: [`<row r="1">${textCell("A1", 0)}${textCell("B1", 1)}${textCell("C1", 2)}</row>`],
+			sharedStrings: [
+				"Deductor &amp; Co",
+				"less &lt;than&gt;",
+				"&quot;q&quot; &apos;r&apos;",
+			],
+			rows: [
+				`<row r="1">${textCell("A1", 0)}${textCell("B1", 1)}${textCell("C1", 2)}</row>`,
+			],
 		});
 
 		const outcome = parseXlsxGrid(bytes);
@@ -164,7 +184,7 @@ describe("parseXlsxGrid", () => {
 		expect(outcome.grid.rows[0]?.cells.map((cell) => cell.text)).toEqual([
 			"Deductor & Co",
 			"less <than>",
-			'"q" \'r\'',
+			"\"q\" 'r'",
 		]);
 	});
 
@@ -293,7 +313,10 @@ describe("parseXlsxGrid", () => {
 	test("rejects rows whose numbers repeat or regress", () => {
 		const bytes = buildWorkbook({
 			sharedStrings: ["FORM 26AS"],
-			rows: [`<row r="5">${textCell("A5", 0)}</row>`, `<row r="5">${textCell("A5", 0)}</row>`],
+			rows: [
+				`<row r="5">${textCell("A5", 0)}</row>`,
+				`<row r="5">${textCell("A5", 0)}</row>`,
+			],
 		});
 
 		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
@@ -324,14 +347,17 @@ describe("parseXlsxGrid", () => {
 		["a code point beyond Unicode", "&#x110000;"],
 		["a lone surrogate code point", "&#xd800;"],
 		["a control character", "&#x1;"],
-	])("rejects %s without throwing instead of failing closed", (_label, entity) => {
-		const bytes = buildWorkbook({
-			sharedStrings: [`PAN ${entity} XXXX9999X`],
-		});
+	])(
+		"rejects %s without throwing instead of failing closed",
+		(_label, entity) => {
+			const bytes = buildWorkbook({
+				sharedStrings: [`PAN ${entity} XXXX9999X`],
+			});
 
-		expect(() => parseXlsxGrid(bytes)).not.toThrow();
-		expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
-	});
+			expect(() => parseXlsxGrid(bytes)).not.toThrow();
+			expect(parseXlsxGrid(bytes)).toEqual({ kind: "unsupported" });
+		},
+	);
 
 	test("rejects content before the root element", () => {
 		const bytes = buildWorkbook({
@@ -356,9 +382,7 @@ describe("parseXlsxGrid", () => {
 
 	test("rejects duplicate attribute names on one element", () => {
 		const bytes = buildWorkbook({
-			rows: [
-				'<row r="7"><c r="A7" t="s" t="s"><v>0</v></c></row>',
-			],
+			rows: ['<row r="7"><c r="A7" t="s" t="s"><v>0</v></c></row>'],
 			sharedStrings: ["FORM 26AS"],
 		});
 

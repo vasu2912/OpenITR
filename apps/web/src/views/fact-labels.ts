@@ -5,7 +5,16 @@ export type FactLabeler = (factKey: unknown) => string;
 const capitalize = (text: string): string =>
 	text.charAt(0).toUpperCase() + text.slice(1);
 
-const ACRONYMS = new Set(["ais", "gti", "hra", "nps", "pan", "tan", "tcs", "tds"]);
+const ACRONYMS = new Set([
+	"ais",
+	"gti",
+	"hra",
+	"nps",
+	"pan",
+	"tan",
+	"tcs",
+	"tds",
+]);
 
 // "derived.rebate-section-87a" -> "Rebate section 87A". Content hashes that
 // make node ids unique are dropped because they mean nothing to a reader.
@@ -15,7 +24,9 @@ export const humanizeKey = (key: unknown): string => {
 		.split("-")
 		.filter((word) => !/^[0-9a-f]{16,}$/.test(word))
 		.map((word) =>
-			/^\d+[a-z]+$/.test(word) || ACRONYMS.has(word) ? word.toUpperCase() : word,
+			/^\d+[a-z]+$/.test(word) || ACRONYMS.has(word)
+				? word.toUpperCase()
+				: word,
 		);
 	return capitalize(words.join(" "));
 };

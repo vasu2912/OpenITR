@@ -1,10 +1,6 @@
 import { parseSha256Digest } from "@openitr/model";
-
-import {
-	createForm26AsTextFixture,
-	utf8Bytes,
-} from "../testing";
 import { describe, expect, test } from "vitest";
+import { createForm26AsTextFixture, utf8Bytes } from "../testing";
 
 import { createForm26AsTextAdapter } from "./form26as-text-adapter";
 
@@ -23,31 +19,34 @@ const verdictFor = async (
 
 describe("Form 26AS text adapter inspection", () => {
 	test("matches the supported revision's complete header block exactly", async () => {
-		expect(await verdictFor(createForm26AsTextFixture())).toBe(
-			"exact-match",
-		);
+		expect(await verdictFor(createForm26AsTextFixture())).toBe("exact-match");
 	});
 
 	test("does not match unrelated text files", async () => {
-		expect(await verdictFor("A plain letter about taxes\n")).toBe(
-			"no-match",
-		);
+		expect(await verdictFor("A plain letter about taxes\n")).toBe("no-match");
 	});
 
 	test("does not match a partial header that omits required lines", async () => {
-		expect(await verdictFor("FORM 26AS\nsome content\n")).toBe(
-			"no-match",
-		);
+		expect(await verdictFor("FORM 26AS\nsome content\n")).toBe("no-match");
 	});
 
 	test.each([
 		[
 			"the assessment-year line is absent",
-			["FORM 26AS", "Annual Tax Statement under Section 203AA of the Income Tax Act, 1961", "Permanent Account Number (PAN)\tPANXXXX9999X"],
+			[
+				"FORM 26AS",
+				"Annual Tax Statement under Section 203AA of the Income Tax Act, 1961",
+				"Permanent Account Number (PAN)\tPANXXXX9999X",
+			],
 		],
 		[
 			"the assessment year is an unsupported revision",
-			["FORM 26AS", "Annual Tax Statement under Section 203AA of the Income Tax Act, 1961", "Permanent Account Number (PAN)\tPANXXXX9999X", "Assessment Year\t2027-28"],
+			[
+				"FORM 26AS",
+				"Annual Tax Statement under Section 203AA of the Income Tax Act, 1961",
+				"Permanent Account Number (PAN)\tPANXXXX9999X",
+				"Assessment Year\t2027-28",
+			],
 		],
 	] as const)("does not match when %s", async (_label, headerLines) => {
 		expect(await verdictFor(headerLines.join("\r\n"))).toBe("no-match");

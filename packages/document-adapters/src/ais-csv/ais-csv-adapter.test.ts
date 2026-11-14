@@ -1,7 +1,7 @@
-import { computeSourceDocumentIdentity } from "@openitr/model";
 import type { Sha256Digest } from "@openitr/model";
+import { computeSourceDocumentIdentity } from "@openitr/model";
 import { describe, expect, test } from "vitest";
-
+import { createAisJsonAdapter } from "../ais-json/ais-json-adapter";
 import { createDocumentInspectionRegistry } from "../registry";
 import {
 	createAisCsvBankInterestFixture,
@@ -10,7 +10,6 @@ import {
 	utf8Bytes,
 } from "../testing";
 import { createAisCsvAdapter } from "./ais-csv-adapter";
-import { createAisJsonAdapter } from "../ais-json/ais-json-adapter";
 
 const identityOf = async (text: string): Promise<Sha256Digest> =>
 	(await computeSourceDocumentIdentity({ bytes: utf8Bytes(text) }))
@@ -153,10 +152,7 @@ describe("AIS CSV layout validation", () => {
 				"institutionName,recordCategory,maskedAccountNumber,interestAmount",
 			),
 		],
-		[
-			"an extra header column",
-			`${createAisCsvBankInterestFixture()},extra`,
-		],
+		["an extra header column", `${createAisCsvBankInterestFixture()},extra`],
 		[
 			"a ragged record row",
 			[
@@ -173,10 +169,7 @@ describe("AIS CSV layout validation", () => {
 		],
 		[
 			"an interior blank line",
-			createAisCsvBankInterestFixture().replace(
-				/(?=DEPOSITS)/,
-				"\n",
-			),
+			createAisCsvBankInterestFixture().replace(/(?=DEPOSITS)/, "\n"),
 		],
 		[
 			"an unterminated quoted cell",
@@ -190,23 +183,19 @@ describe("AIS CSV layout validation", () => {
 		],
 		[
 			"text after a closing quote",
-			createAisCsvBankInterestFixture().replace(
-				'"7,890.25"',
-				'"7,890.25"x',
-			),
+			createAisCsvBankInterestFixture().replace('"7,890.25"', '"7,890.25"x'),
 		],
 		[
 			"a section marker without its column header row",
-			["documentType,AIS", "schemaVersion,2026-27", "section,bankInterest"].join(
-				"\n",
-			),
+			[
+				"documentType,AIS",
+				"schemaVersion,2026-27",
+				"section,bankInterest",
+			].join("\n"),
 		],
 		[
 			"a record row of only commas",
-			createAisCsvBankInterestFixture().replace(
-				/(?=DEPOSITS)/,
-				",,,\n",
-			),
+			createAisCsvBankInterestFixture().replace(/(?=DEPOSITS)/, ",,,\n"),
 		],
 	] as const)("rejects %s before extracting any fact", async (_label, text) => {
 		await expectUnsupportedLayout(_label, text);

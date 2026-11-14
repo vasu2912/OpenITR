@@ -1,12 +1,11 @@
 import { parseSha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
-
+import {
+	createPrivateStatementDetector,
+	PRIVATE_STATEMENT_SENTINEL_HEADER,
+} from "./private-statements/private-statement-detector";
 import { createDocumentInspectionRegistry } from "./registry";
 import { utf8Bytes } from "./testing";
-import {
-	PRIVATE_STATEMENT_SENTINEL_HEADER,
-	createPrivateStatementDetector,
-} from "./private-statements/private-statement-detector";
 
 describe("private-institution statement detection", () => {
 	test("rejects a private bank statement layout as private-institution", async () => {

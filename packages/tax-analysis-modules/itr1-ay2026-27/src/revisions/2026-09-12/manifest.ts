@@ -53,9 +53,7 @@ const rules = Object.freeze({
 	),
 });
 
-type Visibility = NonNullable<
-	RulePackManifestFactQuestionRecord["visibility"]
->;
+type Visibility = NonNullable<RulePackManifestFactQuestionRecord["visibility"]>;
 const always = Object.freeze({ kind: "always" as const });
 const visibleWhen = (factKey: string, value: boolean): Visibility =>
 	Object.freeze({ kind: "fact-boolean-equals", factKey, value });
@@ -76,8 +74,7 @@ const question = (
 	factKey: string,
 	requiresRuleId: string,
 	visibility: Visibility,
-	answerSchema: RulePackManifestFactQuestionRecord["answerSchema"] =
-		booleanSchema,
+	answerSchema: RulePackManifestFactQuestionRecord["answerSchema"] = booleanSchema,
 ): RulePackManifestFactQuestionRecord =>
 	Object.freeze({
 		id,

@@ -156,7 +156,8 @@ export const itr1Ay202627RulePackManifest20260909 = Object.freeze({
 		}),
 		amountQuestion({
 			id: "deduction-80ccc-amount",
-			prompt: "What did you contribute to an eligible section 80CCC pension annuity for FY 2025-26?",
+			prompt:
+				"What did you contribute to an eligible section 80CCC pension annuity for FY 2025-26?",
 			helpText: "Enter your eligible contribution before the shared limit.",
 			factKey: "deductions.80ccc",
 			requiresRuleId: rules.sharedLimit.id,
@@ -203,7 +204,8 @@ export const itr1Ay202627RulePackManifest20260909 = Object.freeze({
 		}),
 		amountQuestion({
 			id: "deduction-80ccd1-gti-base",
-			prompt: "What gross total income amount is the section 80CCD(1) percentage based on?",
+			prompt:
+				"What gross total income amount is the section 80CCD(1) percentage based on?",
 			helpText:
 				"Enter the applicable gross total income before Chapter VI-A deductions for the non-employee percentage limit.",
 			factKey: "deductions.80ccd1-gti-base",
@@ -216,7 +218,8 @@ export const itr1Ay202627RulePackManifest20260909 = Object.freeze({
 		}),
 		amountQuestion({
 			id: "deduction-80ccd1b-amount",
-			prompt: "What additional contribution did you allocate to section 80CCD(1B) for FY 2025-26?",
+			prompt:
+				"What additional contribution did you allocate to section 80CCD(1B) for FY 2025-26?",
 			helpText:
 				"Enter only the contribution not already allocated to section 80CCD(1).",
 			factKey: "deductions.80ccd1b",
@@ -225,7 +228,8 @@ export const itr1Ay202627RulePackManifest20260909 = Object.freeze({
 		}),
 		amountQuestion({
 			id: "deduction-80ccd2-government-amount",
-			prompt: "How much did Central or State Government employers contribute under section 80CCD(2)?",
+			prompt:
+				"How much did Central or State Government employers contribute under section 80CCD(2)?",
 			helpText:
 				"Combine only employer contributions from Central or State Government employment.",
 			factKey: "deductions.80ccd2-government",
@@ -234,7 +238,8 @@ export const itr1Ay202627RulePackManifest20260909 = Object.freeze({
 		}),
 		amountQuestion({
 			id: "deduction-80ccd2-government-salary-base",
-			prompt: "What salary base applies to those government-employer contributions?",
+			prompt:
+				"What salary base applies to those government-employer contributions?",
 			helpText:
 				"Enter the combined eligible salary base for the Central or State Government employer contributions.",
 			factKey: "deductions.80ccd2-government-salary-base",
@@ -247,7 +252,8 @@ export const itr1Ay202627RulePackManifest20260909 = Object.freeze({
 		}),
 		amountQuestion({
 			id: "deduction-80ccd2-other-amount",
-			prompt: "How much did PSU or other employers contribute under section 80CCD(2)?",
+			prompt:
+				"How much did PSU or other employers contribute under section 80CCD(2)?",
 			helpText:
 				"Combine only employer contributions from PSU or other non-government employment.",
 			factKey: "deductions.80ccd2-other",
@@ -256,7 +262,8 @@ export const itr1Ay202627RulePackManifest20260909 = Object.freeze({
 		}),
 		amountQuestion({
 			id: "deduction-80ccd2-other-salary-base",
-			prompt: "What salary base applies to those PSU or other-employer contributions?",
+			prompt:
+				"What salary base applies to those PSU or other-employer contributions?",
 			helpText:
 				"Enter the combined eligible salary base for the PSU or other-employer contributions.",
 			factKey: "deductions.80ccd2-other-salary-base",
@@ -269,7 +276,8 @@ export const itr1Ay202627RulePackManifest20260909 = Object.freeze({
 		}),
 		Object.freeze({
 			id: "savings-pension-proof-available",
-			prompt: "Do you have supporting details available for every positive savings or pension amount?",
+			prompt:
+				"Do you have supporting details available for every positive savings or pension amount?",
 			helpText:
 				"Examples include the section 80C document identifier, pension contribution record, PRAN details, and employer contribution evidence. OpenITR does not currently extract these fields from documents.",
 			requiresRuleId: rules.supportingDetails.id,
@@ -295,8 +303,7 @@ export const itr1Ay202627RulePackManifest20260909 = Object.freeze({
 			section80ccd1EmployeeLimitRuleId: rules.section80ccd1Employee.id,
 			section80ccd1OtherLimitRuleId: rules.section80ccd1Other.id,
 			section80ccd1bLimitRuleId: rules.section80ccd1b.id,
-			oldRegimeGovernmentEmployerLimitRuleId:
-				rules.oldGovernmentEmployer.id,
+			oldRegimeGovernmentEmployerLimitRuleId: rules.oldGovernmentEmployer.id,
 			oldRegimeOtherEmployerLimitRuleId: rules.oldOtherEmployer.id,
 			newRegimeEmployerLimitRuleId: rules.newEmployer.id,
 			newRegimeExclusionRuleId: rules.newRegimeExclusions.id,

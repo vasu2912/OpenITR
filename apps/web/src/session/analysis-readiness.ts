@@ -92,7 +92,8 @@ const computationIssuesOf = (
 ): readonly AnalysisReadinessIssue[] => {
 	const computation = result.computation;
 	if (computation === undefined) return [];
-	const issues = computation.issues ??
+	const issues =
+		computation.issues ??
 		(computation.issue === undefined ? [] : [computation.issue]);
 	return Object.freeze(
 		issues.map((issue) =>
@@ -100,7 +101,9 @@ const computationIssuesOf = (
 				id: `${result.id}-${issue.code}`,
 				kind: "computation-issue" as const,
 				severity:
-					issue.severity === "blocking" ? ("blocking" as const) : ("review" as const),
+					issue.severity === "blocking"
+						? ("blocking" as const)
+						: ("review" as const),
 				factKeys: factsOf(issue),
 				affectedResults: Object.freeze([result.label]),
 				explanation: `${issue.code} prevents or limits ${result.label}.`,
@@ -178,7 +181,11 @@ export const buildAnalysisReadiness = (
 	if (
 		blockingIssues.length === 0 &&
 		input.analysisFactSetRevision === undefined &&
-		input.results.some((result) => result.id === "regime-comparison" && result.computation?.kind === "computed")
+		input.results.some(
+			(result) =>
+				result.id === "regime-comparison" &&
+				result.computation?.kind === "computed",
+		)
 	) {
 		readinessIssues.push(
 			Object.freeze({
@@ -187,8 +194,10 @@ export const buildAnalysisReadiness = (
 				severity: "review",
 				factKeys: Object.freeze([]),
 				affectedResults: Object.freeze(["Complete analysis"]),
-				explanation: "Both regime scenarios are available, but no primary scenario is selected.",
-				recoveryAction: "Select the primary regime scenario you want the complete analysis to explain.",
+				explanation:
+					"Both regime scenarios are available, but no primary scenario is selected.",
+				recoveryAction:
+					"Select the primary regime scenario you want the complete analysis to explain.",
 				targetId: "regime-comparison-heading",
 			}),
 		);
@@ -206,8 +215,10 @@ export const buildAnalysisReadiness = (
 				severity: "review",
 				factKeys: Object.freeze([]),
 				affectedResults: Object.freeze(["Complete analysis"]),
-				explanation: "The current fact-set revision has not completed final evidence review.",
-				recoveryAction: "Review the facts, evidence, warnings, and limitations, then confirm this revision.",
+				explanation:
+					"The current fact-set revision has not completed final evidence review.",
+				recoveryAction:
+					"Review the facts, evidence, warnings, and limitations, then confirm this revision.",
 				targetId: "final-review-heading",
 			}),
 		);

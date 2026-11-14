@@ -1,3 +1,10 @@
+import type {
+	ExactMoney,
+	FactKey,
+	IssueCode,
+	RuleId,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	compareExactMoney,
 	exactMoneyFromWholeRupees,
@@ -5,13 +12,6 @@ import {
 	multiplyByWholePercent,
 	parseFactKey,
 	parseIssueCode,
-} from "@openitr/model";
-import type {
-	ExactMoney,
-	FactKey,
-	IssueCode,
-	RuleId,
-	ScopeRulePack,
 } from "@openitr/model";
 
 const FACT_KEYS = Object.freeze({
@@ -114,7 +114,9 @@ export const computeDonationDeductions = ({
 	facts: readonly DonationDeductionFact[];
 }>): DonationDeductionComputation => {
 	const permitted = new Set<FactKey>(Object.values(FACT_KEYS));
-	const unsupported = facts.find((candidate) => !permitted.has(candidate.factKey));
+	const unsupported = facts.find(
+		(candidate) => !permitted.has(candidate.factKey),
+	);
 	if (unsupported !== undefined) {
 		return {
 			kind: "unsupported",
@@ -232,7 +234,10 @@ export const computeDonationDeductions = ({
 	if (cashPayment === false && noncashPaymentDetailsAvailable === undefined) {
 		missing.push(FACT_KEYS.noncashPaymentDetailsAvailable);
 	}
-	if (subjectToQualifyingLimit === true && adjustedGrossTotalIncome === undefined) {
+	if (
+		subjectToQualifyingLimit === true &&
+		adjustedGrossTotalIncome === undefined
+	) {
 		missing.push(FACT_KEYS.adjustedGrossTotalIncome);
 	}
 	if (
@@ -289,8 +294,7 @@ export const computeDonationDeductions = ({
 	const cashLimit = exactMoneyFromWholeRupees(
 		constants.cashPaymentLimitWholeRupees,
 	);
-	const cashRejected =
-		cashPayment && compareExactMoney(amount, cashLimit) > 0;
+	const cashRejected = cashPayment && compareExactMoney(amount, cashLimit) > 0;
 	const recipientRejected = !recipientQualified;
 
 	if (cashRejected) {
@@ -404,9 +408,7 @@ export const computeDonationDeductions = ({
 			inputs: [
 				FACT_KEYS.recipientDetailsAvailable,
 				FACT_KEYS.certificateAvailable,
-				...(cashPayment
-					? []
-					: [FACT_KEYS.noncashPaymentDetailsAvailable]),
+				...(cashPayment ? [] : [FACT_KEYS.noncashPaymentDetailsAvailable]),
 			],
 			operation:
 				warnings.length === 0

@@ -1,14 +1,13 @@
+import { exactMoneyFromWholeRupees, parseFactKey } from "@openitr/model";
 import { describe, expect, it } from "vitest";
 
-import { exactMoneyFromWholeRupees, parseFactKey } from "@openitr/model";
-
 import { itr1Ay202627RulePack20260913 } from "../revisions/2026-09-13/rule-pack";
+import type { RemainingDeductionFact } from "./remaining-deductions";
 import {
 	APPROVED_ITR1_DEDUCTION_CATALOG,
 	computeRemainingDeductions,
 	REMAINING_DEDUCTION_FACT_KEYS as KEYS,
 } from "./remaining-deductions";
-import type { RemainingDeductionFact } from "./remaining-deductions";
 
 const origin = Object.freeze({
 	kind: "attested-answer" as const,
@@ -17,7 +16,11 @@ const origin = Object.freeze({
 const fact = (
 	factKey: string,
 	value: RemainingDeductionFact["value"],
-): RemainingDeductionFact => ({ factKey: parseFactKey(factKey), value, origin });
+): RemainingDeductionFact => ({
+	factKey: parseFactKey(factKey),
+	value,
+	origin,
+});
 
 const absentOptionalCategories = (): RemainingDeductionFact[] => [
 	fact(KEYS.section80cchPresent, false),
@@ -69,7 +72,10 @@ describe("remaining ITR-1 deductions", () => {
 			oldRegimeTotal: "10000",
 			newRegimeTotal: "0",
 			results: expect.arrayContaining([
-				expect.objectContaining({ section: "80TTA", oldRegimeAllowed: "10000" }),
+				expect.objectContaining({
+					section: "80TTA",
+					oldRegimeAllowed: "10000",
+				}),
 				expect.objectContaining({ section: "80TTB", oldRegimeAllowed: "0" }),
 			]),
 		});
@@ -88,7 +94,10 @@ describe("remaining ITR-1 deductions", () => {
 			oldRegimeTotal: "50000",
 			results: expect.arrayContaining([
 				expect.objectContaining({ section: "80TTA", oldRegimeAllowed: "0" }),
-				expect.objectContaining({ section: "80TTB", oldRegimeAllowed: "50000" }),
+				expect.objectContaining({
+					section: "80TTB",
+					oldRegimeAllowed: "50000",
+				}),
 			]),
 		});
 	});
@@ -104,13 +113,22 @@ describe("remaining ITR-1 deductions", () => {
 				fact(KEYS.section80cchEligible, true),
 				fact(KEYS.section80cchAgeEligible, true),
 				fact(KEYS.section80cchCentralGovernmentEmployee, true),
-				fact(KEYS.section80cchTaxpayerContribution, exactMoneyFromWholeRupees(40_000)),
-				fact(KEYS.section80cchGovernmentContribution, exactMoneyFromWholeRupees(30_000)),
+				fact(
+					KEYS.section80cchTaxpayerContribution,
+					exactMoneyFromWholeRupees(40_000),
+				),
+				fact(
+					KEYS.section80cchGovernmentContribution,
+					exactMoneyFromWholeRupees(30_000),
+				),
 				fact(KEYS.section80cchSalary, exactMoneyFromWholeRupees(100_000)),
 				fact(KEYS.section80cchDetailsAvailable, true),
 				fact(KEYS.section80ggPresent, true),
 				fact(KEYS.section80ggRentPaid, exactMoneyFromWholeRupees(120_000)),
-				fact(KEYS.section80ggAdjustedTotalIncome, exactMoneyFromWholeRupees(400_000)),
+				fact(
+					KEYS.section80ggAdjustedTotalIncome,
+					exactMoneyFromWholeRupees(400_000),
+				),
 				fact(KEYS.section80ggHraReceived, false),
 				fact(KEYS.section80ggDisqualifyingProperty, false),
 				fact(KEYS.section80ggForm10baDetails, true),
@@ -125,7 +143,10 @@ describe("remaining ITR-1 deductions", () => {
 				fact(KEYS.section80ggcEligibleRecipient, true),
 				fact(KEYS.section80ggcCashPayment, false),
 				fact(KEYS.section80ggcDateWithinYear, true),
-				fact(KEYS.section80ggcGrossTotalIncome, exactMoneyFromWholeRupees(400_000)),
+				fact(
+					KEYS.section80ggcGrossTotalIncome,
+					exactMoneyFromWholeRupees(400_000),
+				),
 				fact(KEYS.section80ggcDetailsAvailable, true),
 				fact(KEYS.otherDeductionPresent, false),
 			],
@@ -136,10 +157,26 @@ describe("remaining ITR-1 deductions", () => {
 			oldRegimeTotal: "118200",
 			newRegimeTotal: "46200",
 			results: expect.arrayContaining([
-				expect.objectContaining({ section: "80CCH", oldRegimeAllowed: "46200", newRegimeAllowed: "46200" }),
-				expect.objectContaining({ section: "80GG", oldRegimeAllowed: "60000", newRegimeAllowed: "0" }),
-				expect.objectContaining({ section: "80GGA", oldRegimeAllowed: "5000", newRegimeAllowed: "0" }),
-				expect.objectContaining({ section: "80GGC", oldRegimeAllowed: "7000", newRegimeAllowed: "0" }),
+				expect.objectContaining({
+					section: "80CCH",
+					oldRegimeAllowed: "46200",
+					newRegimeAllowed: "46200",
+				}),
+				expect.objectContaining({
+					section: "80GG",
+					oldRegimeAllowed: "60000",
+					newRegimeAllowed: "0",
+				}),
+				expect.objectContaining({
+					section: "80GGA",
+					oldRegimeAllowed: "5000",
+					newRegimeAllowed: "0",
+				}),
+				expect.objectContaining({
+					section: "80GGC",
+					oldRegimeAllowed: "7000",
+					newRegimeAllowed: "0",
+				}),
 			]),
 		});
 	});
@@ -170,7 +207,9 @@ describe("remaining ITR-1 deductions", () => {
 			kind: "unsupported",
 			issues: expect.arrayContaining([
 				expect.objectContaining({ code: "RULE_OTHER_DEDUCTION_UNSUPPORTED" }),
-				expect.objectContaining({ code: "FACT_80GGA_CASH_PAYMENT_EXCEEDS_LIMIT" }),
+				expect.objectContaining({
+					code: "FACT_80GGA_CASH_PAYMENT_EXCEEDS_LIMIT",
+				}),
 			]),
 		});
 	});

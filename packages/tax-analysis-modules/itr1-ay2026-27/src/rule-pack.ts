@@ -1,5 +1,5 @@
-import { compileRulePack } from "@openitr/rulepack-compiler";
 import type { ScopeRulePack } from "@openitr/model";
+import { compileRulePack } from "@openitr/rulepack-compiler";
 
 import { itr1Ay202627RulePackManifest } from "./manifest";
 import { createScopeRulePack } from "./scope-rule-pack";

@@ -1,5 +1,5 @@
-import { computeSourceDocumentIdentity } from "@openitr/model";
 import type { Sha256Digest } from "@openitr/model";
+import { computeSourceDocumentIdentity } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -25,9 +25,7 @@ const extractWithAdapter = async (
 ) => {
 	const { extract } = createPrefilledItr1JsonAdapter();
 	if (extract === undefined) {
-		throw new Error(
-			"the prefilled ITR-1 JSON adapter must support extraction",
-		);
+		throw new Error("the prefilled ITR-1 JSON adapter must support extraction");
 	}
 	return extract({
 		identity,
@@ -55,8 +53,7 @@ describe("prefilled ITR-1 JSON salary extraction", () => {
 		expect(outcome.pages).toEqual([]);
 		expect(outcome.issues).toEqual([]);
 
-		const [exemptAllowances, section17_1, taxableTotal] =
-			outcome.observations;
+		const [exemptAllowances, section17_1, taxableTotal] = outcome.observations;
 		expect(exemptAllowances).toMatchObject({
 			factKey: "salary.exempt-allowances-section-10",
 			sourceDocumentId: await identityOf(text),
@@ -190,7 +187,7 @@ describe("prefilled ITR-1 JSON salary extraction", () => {
 		["a numeric node", 1200000],
 		["an unparseable text node", "about twelve lakh"],
 		["an amount with paise", "12,00,000.50"],
-		] as const)(
+	] as const)(
 		"reports %s as a malformed salary field without inventing facts",
 		async (_label, malformed) => {
 			const outcome = await extractOf(
@@ -446,8 +443,14 @@ describe("prefilled ITR-1 JSON TDS-on-salary extraction", () => {
 	});
 
 	test.each([
-		["a numeric serial number node", { serialNumber: 1, deductorTan: "MUMA12345B" }],
-		["a non-string deductor TAN node", { serialNumber: "1", deductorTan: true }],
+		[
+			"a numeric serial number node",
+			{ serialNumber: 1, deductorTan: "MUMA12345B" },
+		],
+		[
+			"a non-string deductor TAN node",
+			{ serialNumber: "1", deductorTan: true },
+		],
 	] as const)(
 		"reports %s as a malformed TDS record without inventing facts",
 		async (_label, partialRecord) => {
@@ -480,41 +483,35 @@ describe("prefilled ITR-1 JSON determinism", () => {
 		) {
 			throw new Error("expected two extracted outcomes");
 		}
-		expect(JSON.stringify(secondOutcome)).toBe(
-			JSON.stringify(firstOutcome),
-		);
+		expect(JSON.stringify(secondOutcome)).toBe(JSON.stringify(firstOutcome));
 	});
 
 	test("keeps every canonical field stable when object properties arrive in a different order", async () => {
-		const canonicalOutcome = await extractOf(
-			createPrefilledItr1JsonFixture(),
-		);
+		const canonicalOutcome = await extractOf(createPrefilledItr1JsonFixture());
 		const reorderedText = JSON.stringify({
 			tdsOnSalary: [
 				{
 					tdsDeposited: PREFILLED_ITR1_TDS_RECORD_ONE.tdsDeposited,
 					taxDeducted: PREFILLED_ITR1_TDS_RECORD_ONE.taxDeducted,
-					amountPaidCredited:
-						PREFILLED_ITR1_TDS_RECORD_ONE.amountPaidCredited,
+					amountPaidCredited: PREFILLED_ITR1_TDS_RECORD_ONE.amountPaidCredited,
 					deductorTan: PREFILLED_ITR1_TDS_RECORD_ONE.deductorTan,
 					deductorName: PREFILLED_ITR1_TDS_RECORD_ONE.deductorName,
 					serialNumber: PREFILLED_ITR1_TDS_RECORD_ONE.serialNumber,
 				},
 				{
 					tdsDeposited: PREFILLED_ITR1_TDS_RECORD_TWO.tdsDeposited,
-					amountPaidCredited:
-						PREFILLED_ITR1_TDS_RECORD_TWO.amountPaidCredited,
+					amountPaidCredited: PREFILLED_ITR1_TDS_RECORD_TWO.amountPaidCredited,
 					deductorTan: PREFILLED_ITR1_TDS_RECORD_TWO.deductorTan,
 					deductorName: PREFILLED_ITR1_TDS_RECORD_TWO.deductorName,
 					serialNumber: PREFILLED_ITR1_TDS_RECORD_TWO.serialNumber,
 				},
 			],
 			salaryInformation: {
-				taxableSalaryTotal: PREFILLED_ITR1_SALARY_INFORMATION.taxableSalaryTotal,
+				taxableSalaryTotal:
+					PREFILLED_ITR1_SALARY_INFORMATION.taxableSalaryTotal,
 				exemptAllowancesSection10:
 					PREFILLED_ITR1_SALARY_INFORMATION.exemptAllowancesSection10,
-				section17_1Salary:
-					PREFILLED_ITR1_SALARY_INFORMATION.section17_1Salary,
+				section17_1Salary: PREFILLED_ITR1_SALARY_INFORMATION.section17_1Salary,
 			},
 			schemaVersion: "2026-27",
 			documentType: "ITR1_PREFILLED",
@@ -543,8 +540,11 @@ describe("prefilled ITR-1 JSON determinism", () => {
 			observations: readonly T[],
 		) =>
 			observations.map((observation) => {
-				const { sourceDocumentId: _id, observationId: _oid, ...rest } =
-					observation;
+				const {
+					sourceDocumentId: _id,
+					observationId: _oid,
+					...rest
+				} = observation;
 				return rest;
 			});
 		expect(stripIdentity(reorderedFields.salary)).toEqual(

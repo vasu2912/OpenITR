@@ -7,10 +7,7 @@ import {
 	type Section112aCapitalGainFact,
 } from "./section112a-capital-gain";
 
-const moneyFact = (
-	key: string,
-	value: number,
-): Section112aCapitalGainFact => ({
+const moneyFact = (key: string, value: number): Section112aCapitalGainFact => ({
 	factKey: parseFactKey(key),
 	value: exactMoneyFromWholeRupees(value),
 });

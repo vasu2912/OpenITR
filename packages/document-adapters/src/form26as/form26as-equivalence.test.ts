@@ -1,7 +1,10 @@
-import type { TdsObservation } from "@openitr/model";
-import { addExactMoney, parseExactMoney } from "@openitr/model";
+import type { Sha256Digest, TdsObservation } from "@openitr/model";
+import {
+	addExactMoney,
+	computeSourceDocumentIdentity,
+	parseExactMoney,
+} from "@openitr/model";
 import { describe, expect, test } from "vitest";
-
 import {
 	createForm26AsExcelFixture,
 	createForm26AsTextFixture,
@@ -9,8 +12,6 @@ import {
 } from "../testing";
 import { createForm26AsExcelAdapter } from "./form26as-excel-adapter";
 import { createForm26AsTextAdapter } from "./form26as-text-adapter";
-import { computeSourceDocumentIdentity } from "@openitr/model";
-import type { Sha256Digest } from "@openitr/model";
 
 const identityOf = async (
 	bytes: Uint8Array<ArrayBuffer>,
@@ -130,10 +131,22 @@ describe("equivalent Form 26AS text and spreadsheet fixtures", () => {
 
 		expect(
 			textOutcome.tdsObservations.map((observation) => observation.adapterId),
-		).toEqual(["form26as-text", "form26as-text", "form26as-text", "form26as-text", "form26as-text"]);
+		).toEqual([
+			"form26as-text",
+			"form26as-text",
+			"form26as-text",
+			"form26as-text",
+			"form26as-text",
+		]);
 		expect(
 			excelOutcome.tdsObservations.map((observation) => observation.adapterId),
-		).toEqual(["form26as-excel", "form26as-excel", "form26as-excel", "form26as-excel", "form26as-excel"]);
+		).toEqual([
+			"form26as-excel",
+			"form26as-excel",
+			"form26as-excel",
+			"form26as-excel",
+			"form26as-excel",
+		]);
 	});
 
 	test("each representation preserves its own evidence location", async () => {
@@ -167,7 +180,10 @@ describe("equivalent Form 26AS text and spreadsheet fixtures", () => {
 			observations
 				.filter((observation) => observation.factKey === "tds.tds-deposited")
 				.map((observation) => observation.normalizedValue)
-				.reduce((left, right) => addExactMoney(left, right), parseExactMoney("0"));
+				.reduce(
+					(left, right) => addExactMoney(left, right),
+					parseExactMoney("0"),
+				);
 
 		expect(depositedTotalOf(excelOutcome.tdsObservations)).toBe(
 			depositedTotalOf(textOutcome.tdsObservations),

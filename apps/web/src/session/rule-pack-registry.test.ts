@@ -1,8 +1,8 @@
 import {
 	createRulePackRevisionRegistry,
+	parseRulePackId,
 	parseTaxAnalysisModuleId,
 } from "@openitr/model";
-import { parseRulePackId } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import {

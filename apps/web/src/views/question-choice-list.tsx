@@ -35,7 +35,11 @@ export const QuestionChoiceList = ({
 			{options.map((option) => {
 				const optionId = `${name}-${option.value}`;
 				return (
-					<label className="openitr-question-choice" htmlFor={optionId} key={option.value}>
+					<label
+						className="openitr-question-choice"
+						htmlFor={optionId}
+						key={option.value}
+					>
 						<input
 							checked={value === option.value}
 							id={optionId}

@@ -1,3 +1,10 @@
+import type {
+	ExactMoney,
+	FactKey,
+	IssueCode,
+	RuleId,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	addExactMoney,
 	divideExactMoneyByWholeAndRound,
@@ -7,17 +14,12 @@ import {
 	parseIssueCode,
 	subtractExactMoney,
 } from "@openitr/model";
-import type {
-	ExactMoney,
-	FactKey,
-	IssueCode,
-	RuleId,
-	ScopeRulePack,
-} from "@openitr/model";
 
 const FACT_KEYS = Object.freeze({
 	dividends: parseFactKey("non-salary-income.dividends"),
-	otherInterest: parseFactKey("non-salary-income.interest-other-than-securities"),
+	otherInterest: parseFactKey(
+		"non-salary-income.interest-other-than-securities",
+	),
 	familyPension: parseFactKey("non-salary-income.family-pension"),
 });
 
@@ -101,7 +103,9 @@ export const computeOtherSources = ({
 	if (!applicable) return { kind: "not-applicable" };
 
 	const permittedFactKeys = new Set<FactKey>(Object.values(FACT_KEYS));
-	const unsupportedFact = facts.find((fact) => !permittedFactKeys.has(fact.factKey));
+	const unsupportedFact = facts.find(
+		(fact) => !permittedFactKeys.has(fact.factKey),
+	);
 	if (unsupportedFact !== undefined) {
 		return {
 			kind: "unsupported",
@@ -131,15 +135,27 @@ export const computeOtherSources = ({
 
 	const dividends = factsByKey.get(FACT_KEYS.dividends);
 	if (dividends === undefined) {
-		return missing("FACT_OTHER_SOURCES_DIVIDENDS_MISSING", FACT_KEYS.dividends, "the gross ordinary dividend amount");
+		return missing(
+			"FACT_OTHER_SOURCES_DIVIDENDS_MISSING",
+			FACT_KEYS.dividends,
+			"the gross ordinary dividend amount",
+		);
 	}
 	const otherInterest = factsByKey.get(FACT_KEYS.otherInterest);
 	if (otherInterest === undefined) {
-		return missing("FACT_OTHER_SOURCES_INTEREST_MISSING", FACT_KEYS.otherInterest, "the gross permitted other-interest amount");
+		return missing(
+			"FACT_OTHER_SOURCES_INTEREST_MISSING",
+			FACT_KEYS.otherInterest,
+			"the gross permitted other-interest amount",
+		);
 	}
 	const familyPension = factsByKey.get(FACT_KEYS.familyPension);
 	if (familyPension === undefined) {
-		return missing("FACT_OTHER_SOURCES_FAMILY_PENSION_MISSING", FACT_KEYS.familyPension, "the gross taxable family-pension amount");
+		return missing(
+			"FACT_OTHER_SOURCES_FAMILY_PENSION_MISSING",
+			FACT_KEYS.familyPension,
+			"the gross taxable family-pension amount",
+		);
 	}
 
 	const constants = rulePack.taxConstants?.otherSources;
@@ -156,8 +172,16 @@ export const computeOtherSources = ({
 
 	const categories: readonly OtherSourceCategory[] = [
 		{ kind: "dividends", factKey: FACT_KEYS.dividends, amount: dividends },
-		{ kind: "other-interest", factKey: FACT_KEYS.otherInterest, amount: otherInterest },
-		{ kind: "family-pension", factKey: FACT_KEYS.familyPension, amount: familyPension },
+		{
+			kind: "other-interest",
+			factKey: FACT_KEYS.otherInterest,
+			amount: otherInterest,
+		},
+		{
+			kind: "family-pension",
+			factKey: FACT_KEYS.familyPension,
+			amount: familyPension,
+		},
 	];
 	const grossTotal = categories.reduce<ExactMoney>(
 		(total, category) => addExactMoney(total, category.amount),
@@ -169,11 +193,15 @@ export const computeOtherSources = ({
 	);
 	const oldFamilyPensionDeduction = minExactMoney(
 		oneThirdFamilyPension,
-		exactMoneyFromWholeRupees(constants.oldRegimeFamilyPensionDeductionLimitWholeRupees),
+		exactMoneyFromWholeRupees(
+			constants.oldRegimeFamilyPensionDeductionLimitWholeRupees,
+		),
 	);
 	const newFamilyPensionDeduction = minExactMoney(
 		oneThirdFamilyPension,
-		exactMoneyFromWholeRupees(constants.newRegimeFamilyPensionDeductionLimitWholeRupees),
+		exactMoneyFromWholeRupees(
+			constants.newRegimeFamilyPensionDeductionLimitWholeRupees,
+		),
 	);
 	return {
 		kind: "computed",
@@ -188,12 +216,50 @@ export const computeOtherSources = ({
 			total: subtractExactMoney(grossTotal, newFamilyPensionDeduction),
 		},
 		trace: [
-			{ label: "Ordinary dividends", ruleId: constants.dividendRuleId, inputs: [FACT_KEYS.dividends], operation: "Include gross ordinary dividends", result: dividends },
-			{ label: "Other permitted interest", ruleId: constants.interestRuleId, inputs: [FACT_KEYS.otherInterest], operation: "Include permitted interest outside savings accounts and deposits", result: otherInterest },
-			{ label: "Family pension", ruleId: constants.familyPensionIncomeRuleId, inputs: [FACT_KEYS.familyPension], operation: "Include gross taxable family pension", result: familyPension },
-			{ label: "Old-regime family-pension deduction", ruleId: constants.oldRegimeFamilyPensionDeductionRuleId, inputs: [FACT_KEYS.familyPension], operation: `Divide by the pinned statutory divisor ${constants.familyPensionDeductionDivisor}, round to whole rupees, and apply the pinned old-regime limit`, result: oldFamilyPensionDeduction },
-			{ label: "New-regime family-pension deduction", ruleId: constants.newRegimeFamilyPensionDeductionRuleId, inputs: [FACT_KEYS.familyPension], operation: `Divide by the pinned statutory divisor ${constants.familyPensionDeductionDivisor}, round to whole rupees, and apply the pinned new-regime limit`, result: newFamilyPensionDeduction },
-			{ label: "Gross income from other sources", ruleId: constants.totalRuleId, inputs: Object.values(FACT_KEYS), operation: "Add each permitted category before the family-pension deduction", result: grossTotal },
+			{
+				label: "Ordinary dividends",
+				ruleId: constants.dividendRuleId,
+				inputs: [FACT_KEYS.dividends],
+				operation: "Include gross ordinary dividends",
+				result: dividends,
+			},
+			{
+				label: "Other permitted interest",
+				ruleId: constants.interestRuleId,
+				inputs: [FACT_KEYS.otherInterest],
+				operation:
+					"Include permitted interest outside savings accounts and deposits",
+				result: otherInterest,
+			},
+			{
+				label: "Family pension",
+				ruleId: constants.familyPensionIncomeRuleId,
+				inputs: [FACT_KEYS.familyPension],
+				operation: "Include gross taxable family pension",
+				result: familyPension,
+			},
+			{
+				label: "Old-regime family-pension deduction",
+				ruleId: constants.oldRegimeFamilyPensionDeductionRuleId,
+				inputs: [FACT_KEYS.familyPension],
+				operation: `Divide by the pinned statutory divisor ${constants.familyPensionDeductionDivisor}, round to whole rupees, and apply the pinned old-regime limit`,
+				result: oldFamilyPensionDeduction,
+			},
+			{
+				label: "New-regime family-pension deduction",
+				ruleId: constants.newRegimeFamilyPensionDeductionRuleId,
+				inputs: [FACT_KEYS.familyPension],
+				operation: `Divide by the pinned statutory divisor ${constants.familyPensionDeductionDivisor}, round to whole rupees, and apply the pinned new-regime limit`,
+				result: newFamilyPensionDeduction,
+			},
+			{
+				label: "Gross income from other sources",
+				ruleId: constants.totalRuleId,
+				inputs: Object.values(FACT_KEYS),
+				operation:
+					"Add each permitted category before the family-pension deduction",
+				result: grossTotal,
+			},
 		],
 	};
 };

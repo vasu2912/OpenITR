@@ -1,23 +1,19 @@
 import {
-	itr1Ay202627RulePack20260826,
-} from "@openitr/itr1-ay2026-27";
-import {
 	createAisCsvBankInterestFixture,
 	createAisJsonBankInterestFixture,
 	createForm16SalaryPdfFixture,
 	createForm26AsTextFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
+import { itr1Ay202627RulePack20260826 } from "@openitr/itr1-ay2026-27";
 import { describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
-import {
-	createSessionOrchestrator,
-} from "./session-orchestrator";
 import type {
 	SessionCommand,
 	SessionOrchestrator,
 } from "./session-orchestrator";
+import { createSessionOrchestrator } from "./session-orchestrator";
 
 const FIXED_SCOPE_TIME = "2026-08-30T08:00:00.000Z";
 const FIXED_ANSWER_TIME = "2026-08-30T08:05:00.000Z";
@@ -88,7 +84,9 @@ const waitForExtractions = async (
 	});
 
 const answerQuestion = (
-	questionId: "bank-interest-savings-account-total" | "bank-interest-deposits-total",
+	questionId:
+		| "bank-interest-savings-account-total"
+		| "bank-interest-deposits-total",
 	value: string,
 ): SessionCommand => ({
 	kind: "answer-missing-fact-question",
@@ -113,7 +111,9 @@ describe("progressive missing-fact questionnaire", () => {
 		if (snapshot.kind !== "document-intake") {
 			throw new Error("Expected the documents workflow");
 		}
-		expect(snapshot.questionnaire.questions.map((question) => question.id)).toEqual([
+		expect(
+			snapshot.questionnaire.questions.map((question) => question.id),
+		).toEqual([
 			"bank-interest-savings-account-total",
 			"bank-interest-deposits-total",
 		]);
@@ -177,8 +177,7 @@ describe("progressive missing-fact questionnaire", () => {
 										},
 										{
 											recordCategory: "DEPOSITS",
-											institutionName:
-												"OpenITR Synthetic Co-operative Bank",
+											institutionName: "OpenITR Synthetic Co-operative Bank",
 											maskedAccountNumber: "XXXXXX0002",
 											interestAmount: "45,678.90",
 										},
@@ -194,9 +193,9 @@ describe("progressive missing-fact questionnaire", () => {
 		const snapshot = session.getSnapshot();
 		expect(snapshot.kind).toBe("document-intake");
 		if (snapshot.kind === "document-intake") {
-			expect(snapshot.factConflicts.map((conflict) => conflict.factKey)).toEqual([
-				"bank-interest.savings-account",
-			]);
+			expect(
+				snapshot.factConflicts.map((conflict) => conflict.factKey),
+			).toEqual(["bank-interest.savings-account"]);
 			expect(snapshot.questionnaire.questions).toEqual([]);
 		}
 
@@ -213,7 +212,9 @@ describe("progressive missing-fact questionnaire", () => {
 		);
 		await waitForExtraction(session);
 
-		session.send(answerQuestion("bank-interest-savings-account-total", "4850.250"));
+		session.send(
+			answerQuestion("bank-interest-savings-account-total", "4850.250"),
+		);
 
 		const snapshot = session.getSnapshot();
 		expect(snapshot.kind).toBe("document-intake");
@@ -235,9 +236,9 @@ describe("progressive missing-fact questionnaire", () => {
 				answeredAt: FIXED_ANSWER_TIME,
 			},
 		]);
-		expect(snapshot.questionnaire.questions.map((question) => question.id)).toEqual([
-			"bank-interest-deposits-total",
-		]);
+		expect(
+			snapshot.questionnaire.questions.map((question) => question.id),
+		).toEqual(["bank-interest-deposits-total"]);
 		expect(snapshot.estimateComputation).toMatchObject({
 			kind: "blocked",
 			issues: expect.arrayContaining([
@@ -261,7 +262,9 @@ describe("progressive missing-fact questionnaire", () => {
 		);
 		await waitForExtraction(session);
 
-		session.send(answerQuestion("bank-interest-savings-account-total", "4850.25"));
+		session.send(
+			answerQuestion("bank-interest-savings-account-total", "4850.25"),
+		);
 		session.send(answerQuestion("bank-interest-deposits-total", "12000"));
 
 		const snapshot = session.getSnapshot();
@@ -293,7 +296,9 @@ describe("progressive missing-fact questionnaire", () => {
 		await waitForExtraction(session);
 
 		session.send(answerQuestion("bank-interest-deposits-total", "12000"));
-		session.send(answerQuestion("bank-interest-savings-account-total", "4850.25"));
+		session.send(
+			answerQuestion("bank-interest-savings-account-total", "4850.25"),
+		);
 
 		const snapshot = session.getSnapshot();
 		expect(snapshot.kind).toBe("document-intake");
@@ -316,7 +321,9 @@ describe("progressive missing-fact questionnaire", () => {
 			),
 		);
 		await waitForExtraction(session);
-		session.send(answerQuestion("bank-interest-savings-account-total", "4850.25"));
+		session.send(
+			answerQuestion("bank-interest-savings-account-total", "4850.25"),
+		);
 
 		const answered = session.getSnapshot();
 		if (answered.kind !== "document-intake") {
@@ -326,13 +333,18 @@ describe("progressive missing-fact questionnaire", () => {
 		if (answer === undefined) {
 			throw new Error("Expected a recorded answer");
 		}
-		session.send({ kind: "remove-missing-fact-answer", answerId: answer.answerId });
+		session.send({
+			kind: "remove-missing-fact-answer",
+			answerId: answer.answerId,
+		});
 
 		const snapshot = session.getSnapshot();
 		expect(snapshot.kind).toBe("document-intake");
 		if (snapshot.kind === "document-intake") {
 			expect(snapshot.factAnswers).toEqual([]);
-			expect(snapshot.questionnaire.questions.map((question) => question.id)).toEqual([
+			expect(
+				snapshot.questionnaire.questions.map((question) => question.id),
+			).toEqual([
 				"bank-interest-savings-account-total",
 				"bank-interest-deposits-total",
 			]);
@@ -391,8 +403,7 @@ describe("progressive missing-fact questionnaire", () => {
 										},
 										{
 											recordCategory: "DEPOSITS",
-											institutionName:
-												"OpenITR Synthetic Co-operative Bank",
+											institutionName: "OpenITR Synthetic Co-operative Bank",
 											maskedAccountNumber: "XXXXXX0002",
 											interestAmount: "45,678.90",
 										},
@@ -434,9 +445,7 @@ describe("progressive missing-fact questionnaire", () => {
 			expect(snapshot.estimateComputation.summary.bankInterestTotal).toBe(
 				"53678.9",
 			);
-			expect(
-				snapshot.estimateComputation.attestedFactContributions,
-			).toEqual([
+			expect(snapshot.estimateComputation.attestedFactContributions).toEqual([
 				expect.objectContaining({
 					origin: expect.objectContaining({ kind: "fact-resolution" }),
 					factKey: "bank-interest.savings-account",
@@ -460,7 +469,9 @@ describe("progressive missing-fact questionnaire", () => {
 		const before = session.getSnapshot();
 
 		expect(() =>
-			session.send(answerQuestion("bank-interest-savings-account-total", "1,200")),
+			session.send(
+				answerQuestion("bank-interest-savings-account-total", "1,200"),
+			),
 		).toThrow("invalid-value");
 		expect(session.getSnapshot()).toEqual(before);
 		session.stop();

@@ -2,19 +2,19 @@ import type {
 	DocumentExtractionOutcome,
 	InspectableSourceDocument,
 } from "@openitr/model";
-import { createExtractionRejectionOutcome } from "@openitr/model";
-import { parseDocumentKind, parseTemplateRevision } from "@openitr/model";
-
+import {
+	createExtractionRejectionOutcome,
+	parseDocumentKind,
+	parseTemplateRevision,
+} from "@openitr/model";
+import { decodeUtf8Strict } from "../extraction-support";
 import type {
 	AdapterVerdict,
 	DocumentAdapterManifest,
 	SourceDocumentAdapter,
 } from "../registry";
-import { decodeUtf8Strict } from "../extraction-support";
-import {
-	parsePrefilledItr1JsonRevision,
-} from "./prefilled-itr1-json-revision";
 import { extractPrefilledItr1Observations } from "./prefilled-itr1-json-extraction";
+import { parsePrefilledItr1JsonRevision } from "./prefilled-itr1-json-revision";
 
 export const PREFILLED_ITR1_JSON_MANIFEST: DocumentAdapterManifest =
 	Object.freeze({
@@ -44,17 +44,11 @@ export const createPrefilledItr1JsonAdapter = (): SourceDocumentAdapter => ({
 		try {
 			decoded = decodeUtf8Strict(input.bytes);
 		} catch {
-			return createExtractionRejectionOutcome(
-				"unknown-format",
-				input.identity,
-			);
+			return createExtractionRejectionOutcome("unknown-format", input.identity);
 		}
 		const revision = parsePrefilledItr1JsonRevision(decoded);
 		if (revision.kind === "unsupported") {
-			return createExtractionRejectionOutcome(
-				"unknown-format",
-				input.identity,
-			);
+			return createExtractionRejectionOutcome("unknown-format", input.identity);
 		}
 
 		const { salaryObservations, tdsObservations, issues } =

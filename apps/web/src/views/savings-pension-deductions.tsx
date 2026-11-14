@@ -3,13 +3,11 @@ import type {
 	SavingsPensionDeductionComputation,
 	SavingsPensionRegimeResult,
 } from "@openitr/itr1-ay2026-27";
-import {
-	Title,
-} from "@patternfly/react-core";
+import { Title } from "@patternfly/react-core";
 
 import { rupeeFormat } from "./computation-trace-view";
-import { IssueAlert } from "./plain-language";
 import { keyed } from "./keyed";
+import { IssueAlert } from "./plain-language";
 
 const personLabel: Readonly<
 	Record<SavingsPensionDeductionClaim["applicablePerson"], string>
@@ -43,7 +41,9 @@ const RegimeBreakdown = ({
 				<dd>₹ {rupeeFormat(result.sharedClaimed)}</dd>
 			</div>
 			<div>
-				<dt>{newRegime ? "Shared categories allowed" : "After shared limit"}</dt>
+				<dt>
+					{newRegime ? "Shared categories allowed" : "After shared limit"}
+				</dt>
 				<dd>₹ {rupeeFormat(result.sharedAllowed)}</dd>
 			</div>
 			<div>
@@ -74,54 +74,54 @@ export const SavingsPensionDeductionsView = ({
 	if (computation === undefined) return null;
 	return (
 		<section className="openitr-savings-pension-card">
-				<Title headingLevel="h2" size="lg">
-					Savings and pension-contribution deductions
-				</Title>
-				{computation.kind !== "computed" ? (
-					<IssueAlert issue={computation.issue} />
-				) : (
-					<>
-						{computation.issues.map((currentIssue) => (
-							<IssueAlert issue={currentIssue} key={String(currentIssue.code)} />
-						))}
-						{computation.claims.length === 0 ? (
-							<p>No savings or pension contribution was reported for this analysis.</p>
-						) : (
-							<>
-								<h3>Recorded category claims</h3>
-								<ul className="openitr-deduction-claims">
-									{computation.claims.map((claim) => (
-										<li key={claim.category}>
-											<strong>{claim.category}</strong>
-											<span>Claimed ₹ {rupeeFormat(claim.claimedAmount)}</span>
-											<span>{personLabel[claim.applicablePerson]}</span>
-											<small>{originLabel(claim)}</small>
-										</li>
-									))}
-								</ul>
-							</>
-						)}
-						<div className="openitr-deduction-regimes">
-							<RegimeBreakdown
-								newRegime={false}
-								result={computation.oldRegime}
-								title="Old-regime deduction"
-							/>
-							<RegimeBreakdown
-								newRegime
-								result={computation.newRegime}
-								title="New-regime deduction"
-							/>
-						</div>
-						{computation.trace.length === 0 ? null : (
-							<>
-								<p className="openitr-trace-heading">Cited computation trace</p>
-								<div className="openitr-trace-list">
-									{keyed(computation.trace, (node) => String(node.ruleId)).map(({ key, item: node }) => (
-										<details
-											className="openitr-trace-node"
-											key={key}
-										>
+			<Title headingLevel="h2" size="lg">
+				Savings and pension-contribution deductions
+			</Title>
+			{computation.kind !== "computed" ? (
+				<IssueAlert issue={computation.issue} />
+			) : (
+				<>
+					{computation.issues.map((currentIssue) => (
+						<IssueAlert issue={currentIssue} key={String(currentIssue.code)} />
+					))}
+					{computation.claims.length === 0 ? (
+						<p>
+							No savings or pension contribution was reported for this analysis.
+						</p>
+					) : (
+						<>
+							<h3>Recorded category claims</h3>
+							<ul className="openitr-deduction-claims">
+								{computation.claims.map((claim) => (
+									<li key={claim.category}>
+										<strong>{claim.category}</strong>
+										<span>Claimed ₹ {rupeeFormat(claim.claimedAmount)}</span>
+										<span>{personLabel[claim.applicablePerson]}</span>
+										<small>{originLabel(claim)}</small>
+									</li>
+								))}
+							</ul>
+						</>
+					)}
+					<div className="openitr-deduction-regimes">
+						<RegimeBreakdown
+							newRegime={false}
+							result={computation.oldRegime}
+							title="Old-regime deduction"
+						/>
+						<RegimeBreakdown
+							newRegime
+							result={computation.newRegime}
+							title="New-regime deduction"
+						/>
+					</div>
+					{computation.trace.length === 0 ? null : (
+						<>
+							<p className="openitr-trace-heading">Cited computation trace</p>
+							<div className="openitr-trace-list">
+								{keyed(computation.trace, (node) => String(node.ruleId)).map(
+									({ key, item: node }) => (
+										<details className="openitr-trace-node" key={key}>
 											<summary>
 												<strong>{node.label}</strong>
 												<span className="openitr-trace-node-value">
@@ -137,12 +137,13 @@ export const SavingsPensionDeductionsView = ({
 												<dd>{node.inputs.map(String).join(", ")}</dd>
 											</dl>
 										</details>
-									))}
-								</div>
-							</>
-						)}
-					</>
-				)}
+									),
+								)}
+							</div>
+						</>
+					)}
+				</>
+			)}
 		</section>
 	);
 };

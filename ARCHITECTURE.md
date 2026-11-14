@@ -234,15 +234,15 @@ A `PreparationReport` is the complete result of one deterministic analysis. It c
 
 Fact assembly keeps uncertainty visible.
 
-| State | Meaning | Downstream behavior |
-| --- | --- | --- |
-| `missing` | No observation or answer supplies the fact | Ask a relevant question or block the dependent result |
-| `observed` | One or more compatible observations supply the value | Accept the fact with all evidence links |
-| `answered` | The user supplies the value | Accept the fact with the question reference |
-| `resolved` | The user resolves conflicting sources | Accept the resolution and retain every source |
-| `derived` | A rule computes the value | Accept the result with a computation trace |
-| `conflicting` | Sources disagree and no resolution exists | Block dependent results |
-| `unsupported` | The available source cannot be interpreted safely | Block dependent results and identify the unsupported source |
+| State         | Meaning                                              | Downstream behavior                                         |
+| ------------- | ---------------------------------------------------- | ----------------------------------------------------------- |
+| `missing`     | No observation or answer supplies the fact           | Ask a relevant question or block the dependent result       |
+| `observed`    | One or more compatible observations supply the value | Accept the fact with all evidence links                     |
+| `answered`    | The user supplies the value                          | Accept the fact with the question reference                 |
+| `resolved`    | The user resolves conflicting sources                | Accept the resolution and retain every source               |
+| `derived`     | A rule computes the value                            | Accept the result with a computation trace                  |
+| `conflicting` | Sources disagree and no resolution exists            | Block dependent results                                     |
+| `unsupported` | The available source cannot be interpreted safely    | Block dependent results and identify the unsupported source |
 
 Two observations agree only after a cited normalization. For example, an adapter may normalize a date representation or remove formatting from a PAN. The observation keeps the original value and the normalization record.
 
@@ -488,13 +488,13 @@ An unresolved conflict blocks the rule-pack build. A newer web-page timestamp ca
 
 OpenITR uses the simplest representation that preserves reviewability.
 
-| Rule kind | Representation |
-| --- | --- |
-| Constants, slabs, dates, and limits | Typed data |
+| Rule kind                             | Representation                           |
+| ------------------------------------- | ---------------------------------------- |
+| Constants, slabs, dates, and limits   | Typed data                               |
 | Question visibility and applicability | Typed decision tables or pure predicates |
-| Tax computations | Pure TypeScript functions |
-| Cross-field validations | Structured rules or pure predicates |
-| Explanations | Metadata linked to a rule ID |
+| Tax computations                      | Pure TypeScript functions                |
+| Cross-field validations               | Structured rules or pure predicates      |
+| Explanations                          | Metadata linked to a rule ID             |
 
 The runtime uses no `eval`, dynamic function construction, or downloaded executable rule code.
 
@@ -775,20 +775,20 @@ Square styling cannot remove focus indicators or reduce target sizes.
 
 ## Technology choices
 
-| Concern | Choice | Architectural role |
-| --- | --- | --- |
-| Language | TypeScript in strict mode | Shared types and pure domain code |
-| UI runtime | React 19 | Browser views |
-| Design system | PatternFly 6 | Accessible enterprise UI patterns |
-| Workflow | XState 5 | Explicit session states and transitions |
-| Build | Vite | Static bundles, lazy chunks, and workers |
-| Workspace | pnpm workspaces | Package isolation and one lockfile |
-| PDF parser | PDF.js | Local PDF parsing and rendering |
-| Spreadsheet parser | SheetJS Community Edition | Local XLS and XLSX parsing |
-| Exact arithmetic | `decimal.js` | Exact decimal operations and explicit rounding |
-| Hashing | Web Crypto SHA-256 | File and rule-asset identities |
-| Unit and property tests | Vitest and fast-check | Pure rule and invariant verification |
-| Browser tests | Playwright | Cross-browser workflow, privacy, and accessibility tests |
+| Concern                 | Choice                    | Architectural role                                       |
+| ----------------------- | ------------------------- | -------------------------------------------------------- |
+| Language                | TypeScript in strict mode | Shared types and pure domain code                        |
+| UI runtime              | React 19                  | Browser views                                            |
+| Design system           | PatternFly 6              | Accessible enterprise UI patterns                        |
+| Workflow                | XState 5                  | Explicit session states and transitions                  |
+| Build                   | Vite                      | Static bundles, lazy chunks, and workers                 |
+| Workspace               | pnpm workspaces           | Package isolation and one lockfile                       |
+| PDF parser              | PDF.js                    | Local PDF parsing and rendering                          |
+| Spreadsheet parser      | SheetJS Community Edition | Local XLS and XLSX parsing                               |
+| Exact arithmetic        | `decimal.js`              | Exact decimal operations and explicit rounding           |
+| Hashing                 | Web Crypto SHA-256        | File and rule-asset identities                           |
+| Unit and property tests | Vitest and fast-check     | Pure rule and invariant verification                     |
+| Browser tests           | Playwright                | Cross-browser workflow, privacy, and accessibility tests |
 
 Exact package versions belong to the lockfile and dependency policy. The architecture names package families, not permanent versions.
 
@@ -972,20 +972,20 @@ The application loads a release manifest, pins a tax-analysis-module hash for th
 
 ## Architectural decisions
 
-| Decision | Reason | Consequence |
-| --- | --- | --- |
-| Analysis-only product | OpenITR is an educational side project | No filing artifact, portal integration, or upload-ready claim exists |
-| Static browser application | Taxpayer files can remain local | Cross-device resume and server-side recovery are unavailable |
-| Progressive questionnaire | Documents can answer many questions | The question graph must react to extracted facts |
-| Canonical tax facts | Official forms and rules change every year | A form-specific tax-analysis module translates annual semantics |
-| Fail-closed document adapters | Silent extraction errors are unacceptable | Unsupported templates require new adapters |
-| Immutable rule packs | Official artifacts can change after release | Sessions pin a pack and releases retain old packs |
-| Pure tax engine | Determinism and testing matter more than framework convenience | Browser and UI code stay outside calculations |
-| Web Workers | PDF and workbook parsing can be expensive | Worker messages require typed contracts and cancellation |
-| Memory-only taxpayer state | Refresh must discard the session | Users cannot resume a lost or refreshed session |
-| Build-time extension registry | Runtime code loading weakens review and security | New code extensions require a static release |
-| Read-only insights | Analytics must not change accepted facts or calculations | The cited analysis engine stays authoritative |
-| Permissive license allowlist | The chosen parsers and fonts are not all MIT | Releases must preserve third-party notices |
+| Decision                      | Reason                                                         | Consequence                                                          |
+| ----------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Analysis-only product         | OpenITR is an educational side project                         | No filing artifact, portal integration, or upload-ready claim exists |
+| Static browser application    | Taxpayer files can remain local                                | Cross-device resume and server-side recovery are unavailable         |
+| Progressive questionnaire     | Documents can answer many questions                            | The question graph must react to extracted facts                     |
+| Canonical tax facts           | Official forms and rules change every year                     | A form-specific tax-analysis module translates annual semantics      |
+| Fail-closed document adapters | Silent extraction errors are unacceptable                      | Unsupported templates require new adapters                           |
+| Immutable rule packs          | Official artifacts can change after release                    | Sessions pin a pack and releases retain old packs                    |
+| Pure tax engine               | Determinism and testing matter more than framework convenience | Browser and UI code stay outside calculations                        |
+| Web Workers                   | PDF and workbook parsing can be expensive                      | Worker messages require typed contracts and cancellation             |
+| Memory-only taxpayer state    | Refresh must discard the session                               | Users cannot resume a lost or refreshed session                      |
+| Build-time extension registry | Runtime code loading weakens review and security               | New code extensions require a static release                         |
+| Read-only insights            | Analytics must not change accepted facts or calculations       | The cited analysis engine stays authoritative                        |
+| Permissive license allowlist  | The chosen parsers and fonts are not all MIT                   | Releases must preserve third-party notices                           |
 
 ## Rejected alternatives
 

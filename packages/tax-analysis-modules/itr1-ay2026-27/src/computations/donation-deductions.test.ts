@@ -1,13 +1,12 @@
+import { exactMoneyFromWholeRupees, parseFactKey } from "@openitr/model";
 import { describe, expect, it } from "vitest";
 
-import { exactMoneyFromWholeRupees, parseFactKey } from "@openitr/model";
-
 import { itr1Ay202627RulePack20260912 } from "../revisions/2026-09-12/rule-pack";
+import type { DonationDeductionFact } from "./donation-deductions";
 import {
 	computeDonationDeductions,
 	DONATION_DEDUCTION_FACT_KEYS as KEYS,
 } from "./donation-deductions";
-import type { DonationDeductionFact } from "./donation-deductions";
 
 const origin = Object.freeze({
 	kind: "attested-answer" as const,

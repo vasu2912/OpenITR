@@ -1,7 +1,4 @@
-import {
-	Alert,
-	Title,
-} from "@patternfly/react-core";
+import { Alert, Title } from "@patternfly/react-core";
 
 import type {
 	AnalysisAmount,
@@ -55,10 +52,7 @@ const IncomeChart = ({
 				{items.map((item) => (
 					<li key={item.id}>
 						<span className="openitr-income-chart-label">{item.label}</span>
-						<span
-							aria-hidden="true"
-							className="openitr-income-chart-track"
-						>
+						<span aria-hidden="true" className="openitr-income-chart-track">
 							<span
 								className="openitr-income-chart-bar"
 								style={{
@@ -83,98 +77,112 @@ export const CompleteAnalyticsView = ({
 	const current = report.currentYear;
 	return (
 		<section className="openitr-complete-analytics">
-				<Title headingLevel="h2" size="lg">
-					Complete analysis
-				</Title>
-				<Alert isInline title={`${regimeLabel(report.regime)} selected`} variant="info">
-					All current-year values below come from fact-set revision {report.factSetRevision} and rule-pack revision {report.rulePackRevision}. Change the primary scenario above to rebuild this report from the other completed computation.
-				</Alert>
+			<Title headingLevel="h2" size="lg">
+				Complete analysis
+			</Title>
+			<Alert
+				isInline
+				title={`${regimeLabel(report.regime)} selected`}
+				variant="info"
+			>
+				All current-year values below come from fact-set revision{" "}
+				{report.factSetRevision} and rule-pack revision{" "}
+				{report.rulePackRevision}. Change the primary scenario above to rebuild
+				this report from the other completed computation.
+			</Alert>
 
-				<section aria-labelledby="analysis-income-heading">
-					<h3 id="analysis-income-heading">Current-year income composition</h3>
-					<IncomeChart items={current.incomeComposition} />
-					<dl className="openitr-analysis-amounts">
-						{current.incomeComposition.map((item) => (
-							<AmountRow item={item} key={item.id} />
-						))}
-					</dl>
-				</section>
+			<section aria-labelledby="analysis-income-heading">
+				<h3 id="analysis-income-heading">Current-year income composition</h3>
+				<IncomeChart items={current.incomeComposition} />
+				<dl className="openitr-analysis-amounts">
+					{current.incomeComposition.map((item) => (
+						<AmountRow item={item} key={item.id} />
+					))}
+				</dl>
+			</section>
 
-				<section aria-labelledby="analysis-result-heading">
-					<h3 id="analysis-result-heading">Current-year tax summary</h3>
-					<dl className="openitr-analysis-amounts openitr-analysis-result-grid">
-						<AmountRow item={current.taxableIncome} />
-						<AmountRow item={current.totalTaxLiability} />
-						<AmountRow item={current.taxesPaid} />
-						<AmountRow item={current.estimatedBalance} />
-					</dl>
-				</section>
+			<section aria-labelledby="analysis-result-heading">
+				<h3 id="analysis-result-heading">Current-year tax summary</h3>
+				<dl className="openitr-analysis-amounts openitr-analysis-result-grid">
+					<AmountRow item={current.taxableIncome} />
+					<AmountRow item={current.totalTaxLiability} />
+					<AmountRow item={current.taxesPaid} />
+					<AmountRow item={current.estimatedBalance} />
+				</dl>
+			</section>
 
-				<section aria-labelledby="analysis-deductions-heading">
-					<h3 id="analysis-deductions-heading">Current-year deduction use</h3>
-					<dl className="openitr-analysis-amounts">
-						{current.deductions.map((item) => (
-							<AmountRow item={item} key={item.id} />
-						))}
-					</dl>
-				</section>
+			<section aria-labelledby="analysis-deductions-heading">
+				<h3 id="analysis-deductions-heading">Current-year deduction use</h3>
+				<dl className="openitr-analysis-amounts">
+					{current.deductions.map((item) => (
+						<AmountRow item={item} key={item.id} />
+					))}
+				</dl>
+			</section>
 
-				<section aria-labelledby="analysis-adjustments-heading">
-					<h3 id="analysis-adjustments-heading">
-						Current-year limits and exclusions
-					</h3>
-					{current.adjustments.length === 0 ? (
-						<p>No deduction or loss amount was limited or excluded in this selected scenario.</p>
-					) : (
-						<ul className="openitr-analysis-adjustments">
-							{current.adjustments.map((item) => (
-								<li key={item.id}>
-									<strong>{item.label}: </strong>
-									<a href={`#${item.traceTargetId}`}>
-										₹ {rupeeFormat(item.affectedAmount)}
-									</a>
-									<p>{item.explanation}</p>
-									<p>
-										Rule {item.ruleId} · revision {item.rulePackRevision} ·{" "}
-										<a href={`#${item.traceTargetId}`}>Computation trace</a>
-										{item.evidenceTargetIds.map((targetId, index) => (
-											<span key={targetId}>
-												{" · "}
-												<a href={`#${targetId}`}>Evidence {index + 1}</a>
-											</span>
-										))}
-									</p>
-								</li>
-							))}
-						</ul>
-					)}
-				</section>
-
-				<section
-					aria-labelledby="future-planning-heading"
-					className="openitr-future-planning"
-				>
-					<h3 id="future-planning-heading">Future-year planning ideas</h3>
+			<section aria-labelledby="analysis-adjustments-heading">
+				<h3 id="analysis-adjustments-heading">
+					Current-year limits and exclusions
+				</h3>
+				{current.adjustments.length === 0 ? (
 					<p>
-						These conditional ideas apply only to a future financial year. They do not alter the FY 2025-26 facts, computation, liability, refund, or amount payable above.
+						No deduction or loss amount was limited or excluded in this selected
+						scenario.
 					</p>
-					<ul>
-						{report.futurePlanning.map((idea) => (
-							<li key={idea.id}>
-								<strong>{idea.title}</strong>
+				) : (
+					<ul className="openitr-analysis-adjustments">
+						{current.adjustments.map((item) => (
+							<li key={item.id}>
+								<strong>{item.label}: </strong>
+								<a href={`#${item.traceTargetId}`}>
+									₹ {rupeeFormat(item.affectedAmount)}
+								</a>
+								<p>{item.explanation}</p>
 								<p>
-									<strong>Condition:</strong> {idea.condition}.
+									Rule {item.ruleId} · revision {item.rulePackRevision} ·{" "}
+									<a href={`#${item.traceTargetId}`}>Computation trace</a>
+									{item.evidenceTargetIds.map((targetId, index) => (
+										<span key={targetId}>
+											{" · "}
+											<a href={`#${targetId}`}>Evidence {index + 1}</a>
+										</span>
+									))}
 								</p>
-								<p>{idea.explanation}</p>
-								{idea.ruleReference === undefined ? null : (
-									<p>
-										Current rule reference: {idea.ruleReference.ruleId} · revision {idea.ruleReference.rulePackRevision}. Recheck the published rule for the future year.
-									</p>
-								)}
 							</li>
 						))}
 					</ul>
-				</section>
+				)}
+			</section>
+
+			<section
+				aria-labelledby="future-planning-heading"
+				className="openitr-future-planning"
+			>
+				<h3 id="future-planning-heading">Future-year planning ideas</h3>
+				<p>
+					These conditional ideas apply only to a future financial year. They do
+					not alter the FY 2025-26 facts, computation, liability, refund, or
+					amount payable above.
+				</p>
+				<ul>
+					{report.futurePlanning.map((idea) => (
+						<li key={idea.id}>
+							<strong>{idea.title}</strong>
+							<p>
+								<strong>Condition:</strong> {idea.condition}.
+							</p>
+							<p>{idea.explanation}</p>
+							{idea.ruleReference === undefined ? null : (
+								<p>
+									Current rule reference: {idea.ruleReference.ruleId} · revision{" "}
+									{idea.ruleReference.rulePackRevision}. Recheck the published
+									rule for the future year.
+								</p>
+							)}
+						</li>
+					))}
+				</ul>
+			</section>
 		</section>
 	);
 };

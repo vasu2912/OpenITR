@@ -1,3 +1,10 @@
+import type {
+	ExactMoney,
+	FactKey,
+	IssueCode,
+	RuleId,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	addExactMoney,
 	compareExactMoney,
@@ -6,13 +13,6 @@ import {
 	multiplyByWholePercent,
 	parseFactKey,
 	parseIssueCode,
-} from "@openitr/model";
-import type {
-	ExactMoney,
-	FactKey,
-	IssueCode,
-	RuleId,
-	ScopeRulePack,
 } from "@openitr/model";
 import { requireFact } from "./require-fact";
 
@@ -237,7 +237,9 @@ export const computeSavingsPensionDeductions = ({
 		FACT_KEYS.section80ccd2Government,
 		FACT_KEYS.section80ccd2Other,
 	] as const;
-	const missing = amountKeys.filter((factKey) => requiredMoney(byKey, factKey) === undefined);
+	const missing = amountKeys.filter(
+		(factKey) => requiredMoney(byKey, factKey) === undefined,
+	);
 	if (requiredBoolean(byKey, FACT_KEYS.proofAvailable) === undefined) {
 		missing.push(FACT_KEYS.proofAvailable);
 	}
@@ -253,15 +255,30 @@ export const computeSavingsPensionDeductions = ({
 		};
 	}
 
-	const section80c = requireFact(requiredMoney(byKey, FACT_KEYS.section80c), FACT_KEYS.section80c);
-	const section80ccc = requireFact(requiredMoney(byKey, FACT_KEYS.section80ccc), FACT_KEYS.section80ccc);
-	const section80ccd1 = requireFact(requiredMoney(byKey, FACT_KEYS.section80ccd1), FACT_KEYS.section80ccd1);
-	const section80ccd1b = requireFact(requiredMoney(byKey, FACT_KEYS.section80ccd1b), FACT_KEYS.section80ccd1b);
+	const section80c = requireFact(
+		requiredMoney(byKey, FACT_KEYS.section80c),
+		FACT_KEYS.section80c,
+	);
+	const section80ccc = requireFact(
+		requiredMoney(byKey, FACT_KEYS.section80ccc),
+		FACT_KEYS.section80ccc,
+	);
+	const section80ccd1 = requireFact(
+		requiredMoney(byKey, FACT_KEYS.section80ccd1),
+		FACT_KEYS.section80ccd1,
+	);
+	const section80ccd1b = requireFact(
+		requiredMoney(byKey, FACT_KEYS.section80ccd1b),
+		FACT_KEYS.section80ccd1b,
+	);
 	const governmentEmployer = requireFact(
 		requiredMoney(byKey, FACT_KEYS.section80ccd2Government),
 		FACT_KEYS.section80ccd2Government,
 	);
-	const otherEmployer = requireFact(requiredMoney(byKey, FACT_KEYS.section80ccd2Other), FACT_KEYS.section80ccd2Other);
+	const otherEmployer = requireFact(
+		requiredMoney(byKey, FACT_KEYS.section80ccd2Other),
+		FACT_KEYS.section80ccd2Other,
+	);
 	const zero = exactMoneyFromWholeRupees(0);
 
 	let section80ccd1Allowed = zero;
@@ -360,10 +377,22 @@ export const computeSavingsPensionDeductions = ({
 		};
 	}
 
-	const oldGovernmentEmployerAllowance = requireFact(oldGovernmentEmployerAllowed, FACT_KEYS.section80ccd2GovernmentSalaryBase);
-	const oldOtherEmployerAllowance = requireFact(oldOtherEmployerAllowed, FACT_KEYS.section80ccd2OtherSalaryBase);
-	const newGovernmentEmployerAllowance = requireFact(newGovernmentEmployerAllowed, FACT_KEYS.section80ccd2GovernmentSalaryBase);
-	const newOtherEmployerAllowance = requireFact(newOtherEmployerAllowed, FACT_KEYS.section80ccd2OtherSalaryBase);
+	const oldGovernmentEmployerAllowance = requireFact(
+		oldGovernmentEmployerAllowed,
+		FACT_KEYS.section80ccd2GovernmentSalaryBase,
+	);
+	const oldOtherEmployerAllowance = requireFact(
+		oldOtherEmployerAllowed,
+		FACT_KEYS.section80ccd2OtherSalaryBase,
+	);
+	const newGovernmentEmployerAllowance = requireFact(
+		newGovernmentEmployerAllowed,
+		FACT_KEYS.section80ccd2GovernmentSalaryBase,
+	);
+	const newOtherEmployerAllowance = requireFact(
+		newOtherEmployerAllowed,
+		FACT_KEYS.section80ccd2OtherSalaryBase,
+	);
 
 	const sharedClaimed = sum([section80c, section80ccc, section80ccd1Allowed]);
 	const sharedAllowed = minExactMoney(
@@ -428,7 +457,10 @@ export const computeSavingsPensionDeductions = ({
 	const anyPositive = claims.some(
 		(candidate) => compareExactMoney(candidate.claimedAmount, zero) > 0,
 	);
-	const proofAvailable = requireFact(requiredBoolean(byKey, FACT_KEYS.proofAvailable), FACT_KEYS.proofAvailable);
+	const proofAvailable = requireFact(
+		requiredBoolean(byKey, FACT_KEYS.proofAvailable),
+		FACT_KEYS.proofAvailable,
+	);
 	const issues =
 		anyPositive && !proofAvailable
 			? [

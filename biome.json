@@ -82,7 +82,13 @@
 	},
 	"overrides": [
 		{
-			"includes": ["**/*.test.ts", "**/*.test.mjs", "tests/**", "**/testing.ts", "**/fixtures/**"],
+			"includes": [
+				"**/*.test.ts",
+				"**/*.test.mjs",
+				"tests/**",
+				"**/testing.ts",
+				"**/fixtures/**"
+			],
 			"linter": {
 				"rules": {
 					"suspicious": { "noConsole": "off", "noExplicitAny": "warn" },

@@ -15,7 +15,9 @@ import {
 const bufferOf = (bytes: Uint8Array<ArrayBuffer>): Buffer =>
 	Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
-const selectAllThreeDocuments = async (page: import("@playwright/test").Page) => {
+const selectAllThreeDocuments = async (
+	page: import("@playwright/test").Page,
+) => {
 	await selectSourceFiles(page, [
 		{
 			name: "openitr-sentinel-form16-salary.pdf",
@@ -60,7 +62,9 @@ test.describe("estimated refund or amount payable", () => {
 		).toHaveCount(0);
 
 		await expect(
-			estimateSection.getByText("Taxes paid (TDS deposits and challan payments)"),
+			estimateSection.getByText(
+				"Taxes paid (TDS deposits and challan payments)",
+			),
 		).toBeVisible();
 		await expect(
 			estimateSection.getByText("Accepted bank interest"),
@@ -70,15 +74,17 @@ test.describe("estimated refund or amount payable", () => {
 			estimateSection.getByText("Source evidence behind the estimate"),
 		).toBeVisible();
 		await expect(
-			estimateSection.getByText("How much savings-account interest did you receive in FY 2025-26?").first(),
+			estimateSection
+				.getByText(
+					"How much savings-account interest did you receive in FY 2025-26?",
+				)
+				.first(),
 		).toBeVisible();
 		await expect(
 			estimateSection.getByText("TDS deposited").first(),
 		).toBeVisible();
 
-		const traceHeading = estimateSection.getByText(
-			/How this was calculated/,
-		);
+		const traceHeading = estimateSection.getByText(/How this was calculated/);
 		await expect(traceHeading).toBeVisible();
 	});
 
@@ -103,8 +109,6 @@ test.describe("estimated refund or amount payable", () => {
 			{ timeout: 30_000 },
 		);
 		await expect(estimateSection).toContainText("FACT_TDS_EVIDENCE_REQUIRED");
-		await expect(
-			estimateSection.getByText(/need review first/i),
-		).toBeVisible();
+		await expect(estimateSection.getByText(/need review first/i)).toBeVisible();
 	});
 });

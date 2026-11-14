@@ -1,16 +1,15 @@
+import type { Sha256Digest } from "@openitr/model";
 import {
 	computeSourceDocumentIdentity,
 	DOCUMENT_ISSUE_CODES,
 } from "@openitr/model";
-import type { Sha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
-
+import { createDocumentInspectionRegistry } from "./registry";
 import {
 	createForm26AsExcelFixture,
 	createForm26AsTextFixture,
 	utf8Bytes,
 } from "./testing";
-import { createDocumentInspectionRegistry } from "./registry";
 
 const copyBytes = (source: Uint8Array): Uint8Array<ArrayBuffer> => {
 	const out = new Uint8Array(new ArrayBuffer(source.length));
@@ -61,10 +60,14 @@ describe("registry inspection of Form 26AS spreadsheet exports", () => {
 		});
 
 		expect(
-			excelOutcome.kind === "identified" ? excelOutcome.adapter.adapterId : undefined,
+			excelOutcome.kind === "identified"
+				? excelOutcome.adapter.adapterId
+				: undefined,
 		).toBe("form26as-excel");
 		expect(
-			textOutcome.kind === "identified" ? textOutcome.adapter.adapterId : undefined,
+			textOutcome.kind === "identified"
+				? textOutcome.adapter.adapterId
+				: undefined,
 		).toBe("form26as-text");
 	});
 
@@ -97,9 +100,7 @@ describe("registry inspection of Form 26AS spreadsheet exports", () => {
 		if (outcome.kind === "extracted") {
 			expect(outcome.tdsObservations).toHaveLength(5);
 			expect(
-				outcome.tdsObservations.map(
-					(observation) => observation.adapterId,
-				),
+				outcome.tdsObservations.map((observation) => observation.adapterId),
 			).toEqual([
 				"form26as-excel",
 				"form26as-excel",

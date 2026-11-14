@@ -14,10 +14,9 @@ import {
 	parseFactKey,
 	parseRuleId,
 } from "@openitr/model";
-
-import type { GroupedRupeeAmount } from "./grouped-rupee-amount";
 import type { AdapterIdentity } from "./extraction-support";
 import { compareByCodepoint } from "./extraction-support";
+import type { GroupedRupeeAmount } from "./grouped-rupee-amount";
 
 export type BankInterestCategoryDefinition = Readonly<{
 	category: string;
@@ -177,33 +176,34 @@ export const foldCanonicalBankInterestRecords = ({
 		});
 	}
 
-	const observations = keptRecords.map((record) => ({
-		observationId: `${record.categoryDefinition.factKey}@${sourceDocumentId}:${record.observationIdKey}`,
-		factKey: record.categoryDefinition.factKey,
-		sourceDocumentId,
-		adapterId: adapter.adapterId,
-		adapterVersion: adapter.adapterVersion,
-		originalValue: record.originalValue,
-		normalizedValue: record.amount.value,
-		transformationSteps: record.amount.steps,
-		evidence: record.evidence,
-		ruleCitation: {
-			ruleId: record.categoryDefinition.ruleId,
-			description: record.categoryDefinition.description,
-		},
-		record: {
-			institutionName: record.institutionName,
-			maskedAccountNumber: record.maskedAccountNumber,
-		},
-	}) satisfies BankInterestObservation);
+	const observations = keptRecords.map(
+		(record) =>
+			({
+				observationId: `${record.categoryDefinition.factKey}@${sourceDocumentId}:${record.observationIdKey}`,
+				factKey: record.categoryDefinition.factKey,
+				sourceDocumentId,
+				adapterId: adapter.adapterId,
+				adapterVersion: adapter.adapterVersion,
+				originalValue: record.originalValue,
+				normalizedValue: record.amount.value,
+				transformationSteps: record.amount.steps,
+				evidence: record.evidence,
+				ruleCitation: {
+					ruleId: record.categoryDefinition.ruleId,
+					description: record.categoryDefinition.description,
+				},
+				record: {
+					institutionName: record.institutionName,
+					maskedAccountNumber: record.maskedAccountNumber,
+				},
+			}) satisfies BankInterestObservation,
+	);
 
 	return {
 		observations,
 		issues: issues
 			.map((issue) => ({ issue, key: issueOrderKey(issue) }))
-			.sort((first, second) =>
-				compareByCodepoint(first.key, second.key),
-			)
+			.sort((first, second) => compareByCodepoint(first.key, second.key))
 			.map((entry) => entry.issue),
 	};
 };

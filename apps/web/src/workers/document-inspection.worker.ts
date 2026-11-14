@@ -1,3 +1,4 @@
+import { createDocumentInspectionRegistry } from "@openitr/document-adapters";
 import type {
 	DocumentExtractionOutcome,
 	DocumentInspectionOutcome,
@@ -7,7 +8,6 @@ import {
 	createExtractionRejectionOutcome,
 	createInspectionFailedOutcome,
 } from "@openitr/model";
-import { createDocumentInspectionRegistry } from "@openitr/document-adapters";
 
 export type InspectionWorkerRequest =
 	| Readonly<{
@@ -21,9 +21,7 @@ export type InspectionWorkerResponse =
 	| Readonly<{
 			type: "outcome" | "observations";
 			requestId: number;
-			payload:
-				| DocumentInspectionOutcome
-				| DocumentExtractionOutcome;
+			payload: DocumentInspectionOutcome | DocumentExtractionOutcome;
 	  }>
 	| Readonly<{ type: "cancelled"; requestId: number }>;
 

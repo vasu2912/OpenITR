@@ -3,8 +3,8 @@ import { itr1Ay202627RulePack20260910 as rulePack } from "@openitr/itr1-ay2026-2
 import { afterEach, describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
-import { createSessionOrchestrator } from "./session-orchestrator";
 import type { SessionOrchestrator } from "./session-orchestrator";
+import { createSessionOrchestrator } from "./session-orchestrator";
 
 const answerTime = "2099-01-01T00:00:00.000Z";
 const sessions: SessionOrchestrator[] = [];
@@ -97,7 +97,9 @@ describe("health and disability deductions through the public session", () => {
 	test("asks each category and accepts explicit No answers", async () => {
 		const session = await startDocuments();
 		expect(
-			snapshotOf(session).questionnaire.questions.map((question) => question.id),
+			snapshotOf(session).questionnaire.questions.map(
+				(question) => question.id,
+			),
 		).toEqual(
 			expect.arrayContaining([
 				"deduction-80d-present",
@@ -109,7 +111,9 @@ describe("health and disability deductions through the public session", () => {
 
 		answer(session, "deduction-80d-present", "no");
 		answerOtherCategoriesNo(session);
-		expect(snapshotOf(session).healthDisabilityDeductionComputation).toMatchObject({
+		expect(
+			snapshotOf(session).healthDisabilityDeductionComputation,
+		).toMatchObject({
 			kind: "computed",
 			categories: [],
 			oldRegimeTotal: "0",
@@ -147,7 +151,8 @@ describe("health and disability deductions through the public session", () => {
 		});
 		expect(
 			snapshot.factAnswers.find(
-				(candidate) => candidate.questionId === "deduction-80d-self-family-premium",
+				(candidate) =>
+					candidate.questionId === "deduction-80d-self-family-premium",
 			),
 		).toMatchObject({
 			questionRevision: "2026-09-10",
@@ -166,7 +171,9 @@ describe("health and disability deductions through the public session", () => {
 		answer(session, "deduction-80u-present", "yes");
 		answer(session, "deduction-80u-severe", "yes");
 		answer(session, "deduction-80u-certificate", "no");
-		expect(snapshotOf(session).healthDisabilityDeductionComputation).toMatchObject({
+		expect(
+			snapshotOf(session).healthDisabilityDeductionComputation,
+		).toMatchObject({
 			kind: "blocked",
 			issues: [{ code: "FACT_80U_CERTIFICATE_REQUIRED", category: "80U" }],
 		});

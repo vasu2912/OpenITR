@@ -1,3 +1,11 @@
+import type {
+	AttestedAnswer,
+	CompiledNewRegimeTaxConstants,
+	EligibilityAnswerValue,
+	ExactMoney,
+	FactKey,
+	RuleId,
+} from "@openitr/model";
 import {
 	addExactMoney,
 	compareExactMoney,
@@ -8,14 +16,6 @@ import {
 	parseFactKey,
 	roundToNearestMultipleOf,
 	subtractExactMoney,
-} from "@openitr/model";
-import type {
-	AttestedAnswer,
-	CompiledNewRegimeTaxConstants,
-	EligibilityAnswerValue,
-	ExactMoney,
-	FactKey,
-	RuleId,
 } from "@openitr/model";
 
 const ZERO = exactMoneyFromWholeRupees(0);
@@ -189,7 +189,8 @@ export const buildNewRegimeLiabilityNodes = ({
 	residentAnswer,
 }: LiabilityBuilderInput): NewRegimeLiabilityBuild => {
 	const nodes: ComputationNodeDraft[] = [];
-	const incomeNode = () => nodeInput(TOTAL_INCOME_ROUNDED_NODE_ID, roundedIncomeValue);
+	const incomeNode = () =>
+		nodeInput(TOTAL_INCOME_ROUNDED_NODE_ID, roundedIncomeValue);
 	const normalRateIncomeNode = () =>
 		nodeInput(normalRateIncomeNodeId, normalRateIncomeValue);
 	const section112aTaxValue = section112aTax?.value ?? ZERO;
@@ -375,19 +376,13 @@ export const buildNewRegimeLiabilityNodes = ({
 				: ZERO,
 		);
 		const taxAtThreshold = addExactMoney(
-			progressiveSlabTaxOn(
-				normalRateIncomeAtThreshold,
-				constants.slabBands,
-			),
+			progressiveSlabTaxOn(normalRateIncomeAtThreshold, constants.slabBands),
 			section112aTaxValue,
 		);
 		const surchargeAtPreviousTier =
 			previousThreshold === undefined
 				? ZERO
-				: multiplyByWholePercent(
-						taxAtThreshold,
-						previousThreshold.ratePercent,
-					);
+				: multiplyByWholePercent(taxAtThreshold, previousThreshold.ratePercent);
 		const rawSurcharge = multiplyByWholePercent(
 			taxAfterAdjustmentsValue,
 			activeTier.ratePercent,
@@ -446,10 +441,7 @@ export const buildNewRegimeLiabilityNodes = ({
 	});
 
 	const cessBase = addExactMoney(taxAfterAdjustmentsValue, surchargeValue);
-	const cessValue = multiplyByWholePercent(
-		cessBase,
-		constants.cessRatePercent,
-	);
+	const cessValue = multiplyByWholePercent(cessBase, constants.cessRatePercent);
 	const cessNodeId = parseFactKey("derived.health-and-education-cess");
 	nodes.push({
 		nodeId: cessNodeId,

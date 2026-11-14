@@ -1,3 +1,10 @@
+import type {
+	ExactMoney,
+	FactKey,
+	IssueCode,
+	RuleId,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	addExactMoney,
 	compareExactMoney,
@@ -8,13 +15,6 @@ import {
 	parseFactKey,
 	parseIssueCode,
 	subtractExactMoney,
-} from "@openitr/model";
-import type {
-	ExactMoney,
-	FactKey,
-	IssueCode,
-	RuleId,
-	ScopeRulePack,
 } from "@openitr/model";
 
 export type HousePropertyNumber = 1 | 2;
@@ -81,7 +81,10 @@ export type ComputedHouseProperty = Readonly<{
 
 export type HousePropertyComputation =
 	| Readonly<{ kind: "not-applicable" }>
-	| Readonly<{ kind: "blocked" | "unsupported"; issue: HousePropertyComputationIssue }>
+	| Readonly<{
+			kind: "blocked" | "unsupported";
+			issue: HousePropertyComputationIssue;
+	  }>
 	| Readonly<{
 			kind: "computed";
 			properties: readonly ComputedHouseProperty[];
@@ -139,7 +142,10 @@ const addSigned = (
 	right: SignedHousePropertyAmount,
 ): SignedHousePropertyAmount => {
 	if (left.kind === right.kind) {
-		return { kind: left.kind, amount: addExactMoney(left.amount, right.amount) };
+		return {
+			kind: left.kind,
+			amount: addExactMoney(left.amount, right.amount),
+		};
 	}
 	return left.kind === "income"
 		? signedDifference(left.amount, right.amount)
@@ -191,7 +197,11 @@ const prepareProperty = ({
 	const ownedKey = factKey(propertyNumber, "owned-by-taxpayer");
 	const owned = factValueOf(facts, ownedKey);
 	if (typeof owned !== "boolean") {
-		return blocked("FACT_HOUSE_PROPERTY_OWNERSHIP_MISSING", ownedKey, `ownership for property ${propertyNumber}`);
+		return blocked(
+			"FACT_HOUSE_PROPERTY_OWNERSHIP_MISSING",
+			ownedKey,
+			`ownership for property ${propertyNumber}`,
+		);
 	}
 	if (!owned) {
 		return {
@@ -207,7 +217,11 @@ const prepareProperty = ({
 	const occupancyKey = factKey(propertyNumber, "self-occupied-throughout-year");
 	const selfOccupied = factValueOf(facts, occupancyKey);
 	if (typeof selfOccupied !== "boolean") {
-		return blocked("FACT_HOUSE_PROPERTY_OCCUPANCY_MISSING", occupancyKey, `occupancy for property ${propertyNumber}`);
+		return blocked(
+			"FACT_HOUSE_PROPERTY_OCCUPANCY_MISSING",
+			occupancyKey,
+			`occupancy for property ${propertyNumber}`,
+		);
 	}
 	const interestKey = factKey(propertyNumber, "interest-on-borrowed-capital");
 	if (!selfOccupied) {
@@ -220,11 +234,36 @@ const prepareProperty = ({
 		const vacancyReducedRent = factValueOf(facts, vacancyKey);
 		const municipalTaxesPaid = factValueOf(facts, municipalTaxesKey);
 		const interest = factValueOf(facts, interestKey);
-		if (typeof expectedRent !== "string") return blocked("FACT_HOUSE_PROPERTY_EXPECTED_RENT_MISSING", expectedRentKey, `expected rent for property ${propertyNumber}`);
-		if (typeof actualRent !== "string") return blocked("FACT_HOUSE_PROPERTY_ACTUAL_RENT_MISSING", actualRentKey, `actual rent for property ${propertyNumber}`);
-		if (typeof vacancyReducedRent !== "boolean") return blocked("FACT_HOUSE_PROPERTY_VACANCY_MISSING", vacancyKey, `vacancy effect for property ${propertyNumber}`);
-		if (typeof municipalTaxesPaid !== "string") return blocked("FACT_HOUSE_PROPERTY_MUNICIPAL_TAX_MISSING", municipalTaxesKey, `owner-paid municipal taxes for property ${propertyNumber}`);
-		if (typeof interest !== "string") return blocked("FACT_HOUSE_PROPERTY_INTEREST_MISSING", interestKey, `borrowed-capital interest for property ${propertyNumber}`);
+		if (typeof expectedRent !== "string")
+			return blocked(
+				"FACT_HOUSE_PROPERTY_EXPECTED_RENT_MISSING",
+				expectedRentKey,
+				`expected rent for property ${propertyNumber}`,
+			);
+		if (typeof actualRent !== "string")
+			return blocked(
+				"FACT_HOUSE_PROPERTY_ACTUAL_RENT_MISSING",
+				actualRentKey,
+				`actual rent for property ${propertyNumber}`,
+			);
+		if (typeof vacancyReducedRent !== "boolean")
+			return blocked(
+				"FACT_HOUSE_PROPERTY_VACANCY_MISSING",
+				vacancyKey,
+				`vacancy effect for property ${propertyNumber}`,
+			);
+		if (typeof municipalTaxesPaid !== "string")
+			return blocked(
+				"FACT_HOUSE_PROPERTY_MUNICIPAL_TAX_MISSING",
+				municipalTaxesKey,
+				`owner-paid municipal taxes for property ${propertyNumber}`,
+			);
+		if (typeof interest !== "string")
+			return blocked(
+				"FACT_HOUSE_PROPERTY_INTEREST_MISSING",
+				interestKey,
+				`borrowed-capital interest for property ${propertyNumber}`,
+			);
 		return {
 			kind: "let-out",
 			propertyNumber,
@@ -244,7 +283,11 @@ const prepareProperty = ({
 	}
 	const interest = factValueOf(facts, interestKey);
 	if (typeof interest !== "string") {
-		return blocked("FACT_HOUSE_PROPERTY_INTEREST_MISSING", interestKey, `borrowed-capital interest for property ${propertyNumber}`);
+		return blocked(
+			"FACT_HOUSE_PROPERTY_INTEREST_MISSING",
+			interestKey,
+			`borrowed-capital interest for property ${propertyNumber}`,
+		);
 	}
 
 	const conditionNames = [
@@ -253,21 +296,37 @@ const prepareProperty = ({
 		"completed-within-five-years",
 		"interest-certificate-available",
 	] as const;
-	const inputs = [ownedKey, occupancyKey, interestKey, ...conditionNames.map((name) => factKey(propertyNumber, name))];
+	const inputs = [
+		ownedKey,
+		occupancyKey,
+		interestKey,
+		...conditionNames.map((name) => factKey(propertyNumber, name)),
+	];
 	let enhancedLimitApplies = interest === zero;
 	if (interest !== zero) {
 		enhancedLimitApplies = true;
 		for (const name of conditionNames) {
 			const key = factKey(propertyNumber, name);
 			const value = factValueOf(facts, key);
-			if (typeof value !== "boolean") return blocked("FACT_HOUSE_PROPERTY_INTEREST_CONDITION_MISSING", key, `section 24(b) eligibility for property ${propertyNumber}`);
+			if (typeof value !== "boolean")
+				return blocked(
+					"FACT_HOUSE_PROPERTY_INTEREST_CONDITION_MISSING",
+					key,
+					`section 24(b) eligibility for property ${propertyNumber}`,
+				);
 			if (!value) {
 				enhancedLimitApplies = false;
 				break;
 			}
 		}
 	}
-	return { kind: "self-occupied", propertyNumber, interest, enhancedLimitApplies, inputs };
+	return {
+		kind: "self-occupied",
+		propertyNumber,
+		interest,
+		enhancedLimitApplies,
+		inputs,
+	};
 };
 
 export const computeHouseProperties = ({
@@ -280,7 +339,11 @@ export const computeHouseProperties = ({
 	facts: readonly HousePropertyFact[];
 }>): HousePropertyComputation => {
 	if (propertyCount === 0) return { kind: "not-applicable" };
-	if (!Number.isSafeInteger(propertyCount) || propertyCount < 0 || propertyCount > 2) {
+	if (
+		!Number.isSafeInteger(propertyCount) ||
+		propertyCount < 0 ||
+		propertyCount > 2
+	) {
 		return {
 			kind: "unsupported",
 			issue: issue(
@@ -291,19 +354,37 @@ export const computeHouseProperties = ({
 		};
 	}
 	for (const propertyFact of facts) {
-		if (!propertyFact.factKey.startsWith(`house-property.${propertyFact.propertyNumber}.`)) {
+		if (
+			!propertyFact.factKey.startsWith(
+				`house-property.${propertyFact.propertyNumber}.`,
+			)
+		) {
 			return {
 				kind: "blocked",
-				issue: issue("FACT_HOUSE_PROPERTY_IDENTITY_CONFLICT", [propertyFact.factKey], "Review the property identity attached to this fact."),
+				issue: issue(
+					"FACT_HOUSE_PROPERTY_IDENTITY_CONFLICT",
+					[propertyFact.factKey],
+					"Review the property identity attached to this fact.",
+				),
 			};
 		}
 	}
-	for (const key of new Set(facts.map((propertyFact) => propertyFact.factKey))) {
-		const values = new Set(facts.filter((propertyFact) => propertyFact.factKey === key).map((propertyFact) => propertyFact.value));
+	for (const key of new Set(
+		facts.map((propertyFact) => propertyFact.factKey),
+	)) {
+		const values = new Set(
+			facts
+				.filter((propertyFact) => propertyFact.factKey === key)
+				.map((propertyFact) => propertyFact.value),
+		);
 		if (values.size > 1) {
 			return {
 				kind: "blocked",
-				issue: issue("FACT_HOUSE_PROPERTY_CONFLICT", [key], "Resolve the contradictory property facts before calculating the result."),
+				issue: issue(
+					"FACT_HOUSE_PROPERTY_CONFLICT",
+					[key],
+					"Resolve the contradictory property facts before calculating the result.",
+				),
 			};
 		}
 	}
@@ -311,49 +392,135 @@ export const computeHouseProperties = ({
 	if (constants === undefined) {
 		return {
 			kind: "blocked",
-			issue: issue("RULE_HOUSE_PROPERTY_CONSTANTS_MISSING", [parseFactKey("scope.house-property-count")], "Load a rule-pack revision that pins the complete house-property rules."),
+			issue: issue(
+				"RULE_HOUSE_PROPERTY_CONSTANTS_MISSING",
+				[parseFactKey("scope.house-property-count")],
+				"Load a rule-pack revision that pins the complete house-property rules.",
+			),
 		};
 	}
 
 	const prepared: PreparedProperty[] = [];
-	for (let propertyNumber = 1; propertyNumber <= propertyCount; propertyNumber += 1) {
-		const current = prepareProperty({ propertyNumber: propertyNumber === 1 ? 1 : 2, facts });
-		if ("issue" in current || current.kind === "not-applicable" || current.kind === "computed") return current;
+	for (
+		let propertyNumber = 1;
+		propertyNumber <= propertyCount;
+		propertyNumber += 1
+	) {
+		const current = prepareProperty({
+			propertyNumber: propertyNumber === 1 ? 1 : 2,
+			facts,
+		});
+		if (
+			"issue" in current ||
+			current.kind === "not-applicable" ||
+			current.kind === "computed"
+		)
+			return current;
 		prepared.push(current);
 	}
 
-	let sharedSelfOccupiedRemaining = exactMoneyFromWholeRupees(constants.selfOccupiedEnhancedInterestLimitWholeRupees);
-	let basicRemaining = exactMoneyFromWholeRupees(constants.selfOccupiedBasicInterestLimitWholeRupees);
+	let sharedSelfOccupiedRemaining = exactMoneyFromWholeRupees(
+		constants.selfOccupiedEnhancedInterestLimitWholeRupees,
+	);
+	let basicRemaining = exactMoneyFromWholeRupees(
+		constants.selfOccupiedBasicInterestLimitWholeRupees,
+	);
 	const properties: ComputedHouseProperty[] = [];
 	for (const property of prepared) {
 		if (property.kind === "let-out") {
 			const grossAnnualValue = property.vacancyReducedRent
 				? property.actualRent
 				: maxExactMoney(property.expectedRent, property.actualRent);
-			if (compareExactMoney(property.municipalTaxesPaid, grossAnnualValue) > 0) {
+			if (
+				compareExactMoney(property.municipalTaxesPaid, grossAnnualValue) > 0
+			) {
 				return {
 					kind: "blocked",
-					issue: issue("FACT_HOUSE_PROPERTY_MUNICIPAL_TAX_EXCEEDS_RENT", [property.inputs.municipalTaxesPaid, property.inputs.actualRent], `Review rent and municipal taxes for property ${property.propertyNumber}.`),
+					issue: issue(
+						"FACT_HOUSE_PROPERTY_MUNICIPAL_TAX_EXCEEDS_RENT",
+						[property.inputs.municipalTaxesPaid, property.inputs.actualRent],
+						`Review rent and municipal taxes for property ${property.propertyNumber}.`,
+					),
 				};
 			}
-			const annualValue = subtractExactMoney(grossAnnualValue, property.municipalTaxesPaid);
-			const standardDeduction = multiplyByWholePercent(annualValue, constants.letOutStandardDeductionPercent);
-			const income = signedDifference(subtractExactMoney(annualValue, standardDeduction), property.interest);
+			const annualValue = subtractExactMoney(
+				grossAnnualValue,
+				property.municipalTaxesPaid,
+			);
+			const standardDeduction = multiplyByWholePercent(
+				annualValue,
+				constants.letOutStandardDeductionPercent,
+			);
+			const income = signedDifference(
+				subtractExactMoney(annualValue, standardDeduction),
+				property.interest,
+			);
 			const trace: readonly HousePropertyTraceNode[] = [
-				{ label: `Property ${property.propertyNumber} gross annual value`, ruleId: constants.letOutGrossAnnualValueRuleId, inputs: [property.inputs.expectedRent, property.inputs.actualRent, property.inputs.vacancyReducedRent], operation: property.vacancyReducedRent ? "Use actual rent because vacancy reduced it below expected rent" : "Use the higher of expected rent and actual rent", result: grossAnnualValue },
-				{ label: `Property ${property.propertyNumber} annual value`, ruleId: constants.letOutMunicipalTaxRuleId, inputs: [property.inputs.municipalTaxesPaid], operation: "Subtract municipal taxes borne and paid by the owner", result: annualValue },
-				{ label: `Property ${property.propertyNumber} standard deduction`, ruleId: constants.letOutStandardDeductionRuleId, inputs: [property.inputs.expectedRent, property.inputs.actualRent, property.inputs.municipalTaxesPaid], operation: `Apply ${constants.letOutStandardDeductionPercent}% to annual value`, result: standardDeduction },
-				{ label: `Property ${property.propertyNumber} borrowed-capital interest`, ruleId: constants.letOutInterestRuleId, inputs: [property.inputs.interest], operation: "Deduct interest payable on borrowed capital for the let-out property", result: property.interest },
+				{
+					label: `Property ${property.propertyNumber} gross annual value`,
+					ruleId: constants.letOutGrossAnnualValueRuleId,
+					inputs: [
+						property.inputs.expectedRent,
+						property.inputs.actualRent,
+						property.inputs.vacancyReducedRent,
+					],
+					operation: property.vacancyReducedRent
+						? "Use actual rent because vacancy reduced it below expected rent"
+						: "Use the higher of expected rent and actual rent",
+					result: grossAnnualValue,
+				},
+				{
+					label: `Property ${property.propertyNumber} annual value`,
+					ruleId: constants.letOutMunicipalTaxRuleId,
+					inputs: [property.inputs.municipalTaxesPaid],
+					operation: "Subtract municipal taxes borne and paid by the owner",
+					result: annualValue,
+				},
+				{
+					label: `Property ${property.propertyNumber} standard deduction`,
+					ruleId: constants.letOutStandardDeductionRuleId,
+					inputs: [
+						property.inputs.expectedRent,
+						property.inputs.actualRent,
+						property.inputs.municipalTaxesPaid,
+					],
+					operation: `Apply ${constants.letOutStandardDeductionPercent}% to annual value`,
+					result: standardDeduction,
+				},
+				{
+					label: `Property ${property.propertyNumber} borrowed-capital interest`,
+					ruleId: constants.letOutInterestRuleId,
+					inputs: [property.inputs.interest],
+					operation:
+						"Deduct interest payable on borrowed capital for the let-out property",
+					result: property.interest,
+				},
 			];
-			properties.push({ propertyNumber: property.propertyNumber, occupancy: "let-out", grossAnnualValue, annualValue, standardDeduction, interestDeduction: property.interest, income, newRegimeInterestDeduction: property.interest, newRegimeIncome: income, trace, newRegimeTrace: trace });
+			properties.push({
+				propertyNumber: property.propertyNumber,
+				occupancy: "let-out",
+				grossAnnualValue,
+				annualValue,
+				standardDeduction,
+				interestDeduction: property.interest,
+				income,
+				newRegimeInterestDeduction: property.interest,
+				newRegimeIncome: income,
+				trace,
+				newRegimeTrace: trace,
+			});
 			continue;
 		}
 		const available = property.enhancedLimitApplies
 			? sharedSelfOccupiedRemaining
 			: minExactMoney(sharedSelfOccupiedRemaining, basicRemaining);
 		const interestDeduction = minExactMoney(property.interest, available);
-		sharedSelfOccupiedRemaining = subtractExactMoney(sharedSelfOccupiedRemaining, interestDeduction);
-		if (!property.enhancedLimitApplies) basicRemaining = subtractExactMoney(basicRemaining, interestDeduction);
+		sharedSelfOccupiedRemaining = subtractExactMoney(
+			sharedSelfOccupiedRemaining,
+			interestDeduction,
+		);
+		if (!property.enhancedLimitApplies)
+			basicRemaining = subtractExactMoney(basicRemaining, interestDeduction);
 		const annualValueNode: HousePropertyTraceNode = {
 			label: `Property ${property.propertyNumber} self-occupied annual value`,
 			ruleId: constants.selfOccupiedAnnualValueRuleId,
@@ -367,17 +534,43 @@ export const computeHouseProperties = ({
 			annualValue: zero,
 			standardDeduction: zero,
 			interestDeduction,
-			income: interestDeduction === zero ? { kind: "income", amount: zero } : { kind: "loss", amount: interestDeduction },
+			income:
+				interestDeduction === zero
+					? { kind: "income", amount: zero }
+					: { kind: "loss", amount: interestDeduction },
 			newRegimeInterestDeduction: zero,
 			newRegimeIncome: { kind: "income", amount: zero },
-			trace: [annualValueNode, { label: `Property ${property.propertyNumber} old-regime interest deduction`, ruleId: constants.selfOccupiedOldRegimeInterestRuleId, inputs: property.inputs.slice(2), operation: `Apply the remaining shared ₹${available} self-occupied interest limit`, result: interestDeduction }],
-			newRegimeTrace: [annualValueNode, { label: `Property ${property.propertyNumber} new-regime interest deduction`, ruleId: constants.selfOccupiedNewRegimeInterestRuleId, inputs: [factKey(property.propertyNumber, "interest-on-borrowed-capital")], operation: "Disallow section 24(b) interest for a self-occupied property", result: zero }],
+			trace: [
+				annualValueNode,
+				{
+					label: `Property ${property.propertyNumber} old-regime interest deduction`,
+					ruleId: constants.selfOccupiedOldRegimeInterestRuleId,
+					inputs: property.inputs.slice(2),
+					operation: `Apply the remaining shared ₹${available} self-occupied interest limit`,
+					result: interestDeduction,
+				},
+			],
+			newRegimeTrace: [
+				annualValueNode,
+				{
+					label: `Property ${property.propertyNumber} new-regime interest deduction`,
+					ruleId: constants.selfOccupiedNewRegimeInterestRuleId,
+					inputs: [
+						factKey(property.propertyNumber, "interest-on-borrowed-capital"),
+					],
+					operation:
+						"Disallow section 24(b) interest for a self-occupied property",
+					result: zero,
+				},
+			],
 		});
 	}
 	return {
 		kind: "computed",
 		properties,
 		combined: sumSigned(properties.map((property) => property.income)),
-		newRegimeCombined: sumSigned(properties.map((property) => property.newRegimeIncome)),
+		newRegimeCombined: sumSigned(
+			properties.map((property) => property.newRegimeIncome),
+		),
 	};
 };

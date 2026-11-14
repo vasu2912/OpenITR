@@ -1,8 +1,8 @@
-import { parseRuleId } from "@openitr/model";
 import type {
 	RulePackManifest,
 	RulePackManifestAnalysisScopeRecord,
 } from "@openitr/model";
+import { parseRuleId } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { compileRulePack } from "./rulepack-compiler";
@@ -134,8 +134,13 @@ describe("rule-pack compiler", () => {
 			manifest: syntheticManifest(),
 		});
 		const unsupportedResult = compiled.scopeCheck.results.no;
-		if (unsupportedResult === undefined || unsupportedResult.kind !== "unsupported") {
-			throw new Error("Expected the compiled pack to contain an unsupported result");
+		if (
+			unsupportedResult === undefined ||
+			unsupportedResult.kind !== "unsupported"
+		) {
+			throw new Error(
+				"Expected the compiled pack to contain an unsupported result",
+			);
 		}
 
 		const frozenTargets = [
@@ -161,9 +166,7 @@ describe("rule-pack compiler", () => {
 			compileRulePack({
 				manifest: syntheticManifest((manifest) => ({
 					...manifest,
-					supportedRules: [
-						{ ...syntheticRuleRecord, citation: "" },
-					],
+					supportedRules: [{ ...syntheticRuleRecord, citation: "" }],
 				})),
 			}),
 		).rejects.toThrow('Missing citation for rule "TEST-EXAMPLE-RULE"');
@@ -174,9 +177,7 @@ describe("rule-pack compiler", () => {
 			compileRulePack({
 				manifest: syntheticManifest((manifest) => ({
 					...manifest,
-					supportedRules: [
-						{ ...syntheticRuleRecord, sourceLocation: "" },
-					],
+					supportedRules: [{ ...syntheticRuleRecord, sourceLocation: "" }],
 				})),
 			}),
 		).rejects.toThrow('Missing source location for rule "TEST-EXAMPLE-RULE"');
@@ -208,7 +209,8 @@ describe("rule-pack compiler", () => {
 					officialSources: [
 						{
 							...syntheticSourceRecord,
-							contentSha256: "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+							contentSha256:
+								"b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
 							redistributionStatus: "redistributed-with-permission",
 						},
 					],
@@ -235,10 +237,7 @@ describe("rule-pack compiler", () => {
 			compileRulePack({
 				manifest: syntheticManifest((manifest) => ({
 					...manifest,
-					supportedRules: [
-						...manifest.supportedRules,
-						syntheticRuleRecord,
-					],
+					supportedRules: [...manifest.supportedRules, syntheticRuleRecord],
 				})),
 			}),
 		).rejects.toThrow("Duplicate rule identifier: TEST-EXAMPLE-RULE");
@@ -249,10 +248,7 @@ describe("rule-pack compiler", () => {
 			compileRulePack({
 				manifest: syntheticManifest((manifest) => ({
 					...manifest,
-					officialSources: [
-						...manifest.officialSources,
-						syntheticSourceRecord,
-					],
+					officialSources: [...manifest.officialSources, syntheticSourceRecord],
 				})),
 			}),
 		).rejects.toThrow(
@@ -396,7 +392,15 @@ describe("rule-pack compiler", () => {
 					],
 					analysisScope: {
 						facts: [
-							{ key: "scope.test-amount", label: "Test amount", schema: { kind: "exact-money", minimumWholeRupees: 0, maximumWholeRupees: 100 } },
+							{
+								key: "scope.test-amount",
+								label: "Test amount",
+								schema: {
+									kind: "exact-money",
+									minimumWholeRupees: 0,
+									maximumWholeRupees: 100,
+								},
+							},
 						],
 						rules: [
 							{
@@ -427,7 +431,15 @@ describe("rule-pack compiler", () => {
 	test("rejects incompatible scope condition and question schemas at the compiler boundary", async () => {
 		const baseScope: RulePackManifestAnalysisScopeRecord = {
 			facts: [
-				{ key: "scope.test-amount", label: "Test amount", schema: { kind: "exact-money" as const, minimumWholeRupees: 0, maximumWholeRupees: 100 } },
+				{
+					key: "scope.test-amount",
+					label: "Test amount",
+					schema: {
+						kind: "exact-money" as const,
+						minimumWholeRupees: 0,
+						maximumWholeRupees: 100,
+					},
+				},
 			],
 			rules: [
 				{
@@ -469,7 +481,9 @@ describe("rule-pack compiler", () => {
 			compileRulePack({
 				manifest: withSupportedRule({
 					...baseScope,
-					rules: [{ ...baseScope.rules[0]!, condition: { kind: "must-be-false" } }],
+					rules: [
+						{ ...baseScope.rules[0]!, condition: { kind: "must-be-false" } },
+					],
 				}),
 			}),
 		).rejects.toThrow("condition boolean is incompatible with fact");
@@ -478,15 +492,17 @@ describe("rule-pack compiler", () => {
 			compileRulePack({
 				manifest: withSupportedRule({
 					...baseScope,
-					questions: [{
-						id: "scope-test-amount",
-						factKey: "scope.test-amount",
-						prompt: "What is the amount?",
-						helpText: "Enter the amount.",
-						requiresRuleId: "TEST-FULL-SCOPE-RULE",
-						whyRequired: "The amount is needed.",
-						answerSchema: { kind: "boolean" as const },
-					}],
+					questions: [
+						{
+							id: "scope-test-amount",
+							factKey: "scope.test-amount",
+							prompt: "What is the amount?",
+							helpText: "Enter the amount.",
+							requiresRuleId: "TEST-FULL-SCOPE-RULE",
+							whyRequired: "The amount is needed.",
+							answerSchema: { kind: "boolean" as const },
+						},
+					],
 				}),
 			}),
 		).rejects.toThrow("answer schema boolean is incompatible with fact");
@@ -702,9 +718,7 @@ describe("rule-pack compiler missing-fact questions", () => {
 			minimumWholeRupees: 0,
 			maximumWholeRupees: 10000000,
 		},
-	} satisfies NonNullable<
-		RulePackManifest["missingFactQuestions"]
-	>[number];
+	} satisfies NonNullable<RulePackManifest["missingFactQuestions"]>[number];
 
 	const manifestWithQuestions = (
 		mutate?: (
@@ -712,12 +726,12 @@ describe("rule-pack compiler missing-fact questions", () => {
 		) => NonNullable<RulePackManifest["missingFactQuestions"]>,
 	): RulePackManifest =>
 		syntheticManifest((manifest) => {
-			const catalog =
-				manifest.missingFactQuestions ?? [syntheticFactQuestionRecord];
+			const catalog = manifest.missingFactQuestions ?? [
+				syntheticFactQuestionRecord,
+			];
 			return {
 				...manifest,
-				missingFactQuestions:
-					mutate === undefined ? catalog : mutate(catalog),
+				missingFactQuestions: mutate === undefined ? catalog : mutate(catalog),
 			};
 		});
 
@@ -855,9 +869,7 @@ describe("rule-pack compiler missing-fact questions", () => {
 					},
 				]),
 			}),
-		).rejects.toThrow(
-			'requires undeclared rule "TEST-UNDECLARED-RULE"',
-		);
+		).rejects.toThrow('requires undeclared rule "TEST-UNDECLARED-RULE"');
 	});
 
 	test("rejects a malformed supplied fact key", async () => {

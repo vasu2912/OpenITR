@@ -22,14 +22,14 @@ import type {
 	RulePackManifestAnalysisScopeRecord,
 } from "./scope-analysis";
 
-export * from "./primitives";
-export * from "./money/exact-money";
-export * from "./rules/tax-constants";
-export * from "./documents/compute-source-document-id";
-export * from "./documents/inspection-outcome";
 export * from "./documents/candidate-document";
-export * from "./documents/observation";
+export * from "./documents/compute-source-document-id";
 export * from "./documents/extraction";
+export * from "./documents/inspection-outcome";
+export * from "./documents/observation";
+export * from "./money/exact-money";
+export * from "./primitives";
+export * from "./rules/tax-constants";
 export * from "./scope-analysis";
 
 export type EligibilityAnswerValue = "yes" | "no";
@@ -194,9 +194,11 @@ export type ScopeRulePack = Readonly<{
 			answeredAt: IsoTimestamp;
 		}>,
 	): CompletedScopeCheck;
-	evaluateAnalysisScope?: (input: Readonly<{
-		facts: readonly import("./scope-analysis").ScopeFact[];
-	}>) => import("./scope-analysis").AnalysisScopeEvaluation;
+	evaluateAnalysisScope?: (
+		input: Readonly<{
+			facts: readonly import("./scope-analysis").ScopeFact[];
+		}>,
+	) => import("./scope-analysis").AnalysisScopeEvaluation;
 }>;
 
 export type TaxAnalysisModuleArtifactIdentity = Readonly<{
@@ -302,9 +304,7 @@ export type CompiledRulePack = Readonly<{
 	ruleCitations: Readonly<Record<RuleId, RuleCitation>>;
 	scopeCheck: Readonly<{
 		question: EligibilityQuestion;
-		results: Readonly<
-			Record<EligibilityAnswerValue, ScopeCheckResult>
-		>;
+		results: Readonly<Record<EligibilityAnswerValue, ScopeCheckResult>>;
 	}>;
 	// Present only when the authored manifest declared missing-fact
 	// questions, so packs compiled before questions existed keep their

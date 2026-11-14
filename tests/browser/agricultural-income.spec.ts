@@ -96,7 +96,9 @@ test.describe("agricultural-income explanation", () => {
 		);
 	});
 
-	test("stops above the limit and remains usable on mobile", async ({ page }) => {
+	test("stops above the limit and remains usable on mobile", async ({
+		page,
+	}) => {
 		await page.setViewportSize({ width: 390, height: 844 });
 		await enterAgriculturalIncome(page);
 		const amount = page.getByLabel(

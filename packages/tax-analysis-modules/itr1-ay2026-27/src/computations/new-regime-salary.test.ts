@@ -1,3 +1,9 @@
+import type {
+	AttestedAnswer,
+	FactKey,
+	RulePackId,
+	SalaryObservation,
+} from "@openitr/model";
 import {
 	addExactMoney,
 	exactMoneyFromWholeRupees,
@@ -8,20 +14,14 @@ import {
 	parseRulePackId,
 	parseSha256Digest,
 } from "@openitr/model";
-import type {
-	AttestedAnswer,
-	FactKey,
-	RulePackId,
-	SalaryObservation,
-} from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { itr1Ay202627RulePack } from "../rule-pack";
+import type { NewRegimeSalaryComputation } from "./new-regime-salary";
 import {
 	computeNewRegimeSalaryScenario,
 	SALARY_FACT_KEYS,
 } from "./new-regime-salary";
-import type { NewRegimeSalaryComputation } from "./new-regime-salary";
 
 const documentId = parseSha256Digest("ab".repeat(32));
 
@@ -144,7 +144,9 @@ describe("one-employer new-regime salary scenario", () => {
 		);
 
 		const salaryTotal = nodeById(result.nodes, "derived.salary-total");
-		expect(salaryTotal.ruleId).toBe(parseRuleId("ITR1-SALARY-INCOME-SECTION-15"));
+		expect(salaryTotal.ruleId).toBe(
+			parseRuleId("ITR1-SALARY-INCOME-SECTION-15"),
+		);
 		expect(salaryTotal.unroundedValue).toBe("1200000");
 		expect(salaryTotal.roundedValue).toBe("1200000");
 
@@ -199,12 +201,9 @@ describe("one-employer new-regime salary scenario", () => {
 			nodeById(result.nodes, "derived.marginal-relief-section-87a")
 				.roundedValue,
 		).toBe("0");
-		expect(nodeById(result.nodes, "derived.surcharge").roundedValue).toBe(
-			"0",
-		);
+		expect(nodeById(result.nodes, "derived.surcharge").roundedValue).toBe("0");
 		expect(
-			nodeById(result.nodes, "derived.health-and-education-cess")
-				.roundedValue,
+			nodeById(result.nodes, "derived.health-and-education-cess").roundedValue,
 		).toBe("0");
 
 		const liability = nodeById(
@@ -260,10 +259,8 @@ describe("one-employer new-regime salary scenario", () => {
 			}),
 		);
 		expect(
-			nodeById(
-				result.nodes,
-				"derived.total-tax-liability-rounded-section-288b",
-			).roundedValue,
+			nodeById(result.nodes, "derived.total-tax-liability-rounded-section-288b")
+				.roundedValue,
 		).toBe("113100");
 	});
 });
@@ -358,9 +355,7 @@ describe("multiple salary and pension sources", () => {
 			result.kind === "blocked"
 				? result.issues.map((issue) => String(issue.code))
 				: [],
-		).toContain(
-			"FACT_SALARY_MIXED_AGGREGATE_AND_ITEMIZED_SOURCES",
-		);
+		).toContain("FACT_SALARY_MIXED_AGGREGATE_AND_ITEMIZED_SOURCES");
 	});
 });
 
@@ -388,7 +383,9 @@ describe("accepted-fact enforcement fails closed", () => {
 		});
 
 		expect(result.kind).toBe("blocked");
-		expect(issueCodesOf(result)).toContain("FACT_SALARY_EMPLOYER_DOCUMENT_REQUIRED");
+		expect(issueCodesOf(result)).toContain(
+			"FACT_SALARY_EMPLOYER_DOCUMENT_REQUIRED",
+		);
 	});
 
 	test("counts a byte-identical salary document only once", () => {
@@ -482,7 +479,9 @@ describe("accepted-fact enforcement fails closed", () => {
 			return;
 		}
 		expect(
-			result.issues.some((issue) => String(issue.code) === "FACT_SALARY_FIELD_INVALID"),
+			result.issues.some(
+				(issue) => String(issue.code) === "FACT_SALARY_FIELD_INVALID",
+			),
 		).toBe(true);
 	});
 
@@ -498,9 +497,7 @@ describe("accepted-fact enforcement fails closed", () => {
 		if (result.kind !== "blocked") {
 			return;
 		}
-		expect(String(result.issues[0]?.code)).toBe(
-			"FACT_SALARY_TOTAL_MISMATCH",
-		);
+		expect(String(result.issues[0]?.code)).toBe("FACT_SALARY_TOTAL_MISMATCH");
 		expect(result.issues[0]?.severity).toBe("blocking");
 	});
 
@@ -526,9 +523,7 @@ describe("accepted-fact enforcement fails closed", () => {
 		});
 
 		expect(result.kind).toBe("blocked");
-		expect(issueCodesOf(result)).toContain(
-			"RULE_NEW_REGIME_CONSTANTS_MISSING",
-		);
+		expect(issueCodesOf(result)).toContain("RULE_NEW_REGIME_CONSTANTS_MISSING");
 	});
 });
 
@@ -906,9 +901,7 @@ describe("determinism of facts, rule pack, and trace", () => {
 			result.nodes,
 			"derived.total-tax-liability-rounded-section-288b",
 		);
-		expect(result.summary.finalTaxLiability).toBe(
-			liabilityNode.roundedValue,
-		);
+		expect(result.summary.finalTaxLiability).toBe(liabilityNode.roundedValue);
 
 		const bandNodes = result.nodes.filter((candidate) =>
 			candidate.nodeId.startsWith("derived.slab-band-tax-"),

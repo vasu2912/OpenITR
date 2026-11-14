@@ -1,9 +1,9 @@
-import { compileRulePack, canonicalJson } from "@openitr/rulepack-compiler";
 import {
 	parseIsoTimestamp,
 	parseRuleId,
 	parseRulePackId,
 } from "@openitr/model";
+import { canonicalJson, compileRulePack } from "@openitr/rulepack-compiler";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -13,9 +13,7 @@ import {
 	itr1Ay202627RulePack20260824b,
 } from "../../index";
 
-const SYNTHETIC_ANSWER_TIME = parseIsoTimestamp(
-	"2099-01-01T00:00:00.000Z",
-);
+const SYNTHETIC_ANSWER_TIME = parseIsoTimestamp("2099-01-01T00:00:00.000Z");
 
 const CONTRIBUTED_RULE_IDS = [
 	"ITR1-INCOME-AGGREGATION-SECTION-14",
@@ -60,8 +58,7 @@ describe("cited contribution example: revision 2026-08-24b", () => {
 			id: "ITR1-INCOME-AGGREGATION-SECTION-14",
 			citation:
 				"Income-tax Act, 1961, section 14, aggregation of salary and income from other sources into total income before rounding",
-			sourceUrl:
-				"https://incometaxindia.gov.in/pages/acts/income-tax-act.aspx",
+			sourceUrl: "https://incometaxindia.gov.in/pages/acts/income-tax-act.aspx",
 		});
 		expect(
 			itr1Ay202627CompiledRulePack20260824b.ruleCitations[
@@ -71,8 +68,7 @@ describe("cited contribution example: revision 2026-08-24b", () => {
 			id: "ITR1-INTEREST-INCOME-SECTION-56",
 			citation:
 				"Income-tax Act, 1961, section 56, interest from savings accounts and deposits chargeable under income from other sources",
-			sourceUrl:
-				"https://incometaxindia.gov.in/pages/acts/income-tax-act.aspx",
+			sourceUrl: "https://incometaxindia.gov.in/pages/acts/income-tax-act.aspx",
 		});
 		expect(
 			itr1Ay202627CompiledRulePack20260824b.ruleCitations[
@@ -82,8 +78,7 @@ describe("cited contribution example: revision 2026-08-24b", () => {
 			id: "ITR1-TDS-CREDIT-SECTION-199",
 			citation:
 				"Income-tax Act, 1961, section 199, credit against tax for tax deducted at source as reported in Form 26AS Part I",
-			sourceUrl:
-				"https://incometaxindia.gov.in/pages/acts/income-tax-act.aspx",
+			sourceUrl: "https://incometaxindia.gov.in/pages/acts/income-tax-act.aspx",
 		});
 	});
 
@@ -98,8 +93,7 @@ describe("cited contribution example: revision 2026-08-24b", () => {
 		});
 
 		expect(
-			canonicalJson(firstPass.identity) ===
-				canonicalJson(secondPass.identity),
+			canonicalJson(firstPass.identity) === canonicalJson(secondPass.identity),
 		).toBe(true);
 		expect(
 			canonicalJson(firstPass.identity) ===

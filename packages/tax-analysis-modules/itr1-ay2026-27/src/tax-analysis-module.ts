@@ -1,11 +1,9 @@
+import type { TaxAnalysisModuleArtifact } from "@openitr/model";
 import {
 	createRulePackRevisionRegistry,
 	parseSha256Digest,
 	parseTaxAnalysisModuleId,
 } from "@openitr/model";
-import type { TaxAnalysisModuleArtifact } from "@openitr/model";
-
-import { itr1Ay202627RulePack } from "./rule-pack";
 import { itr1Ay202627RulePack20260824 } from "./revisions/2026-08-24/rule-pack";
 import { itr1Ay202627RulePack20260824b } from "./revisions/2026-08-24b/rule-pack";
 import { itr1Ay202627RulePack20260826 } from "./revisions/2026-08-26/rule-pack";
@@ -23,6 +21,7 @@ import { itr1Ay202627RulePack20260913 } from "./revisions/2026-09-13/rule-pack";
 import { itr1Ay202627RulePack20260914 } from "./revisions/2026-09-14/rule-pack";
 import { itr1Ay202627RulePack20260915 } from "./revisions/2026-09-15/rule-pack";
 import { itr1Ay202627RulePack20260917 } from "./revisions/2026-09-17/rule-pack";
+import { itr1Ay202627RulePack } from "./rule-pack";
 
 const moduleId = parseTaxAnalysisModuleId("itr1-ay2026-27");
 

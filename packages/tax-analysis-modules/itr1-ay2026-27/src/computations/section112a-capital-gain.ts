@@ -1,3 +1,10 @@
+import type {
+	ExactMoney,
+	FactKey,
+	IssueCode,
+	RuleId,
+	ScopeRulePack,
+} from "@openitr/model";
 import {
 	compareExactMoney,
 	exactMoneyFromWholeRupees,
@@ -7,13 +14,6 @@ import {
 	parseIssueCode,
 	roundToNearestMultipleOf,
 	subtractExactMoney,
-} from "@openitr/model";
-import type {
-	ExactMoney,
-	FactKey,
-	IssueCode,
-	RuleId,
-	ScopeRulePack,
 } from "@openitr/model";
 
 const FACT_KEYS = Object.freeze({
@@ -289,11 +289,9 @@ export const computeSection112aCapitalGain = ({
 			{
 				label: "Section 112A long-term capital gain",
 				ruleId: constants.gainRuleId,
-				inputs: [
-					FACT_KEYS.saleConsideration,
-					FACT_KEYS.costOfAcquisition,
-				],
-				operation: "Subtract total acquisition cost from total sale consideration",
+				inputs: [FACT_KEYS.saleConsideration, FACT_KEYS.costOfAcquisition],
+				operation:
+					"Subtract total acquisition cost from total sale consideration",
 				rounding: "No intermediate rounding",
 				result: gain,
 			},

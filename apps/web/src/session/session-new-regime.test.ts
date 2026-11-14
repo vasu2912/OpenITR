@@ -3,8 +3,8 @@ import { itr1Ay202627RulePack20260915 as rulePack } from "@openitr/itr1-ay2026-2
 import { afterEach, describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
-import { createSessionOrchestrator } from "./session-orchestrator";
 import type { SessionOrchestrator } from "./session-orchestrator";
+import { createSessionOrchestrator } from "./session-orchestrator";
 
 const answerTime = "2099-01-01T00:00:00.000Z";
 const sessions: SessionOrchestrator[] = [];
@@ -54,13 +54,15 @@ const startDocuments = async (): Promise<SessionOrchestrator> => {
 			},
 		],
 	});
-	await expect.poll(() => {
-		const snapshot = session.getSnapshot();
-		return (
-			snapshot.kind === "document-intake" &&
-			snapshot.extractions[0]?.status === "done"
-		);
-	}).toBe(true);
+	await expect
+		.poll(() => {
+			const snapshot = session.getSnapshot();
+			return (
+				snapshot.kind === "document-intake" &&
+				snapshot.extractions[0]?.status === "done"
+			);
+		})
+		.toBe(true);
 	return session;
 };
 

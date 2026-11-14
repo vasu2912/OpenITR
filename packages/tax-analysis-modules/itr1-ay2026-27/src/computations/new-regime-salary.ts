@@ -1,3 +1,13 @@
+import type {
+	AttestedAnswer,
+	CompiledTaxConstants,
+	ExactMoney,
+	FactKey,
+	IssueCode,
+	RulePackIdentity,
+	SalaryObservation,
+	Sha256Digest,
+} from "@openitr/model";
 import {
 	addExactMoney,
 	compareExactMoney,
@@ -10,29 +20,18 @@ import {
 	subtractExactMoney,
 } from "@openitr/model";
 import type {
-	AttestedAnswer,
-	CompiledTaxConstants,
-	ExactMoney,
-	FactKey,
-	IssueCode,
-	RulePackIdentity,
-	SalaryObservation,
-	Sha256Digest,
-} from "@openitr/model";
-
+	ComputationNodeDraft,
+	ComputationNodeInput,
+	ComputationOperation,
+	ComputationRoundingMode,
+	ComputationTraceNode,
+} from "./new-regime-liability";
 import {
 	buildNewRegimeLiabilityNodes,
 	constantInput,
 	factInput,
 	finalizeComputationNodes,
 	nodeInput,
-} from "./new-regime-liability";
-import type {
-	ComputationNodeDraft,
-	ComputationNodeInput,
-	ComputationOperation,
-	ComputationRoundingMode,
-	ComputationTraceNode,
 } from "./new-regime-liability";
 
 export type {
@@ -319,20 +318,20 @@ export const computeNewRegimeSalaryScenario = ({
 			exemptAllowancesValue,
 		);
 		if (compareExactMoney(expectedTaxableTotal, taxableSalary) !== 0) {
-		return Object.freeze({
-			kind: "blocked",
-			issues: Object.freeze([
-				blockingIssue(
-					SALARY_COMPUTATION_ISSUE_CODES.salaryTotalMismatch,
-					RECOVERY_ACTIONS.salaryTotalMismatch,
-					[
-						SALARY_FACT_KEYS.section17_1,
-						SALARY_FACT_KEYS.exemptAllowancesSection10,
-						SALARY_FACT_KEYS.taxableTotal,
-					],
-				),
-			]),
-		});
+			return Object.freeze({
+				kind: "blocked",
+				issues: Object.freeze([
+					blockingIssue(
+						SALARY_COMPUTATION_ISSUE_CODES.salaryTotalMismatch,
+						RECOVERY_ACTIONS.salaryTotalMismatch,
+						[
+							SALARY_FACT_KEYS.section17_1,
+							SALARY_FACT_KEYS.exemptAllowancesSection10,
+							SALARY_FACT_KEYS.taxableTotal,
+						],
+					),
+				]),
+			});
 		}
 		sources.push(
 			Object.freeze({
@@ -342,9 +341,9 @@ export const computeNewRegimeSalaryScenario = ({
 					document.sourceKind ??
 					document.observations[0]?.record.kind ??
 					"unidentified-document",
-				sourceDocumentIds: Object.freeze(
-					[...(document.sourceDocumentIds ?? [document.documentId])],
-				),
+				sourceDocumentIds: Object.freeze([
+					...(document.sourceDocumentIds ?? [document.documentId]),
+				]),
 				grossSalary,
 				exemptAllowances: exemptAllowancesValue,
 				taxableSalary,
@@ -473,10 +472,7 @@ export const computeNewRegimeSalaryScenario = ({
 				: "multiple-source-new-regime-salary-fy-2025-26",
 		rulePackRevision: revision,
 		sources: Object.freeze(sources),
-		nodes: finalizeComputationNodes(
-			[...nodes, ...liability.nodes],
-			revision,
-		),
+		nodes: finalizeComputationNodes([...nodes, ...liability.nodes], revision),
 		summary: Object.freeze({
 			salaryTotal: section17_1Value,
 			taxableIncome: roundedIncomeValue,

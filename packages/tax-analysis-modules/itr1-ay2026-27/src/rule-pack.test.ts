@@ -1,14 +1,15 @@
-import {
-	parseIsoTimestamp,
-	parseRuleId,
-} from "@openitr/model";
+import { parseIsoTimestamp, parseRuleId } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
-import { itr1Ay202627CompiledRulePack, itr1Ay202627RulePack } from "./rule-pack";
+import {
+	itr1Ay202627CompiledRulePack,
+	itr1Ay202627RulePack,
+} from "./rule-pack";
 
 describe("ITR-1 AY 2026-27 rule pack", () => {
 	test("is immutable at runtime", () => {
-		const unsupportedResult = itr1Ay202627CompiledRulePack.scopeCheck.results.no;
+		const unsupportedResult =
+			itr1Ay202627CompiledRulePack.scopeCheck.results.no;
 		expect({
 			pack: Object.isFrozen(itr1Ay202627RulePack),
 			identity: Object.isFrozen(itr1Ay202627RulePack.identity),

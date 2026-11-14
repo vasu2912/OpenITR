@@ -2,10 +2,14 @@ import {
 	createForm16PdfFixture,
 	createUnknownBytesFixture,
 } from "@openitr/document-adapters/testing";
-import { expect, test } from "@playwright/test";
 import type { Request } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-import { openDocumentIntake, expectCandidateStatus, selectSourceFiles } from "./helpers";
+import {
+	expectCandidateStatus,
+	openDocumentIntake,
+	selectSourceFiles,
+} from "./helpers";
 
 const sentinelName = "openitr-privacy-sentinel-statement.json";
 const sentinelContentMarker = "openitr-sentinel-bytes";

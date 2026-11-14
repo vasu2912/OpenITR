@@ -95,9 +95,7 @@ export const EPAY_TYPE_OF_PAYMENT_CATEGORIES = {
 		description:
 			"e-Pay Tax receipt fact for a paid self-assessment-tax challan under section 140A.",
 	}),
-} as const satisfies Readonly<
-	Record<string, EpayTypeOfPaymentCategory>
->;
+} as const satisfies Readonly<Record<string, EpayTypeOfPaymentCategory>>;
 
 export const EPAY_TYPE_OF_PAYMENT_VALUES: readonly EpayTypeOfPaymentCategory[] =
 	Object.values(EPAY_TYPE_OF_PAYMENT_CATEGORIES);

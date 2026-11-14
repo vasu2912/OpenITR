@@ -3,8 +3,8 @@ import { itr1Ay202627RulePack20260914 as rulePack } from "@openitr/itr1-ay2026-2
 import { afterEach, describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
-import { createSessionOrchestrator } from "./session-orchestrator";
 import type { SessionOrchestrator } from "./session-orchestrator";
+import { createSessionOrchestrator } from "./session-orchestrator";
 
 const answerTime = "2099-01-01T00:00:00.000Z";
 const sessions: SessionOrchestrator[] = [];
@@ -54,13 +54,15 @@ const startDocuments = async (): Promise<SessionOrchestrator> => {
 			},
 		],
 	});
-	await expect.poll(() => {
-		const snapshot = session.getSnapshot();
-		return (
-			snapshot.kind === "document-intake" &&
-			snapshot.extractions[0]?.status === "done"
-		);
-	}).toBe(true);
+	await expect
+		.poll(() => {
+			const snapshot = session.getSnapshot();
+			return (
+				snapshot.kind === "document-intake" &&
+				snapshot.extractions[0]?.status === "done"
+			);
+		})
+		.toBe(true);
 	return session;
 };
 
@@ -77,7 +79,9 @@ const answer = (
 	});
 };
 
-const answerRequiredDeductionSelections = (session: SessionOrchestrator): void => {
+const answerRequiredDeductionSelections = (
+	session: SessionOrchestrator,
+): void => {
 	for (const [questionId, value] of [
 		["bank-interest-savings-account-total", "0"],
 		["bank-interest-deposits-total", "0"],
@@ -147,9 +151,9 @@ describe("old-regime computation through the public session", () => {
 		if (snapshot.kind !== "document-intake") {
 			throw new Error("Expected document intake");
 		}
-		expect(snapshot.questionnaire.questions.map((question) => question.id)).toContain(
-			"taxpayer-super-senior-citizen",
-		);
+		expect(
+			snapshot.questionnaire.questions.map((question) => question.id),
+		).toContain("taxpayer-super-senior-citizen");
 		expect(snapshot.oldRegimeComputation).toMatchObject({
 			kind: "blocked",
 			issues: expect.arrayContaining([

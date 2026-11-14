@@ -1,10 +1,10 @@
-import { compileRulePack, canonicalJson } from "@openitr/rulepack-compiler";
 import {
 	parseFactKey,
 	parseIsoTimestamp,
 	parseRuleId,
 	parseRulePackId,
 } from "@openitr/model";
+import { canonicalJson, compileRulePack } from "@openitr/rulepack-compiler";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -14,9 +14,7 @@ import {
 	itr1Ay202627RulePack20260826,
 } from "../../index";
 
-const SYNTHETIC_ANSWER_TIME = parseIsoTimestamp(
-	"2099-01-01T00:00:00.000Z",
-);
+const SYNTHETIC_ANSWER_TIME = parseIsoTimestamp("2099-01-01T00:00:00.000Z");
 
 describe("cited contribution example: revision 2026-08-26", () => {
 	test("registers every contributed rule in the immutable compiled pack", () => {
@@ -26,7 +24,11 @@ describe("cited contribution example: revision 2026-08-26", () => {
 		expect(itr1Ay202627CompiledRulePack20260826.identity.revision).toBe(
 			"2026-08-26",
 		);
-		for (const ruleId of ["ITR1-INCOME-AGGREGATION-SECTION-14", "ITR1-INTEREST-INCOME-SECTION-56", "ITR1-TDS-CREDIT-SECTION-199"]) {
+		for (const ruleId of [
+			"ITR1-INCOME-AGGREGATION-SECTION-14",
+			"ITR1-INTEREST-INCOME-SECTION-56",
+			"ITR1-TDS-CREDIT-SECTION-199",
+		]) {
 			expect(itr1Ay202627CompiledRulePack20260826.supportedRuleIds).toContain(
 				parseRuleId(ruleId),
 			);
@@ -62,14 +64,18 @@ describe("cited contribution example: revision 2026-08-26", () => {
 	});
 
 	test("exposes the same questions through the loaded scope rule pack", () => {
-		expect(itr1Ay202627RulePack20260826.questions.map((question) => question.id)).toEqual([
+		expect(
+			itr1Ay202627RulePack20260826.questions.map((question) => question.id),
+		).toEqual([
 			"bank-interest-savings-account-total",
 			"bank-interest-deposits-total",
 		]);
 	});
 
 	test("keeps packs compiled before questions free of them", () => {
-		expect(itr1Ay202627CompiledRulePack20260824b.missingFactQuestions).toBeUndefined();
+		expect(
+			itr1Ay202627CompiledRulePack20260824b.missingFactQuestions,
+		).toBeUndefined();
 		expect(itr1Ay202627RulePack20260824b.questions).toEqual([]);
 	});
 
@@ -84,8 +90,7 @@ describe("cited contribution example: revision 2026-08-26", () => {
 		});
 
 		expect(
-			canonicalJson(firstPass.identity) ===
-				canonicalJson(secondPass.identity),
+			canonicalJson(firstPass.identity) === canonicalJson(secondPass.identity),
 		).toBe(true);
 		expect(
 			canonicalJson(firstPass.identity) ===

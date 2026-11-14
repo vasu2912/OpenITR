@@ -3,12 +3,12 @@ import {
 	corruptSyntheticPdf,
 } from "./fixtures/pdf-fixture-builder";
 import {
-	buildXlsxWorkbookFixture,
 	blankCell,
+	buildXlsxWorkbookFixture,
+	type FixtureCell,
 	rowXmlOf,
 	SharedStringTableBuilder,
 	textCell,
-	type FixtureCell,
 } from "./fixtures/xlsx-fixture-builder";
 import { PRIVATE_STATEMENT_SENTINEL_HEADER } from "./private-statements/private-statement-detector";
 
@@ -66,11 +66,10 @@ export const createAisJsonBankInterestFixture = (
 			? {}
 			: {
 					interestInformation: {
-						bankInterest:
-							options.bankInterestRecords ?? [
-								AIS_BANK_INTEREST_SAVINGS_RECORD,
-								AIS_BANK_INTEREST_DEPOSITS_RECORD,
-							],
+						bankInterest: options.bankInterestRecords ?? [
+							AIS_BANK_INTEREST_SAVINGS_RECORD,
+							AIS_BANK_INTEREST_DEPOSITS_RECORD,
+						],
 					},
 				}),
 	});
@@ -109,22 +108,20 @@ export const createAisCsvBankInterestFixture = (
 	options: AisCsvBankInterestFixtureOptions = {},
 ): string => {
 	if (options.omitBankInterestSection === true) {
-		return [
-			AIS_CSV_DOCUMENT_TYPE_MARKER,
-			AIS_CSV_SCHEMA_VERSION_MARKER,
-		].join("\n");
+		return [AIS_CSV_DOCUMENT_TYPE_MARKER, AIS_CSV_SCHEMA_VERSION_MARKER].join(
+			"\n",
+		);
 	}
 	const rows =
 		options.bankInterestRows ??
-		[
-			AIS_BANK_INTEREST_SAVINGS_RECORD,
-			AIS_BANK_INTEREST_DEPOSITS_RECORD,
-		].map((record) => ({
-			recordCategory: record.recordCategory,
-			institutionName: record.institutionName,
-			maskedAccountNumber: record.maskedAccountNumber,
-			interestAmount: record.interestAmount,
-		}));
+		[AIS_BANK_INTEREST_SAVINGS_RECORD, AIS_BANK_INTEREST_DEPOSITS_RECORD].map(
+			(record) => ({
+				recordCategory: record.recordCategory,
+				institutionName: record.institutionName,
+				maskedAccountNumber: record.maskedAccountNumber,
+				interestAmount: record.interestAmount,
+			}),
+		);
 	return [
 		AIS_CSV_DOCUMENT_TYPE_MARKER,
 		AIS_CSV_SCHEMA_VERSION_MARKER,
@@ -220,9 +217,7 @@ export const createForm16SalaryPdfFixture = (
 				"Salary as per provisions contained in section 17(1)"
 			],
 		exemptAllowancesSection10:
-			FORM16_SALARY_ROW_AMOUNTS[
-				"Less: Allowance to the extent exempt u/s 10"
-			],
+			FORM16_SALARY_ROW_AMOUNTS["Less: Allowance to the extent exempt u/s 10"],
 		taxableSalary: FORM16_SALARY_ROW_AMOUNTS["Taxable salary"],
 	};
 	const rows: readonly string[] = [
@@ -231,14 +226,13 @@ export const createForm16SalaryPdfFixture = (
 		`Taxable salary: Rs ${amounts.taxableSalary}`,
 	];
 	const filteredRows = rows.filter(
-		(row) => options.omitLabel === undefined || !row.startsWith(options.omitLabel),
+		(row) =>
+			options.omitLabel === undefined || !row.startsWith(options.omitLabel),
 	);
 	const duplicatedRows =
 		options.duplicateLabel === undefined
 			? []
-			: [
-					`${options.duplicateLabel}: Rs 99,99,999`,
-				];
+			: [`${options.duplicateLabel}: Rs 99,99,999`];
 
 	return buildSyntheticPdf({
 		pages: [
@@ -420,15 +414,18 @@ export type EpayTaxReceiptFixtureOptions = Readonly<{
 export const createEpayTaxPdfFixture = (
 	options: EpayTaxReceiptFixtureOptions = {},
 ): Uint8Array<ArrayBuffer> => {
-	const bsrCode = options.duplicateChallanIdentity === "conflicting"
-		? "0004329"
-		: EPAY_SENTINEL_BSR_CODE;
-	const paymentDate = options.duplicateChallanIdentity === "conflicting"
-		? "27/03/2026"
-		: EPAY_SENTINEL_PAYMENT_DATE;
-	const challanSerial = options.duplicateChallanIdentity === "conflicting"
-		? "00999"
-		: EPAY_SENTINEL_CHALLAN_SERIAL;
+	const bsrCode =
+		options.duplicateChallanIdentity === "conflicting"
+			? "0004329"
+			: EPAY_SENTINEL_BSR_CODE;
+	const paymentDate =
+		options.duplicateChallanIdentity === "conflicting"
+			? "27/03/2026"
+			: EPAY_SENTINEL_PAYMENT_DATE;
+	const challanSerial =
+		options.duplicateChallanIdentity === "conflicting"
+			? "00999"
+			: EPAY_SENTINEL_CHALLAN_SERIAL;
 	const challanLines = [
 		epayFieldLine("BSR Code", EPAY_SENTINEL_BSR_CODE),
 		epayFieldLine("Date of Receipt (CIN)", EPAY_SENTINEL_PAYMENT_DATE),
@@ -442,27 +439,22 @@ export const createEpayTaxPdfFixture = (
 					epayFieldLine("Date of Receipt (CIN)", paymentDate),
 					epayFieldLine("Challan Serial Number", challanSerial),
 				];
-	const totalAmount = options.malformedTotalTaxPaid === true
-		? "45.670.00"
-		: (options.totalTaxPaid ?? EPAY_SENTINEL_TOTAL_TAX_PAID);
+	const totalAmount =
+		options.malformedTotalTaxPaid === true
+			? "45.670.00"
+			: (options.totalTaxPaid ?? EPAY_SENTINEL_TOTAL_TAX_PAID);
 	return buildSyntheticPdf({
 		pages: [
 			{
 				textLines: [
 					...EPAY_MARKER_LINES,
-					epayFieldLine(
-						"Status of Payment",
-						options.status ?? "Paid",
-					),
+					epayFieldLine("Status of Payment", options.status ?? "Paid"),
 					epayFieldLine(
 						"Assessment Year",
 						options.assessmentYear ?? EPAY_SENTINEL_ASSESSMENT_YEAR,
 					),
 					epayFieldLine("Name of Taxpayer", EPAY_SENTINEL_TAXPAYER_NAME),
-					epayFieldLine(
-						"Permanent Account Number (PAN)",
-						EPAY_SENTINEL_PAN,
-					),
+					epayFieldLine("Permanent Account Number (PAN)", EPAY_SENTINEL_PAN),
 					...(options.omitChallanDetails === true ? [] : challanLines),
 					epayFieldLine(
 						"Type of Payment",
@@ -520,8 +512,7 @@ export const FORM26AS_SENTINEL_TDS_DEPOSITED = "48,750.00";
 export const FORM26AS_SENTINEL_CONTRACTOR_PAID = "2,50,000.00";
 export const FORM26AS_SENTINEL_CONTRACTOR_DEPOSITED = "12,500.00";
 
-const tdsRecordLine = (cells: readonly string[]): string =>
-	cells.join("\t");
+const tdsRecordLine = (cells: readonly string[]): string => cells.join("\t");
 
 export const FORM26AS_TDS_RECORD_ONE_CELLS = Object.freeze([
 	"1",
@@ -553,20 +544,11 @@ export type Form26AsTextFixtureOptions = Readonly<{
 export const createForm26AsTextFixture = (
 	options: Form26AsTextFixtureOptions = {},
 ): string => {
-	const partOneRows =
-		options.partOneRows ??
-		[
-			tdsRecordLine(FORM26AS_TDS_RECORD_ONE_CELLS),
-			tdsRecordLine(FORM26AS_TDS_RECORD_TWO_CELLS),
-			tdsRecordLine([
-				"Total",
-				"",
-				"",
-				"12,50,000.00",
-				"50,000.00",
-				"61,250.00",
-			]),
-		];
+	const partOneRows = options.partOneRows ?? [
+		tdsRecordLine(FORM26AS_TDS_RECORD_ONE_CELLS),
+		tdsRecordLine(FORM26AS_TDS_RECORD_TWO_CELLS),
+		tdsRecordLine(["Total", "", "", "12,50,000.00", "50,000.00", "61,250.00"]),
+	];
 	return [
 		"FORM 26AS",
 		"Annual Tax Statement under Section 203AA of the Income Tax Act, 1961",
@@ -638,13 +620,11 @@ export const createForm26AsExcelFixture = (
 	options: Form26AsExcelFixtureOptions = {},
 ): Uint8Array<ArrayBuffer> => {
 	const table = new SharedStringTableBuilder();
-	const partOneRows =
-		options.partOneRows ??
-		[
-			[...FORM26AS_TDS_RECORD_ONE_CELLS],
-			[...FORM26AS_TDS_RECORD_TWO_CELLS],
-			["Total", "", "", "12,50,000.00", "50,000.00", "61,250.00"],
-		];
+	const partOneRows = options.partOneRows ?? [
+		[...FORM26AS_TDS_RECORD_ONE_CELLS],
+		[...FORM26AS_TDS_RECORD_TWO_CELLS],
+		["Total", "", "", "12,50,000.00", "50,000.00", "61,250.00"],
+	];
 	const rows: readonly string[] = [
 		fixtureRowOf(1, [FORM26AS_EXCEL_TITLE], table),
 		fixtureRowOf(2, [FORM26AS_EXCEL_SUBTITLE], table),
@@ -758,16 +738,14 @@ export const createPrefilledItr1JsonFixture = (
 			? {}
 			: {
 					salaryInformation:
-						options.salaryInformation ??
-						PREFILLED_ITR1_SALARY_INFORMATION,
+						options.salaryInformation ?? PREFILLED_ITR1_SALARY_INFORMATION,
 				}),
 		...(options.omitTdsOnSalary === true
 			? {}
 			: {
-					tdsOnSalary:
-						options.tdsOnSalary ?? [
-							PREFILLED_ITR1_TDS_RECORD_ONE,
-							PREFILLED_ITR1_TDS_RECORD_TWO,
-						],
+					tdsOnSalary: options.tdsOnSalary ?? [
+						PREFILLED_ITR1_TDS_RECORD_ONE,
+						PREFILLED_ITR1_TDS_RECORD_TWO,
+					],
 				}),
 	});

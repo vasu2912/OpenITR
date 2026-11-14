@@ -1,18 +1,19 @@
 import {
-	itr1Ay202627RulePack20260826,
-} from "@openitr/itr1-ay2026-27";
-import type { RefundOrAmountPayableEstimate } from "@openitr/itr1-ay2026-27";
-import {
 	createAisCsvBankInterestFixture,
 	createAisJsonBankInterestFixture,
 	createForm16SalaryPdfFixture,
 	createForm26AsTextFixture,
 	utf8Bytes,
 } from "@openitr/document-adapters/testing";
+import type { RefundOrAmountPayableEstimate } from "@openitr/itr1-ay2026-27";
+import { itr1Ay202627RulePack20260826 } from "@openitr/itr1-ay2026-27";
 import { describe, expect, test } from "vitest";
 
 import { inProcessInspectionFacility } from "./in-process-inspection-facility";
-import type { SessionCommand, SessionOrchestrator } from "./session-orchestrator";
+import type {
+	SessionCommand,
+	SessionOrchestrator,
+} from "./session-orchestrator";
 import { createSessionOrchestrator } from "./session-orchestrator";
 
 const scopeTime = "2026-08-30T08:00:00.000Z";
@@ -184,7 +185,8 @@ describe("decision recomputation", () => {
 			throw new Error("Expected an original computed estimate");
 		}
 		const answer = original.factAnswers.find(
-			(candidate) => candidate.questionId === "bank-interest-savings-account-total",
+			(candidate) =>
+				candidate.questionId === "bank-interest-savings-account-total",
 		);
 		const unaffectedAnswer = original.factAnswers.find(
 			(candidate) => candidate.questionId === "bank-interest-deposits-total",
@@ -196,7 +198,10 @@ describe("decision recomputation", () => {
 			throw new Error("Expected the deposits answer");
 		}
 
-		session.send({ kind: "remove-missing-fact-answer", answerId: answer.answerId });
+		session.send({
+			kind: "remove-missing-fact-answer",
+			answerId: answer.answerId,
+		});
 		const pending = session.getSnapshot();
 		expect(pending.kind).toBe("document-intake");
 		if (pending.kind === "document-intake") {
@@ -246,7 +251,8 @@ describe("decision recomputation", () => {
 		).toBe(unaffectedAnswer);
 
 		const changedAnswer = changed.factAnswers.find(
-			(candidate) => candidate.questionId === "bank-interest-savings-account-total",
+			(candidate) =>
+				candidate.questionId === "bank-interest-savings-account-total",
 		);
 		if (changedAnswer === undefined) {
 			throw new Error("Expected the changed savings answer");
@@ -326,7 +332,10 @@ describe("decision recomputation", () => {
 		session.send({
 			kind: "resolve-fact-conflict",
 			groupId: conflict.groupId,
-			choice: { kind: "observed", observationId: jsonObservation.observationId },
+			choice: {
+				kind: "observed",
+				observationId: jsonObservation.observationId,
+			},
 			reason: "The JSON export matches the bank statement.",
 			executionContext: { recordedAt: "2026-08-30T08:10:00.000Z" },
 		});
@@ -390,7 +399,9 @@ describe("decision recomputation", () => {
 		) {
 			throw new Error("Expected the changed resolved estimate");
 		}
-		expect(changed.estimateComputation.summary.bankInterestTotal).toBe("54678.9");
+		expect(changed.estimateComputation.summary.bankInterestTotal).toBe(
+			"54678.9",
+		);
 		expect(changed.salaryComputation).toBe(originalSalary);
 		expectUnchangedEstimateNodes({
 			before: original.estimateComputation,
@@ -408,7 +419,10 @@ describe("decision recomputation", () => {
 		session.send({
 			kind: "resolve-fact-conflict",
 			groupId: conflict.groupId,
-			choice: { kind: "observed", observationId: jsonObservation.observationId },
+			choice: {
+				kind: "observed",
+				observationId: jsonObservation.observationId,
+			},
 			reason: "The JSON export matches the bank statement.",
 			executionContext: { recordedAt: "2026-08-30T08:10:00.000Z" },
 		});

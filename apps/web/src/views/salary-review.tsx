@@ -9,16 +9,12 @@ import type {
 	TdsObservation,
 } from "@openitr/model";
 import { epayChallanReferenceOf } from "@openitr/model";
-import {
-	Alert,
-	Button,
-	Title,
-} from "@patternfly/react-core";
+import { Alert, Button, Title } from "@patternfly/react-core";
 import { useState } from "react";
 
 import { rupeeFormat } from "./computation-trace-view";
-import { FactLabel, IssueAlert } from "./plain-language";
 import { keyed } from "./keyed";
+import { FactLabel, IssueAlert } from "./plain-language";
 
 type PagesList = Extract<DocumentExtractionRecord, { status: "done" }>["pages"];
 
@@ -114,7 +110,10 @@ const taxPaymentToReview = (
 			value: epayChallanReferenceOf(observation.record),
 		},
 		{ label: "Type of payment", value: observation.record.typeOfPaymentLabel },
-		{ label: "Taxpayer", value: `${observation.record.taxpayerName} (${observation.record.taxpayerPan})` },
+		{
+			label: "Taxpayer",
+			value: `${observation.record.taxpayerName} (${observation.record.taxpayerPan})`,
+		},
 		{
 			label: "Bank reference",
 			value: observation.record.bankReferenceNumber,
@@ -221,9 +220,7 @@ const ObservationEvidencePanel = ({
 							<span aria-hidden="true" className="openitr-evidence-marker">
 								{isEvidence ? "▸" : " "}
 							</span>
-							<span className="openitr-evidence-number">
-								{line.lineNumber}
-							</span>
+							<span className="openitr-evidence-number">{line.lineNumber}</span>
 							<span className="openitr-evidence-text">
 								{isEvidence ? <strong>{line.text}</strong> : line.text}
 							</span>
@@ -248,7 +245,9 @@ const ObservationCard = ({
 			id={`observation-${observation.observationId}`}
 		>
 			<header className="openitr-observation-header">
-				<strong><FactLabel factKey={observation.factKey} /></strong>
+				<strong>
+					<FactLabel factKey={observation.factKey} />
+				</strong>
 				<span className="openitr-observation-value">
 					₹ {observation.valueText}
 				</span>
@@ -273,8 +272,8 @@ const ObservationCard = ({
 				<ol className="openitr-step-list">
 					{observation.transformationSteps.map((step) => (
 						<li key={step.order}>
-							<code>{step.operation}</code> ({step.order}):{" "}
-							<q>{step.input}</q> → <q>{step.output}</q>
+							<code>{step.operation}</code> ({step.order}): <q>{step.input}</q>{" "}
+							→ <q>{step.output}</q>
 						</li>
 					))}
 				</ol>
@@ -355,65 +354,67 @@ export const SalaryReviewView = ({
 
 	return (
 		<section className="openitr-review-card">
-				<Title headingLevel="h2" size="lg">
-					Extracted observations
-				</Title>
-				<Alert
-					isInline
-					title="Review every observation against its evidence"
-					variant="info"
+			<Title headingLevel="h2" size="lg">
+				Extracted observations
+			</Title>
+			<Alert
+				isInline
+				title="Review every observation against its evidence"
+				variant="info"
+			>
+				Each value below was read locally from your documents. The original text
+				stays beside the normalized value, and every normalization step is
+				listed in order. Income evidence and tax-paid evidence are listed
+				separately because they feed different totals.
+			</Alert>
+			{doneRecords.map((record) => (
+				<section
+					className="openitr-review-document"
+					data-document-id={record.documentId}
+					key={record.candidateKey}
 				>
-					Each value below was read locally from your documents. The original
-					text stays beside the normalized value, and every normalization
-					step is listed in order. Income evidence and tax-paid evidence are
-					listed separately because they feed different totals.
-				</Alert>
-				{doneRecords.map((record) => (
-					<section
-						className="openitr-review-document"
-						data-document-id={record.documentId}
-						key={record.candidateKey}
-					>
-						<header className="openitr-review-document-header">
-							<h3>
-								{documents.find(
-									(document) => document.candidateKey === record.candidateKey,
-								)?.displayName ?? "Source document"}
-							</h3>
-							<small>Document {String(record.documentId).slice(0, 12)}…</small>
-						</header>
-						{keyed(record.issues, (issue) => String(issue.code)).map(({ key, item: issue }) => (
+					<header className="openitr-review-document-header">
+						<h3>
+							{documents.find(
+								(document) => document.candidateKey === record.candidateKey,
+							)?.displayName ?? "Source document"}
+						</h3>
+						<small>Document {String(record.documentId).slice(0, 12)}…</small>
+					</header>
+					{keyed(record.issues, (issue) => String(issue.code)).map(
+						({ key, item: issue }) => (
 							<IssueAlert issue={issue} key={key} />
-						))}
-						{groupsOfRecord(record).map(
-							(group) =>
-								group.observations.length > 0 && (
-									<div
-										className="openitr-review-group"
-										data-evidence-role={group.role}
-										key={group.label}
-									>
-										<h4 className="openitr-review-group-heading">
-											{group.label}
-										</h4>
-										{group.observations.map((observation) => (
-											<ObservationCard
-												key={observation.observationId}
-												observation={observation}
-												pages={record.pages}
-											/>
-										))}
-									</div>
-								),
-						)}
-						{record.observations.length === 0 &&
-						record.nonSalaryIncomeObservations.length === 0 &&
-						record.tdsObservations.length === 0 &&
-						record.taxPaymentObservations.length === 0 ? (
-							<p>No observations could be extracted from this document.</p>
-						) : null}
-					</section>
-				))}
+						),
+					)}
+					{groupsOfRecord(record).map(
+						(group) =>
+							group.observations.length > 0 && (
+								<div
+									className="openitr-review-group"
+									data-evidence-role={group.role}
+									key={group.label}
+								>
+									<h4 className="openitr-review-group-heading">
+										{group.label}
+									</h4>
+									{group.observations.map((observation) => (
+										<ObservationCard
+											key={observation.observationId}
+											observation={observation}
+											pages={record.pages}
+										/>
+									))}
+								</div>
+							),
+					)}
+					{record.observations.length === 0 &&
+					record.nonSalaryIncomeObservations.length === 0 &&
+					record.tdsObservations.length === 0 &&
+					record.taxPaymentObservations.length === 0 ? (
+						<p>No observations could be extracted from this document.</p>
+					) : null}
+				</section>
+			))}
 		</section>
 	);
 };

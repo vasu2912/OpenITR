@@ -1,5 +1,5 @@
-import { parseSha256Digest } from "@openitr/model";
 import type { Sha256Digest } from "@openitr/model";
+import { parseSha256Digest } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
 import { buildSyntheticPdf } from "./fixtures/pdf-fixture-builder";

@@ -11,6 +11,7 @@ import { compareByCodepoint } from "../extraction-support";
 import type { GroupedRupeeAmount } from "../grouped-rupee-amount";
 import { parseGroupedRupeeAmount } from "../grouped-rupee-amount";
 import type { PdfLineGeometry } from "../pdf/pdf-text-layer";
+import type { Form16APaymentCategoryDefinition } from "./payment-summary";
 import {
 	FORM16A_AGGREGATE_ROW_LABEL,
 	FORM16A_AMOUNT_COLUMNS,
@@ -21,14 +22,13 @@ import {
 	FORM16A_SERIAL_NUMBER_PATTERN,
 	FORM16A_SUMMARY_SECTION_TITLE,
 	FORM16A_TAN_PATTERN,
+	form16APaymentCategoryByCells,
 	form16aCategoryUnknownIssue,
 	form16aColumnHeaderMalformedIssue,
 	form16aRecordAmbiguousIssue,
 	form16aRecordMalformedIssue,
 	form16aSectionMissingIssue,
-	form16APaymentCategoryByCells,
 } from "./payment-summary";
-import type { Form16APaymentCategoryDefinition } from "./payment-summary";
 
 type ParsedAmountCell =
 	| Readonly<{ kind: "unknown"; raw: string }>
@@ -224,12 +224,12 @@ export const extractForm16APaymentSummary = ({
 	const deductorTanLine = linesWithPages.find((line) =>
 		line.text.startsWith(FORM16A_DEDUCTOR_TAN_PREFIX),
 	);
-	const deductorName = deductorNameLine
-		?.text.slice(FORM16A_DEDUCTOR_NAME_PREFIX.length)
+	const deductorName = deductorNameLine?.text
+		.slice(FORM16A_DEDUCTOR_NAME_PREFIX.length)
 		.replace(/\s+/g, " ")
 		.trim();
-	const deductorTan = deductorTanLine
-		?.text.slice(FORM16A_DEDUCTOR_TAN_PREFIX.length)
+	const deductorTan = deductorTanLine?.text
+		.slice(FORM16A_DEDUCTOR_TAN_PREFIX.length)
 		.replace(/\s+/g, " ")
 		.trim();
 	if (
@@ -247,7 +247,11 @@ export const extractForm16APaymentSummary = ({
 
 	const issues: DocumentReviewIssue[] = [];
 	const parsedRecords: ParsedSummaryRecord[] = [];
-	for (let index = columnHeaderIndex + 1; index < linesWithPages.length; index += 1) {
+	for (
+		let index = columnHeaderIndex + 1;
+		index < linesWithPages.length;
+		index += 1
+	) {
 		const line = linesWithPages[index];
 		if (line === undefined || line.text.trim() === "") {
 			continue;
@@ -318,14 +322,15 @@ export const extractForm16APaymentSummary = ({
 		return state?.conflicted !== true && state?.kept === record;
 	});
 
-	const pdfEvidenceOf = (record: ParsedSummaryRecord) => ({
-		kind: "pdf-page-region",
-		page: record.line.page,
-		x: record.line.x,
-		y: record.line.y,
-		width: record.line.width,
-		height: record.line.height,
-	} as const);
+	const pdfEvidenceOf = (record: ParsedSummaryRecord) =>
+		({
+			kind: "pdf-page-region",
+			page: record.line.page,
+			x: record.line.x,
+			y: record.line.y,
+			width: record.line.width,
+			height: record.line.height,
+		}) as const;
 
 	const incomeObservations: NonSalaryIncomeObservation[] = [];
 	const tdsObservations: TdsObservation[] = [];

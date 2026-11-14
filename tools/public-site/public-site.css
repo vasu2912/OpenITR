@@ -249,7 +249,7 @@ h1 span {
 	align-items: end;
 }
 .section-heading .eyebrow {
-	grid-column: 1/-1;
+	grid-column: 1 / -1;
 	margin-bottom: 16px;
 }
 h2 {

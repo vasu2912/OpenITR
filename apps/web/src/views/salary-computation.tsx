@@ -1,10 +1,6 @@
-import type {
-	NewRegimeSalaryComputation,
-} from "@openitr/itr1-ay2026-27";
+import type { NewRegimeSalaryComputation } from "@openitr/itr1-ay2026-27";
 import type { CandidateDocument } from "@openitr/model";
-import {
-	Title,
-} from "@patternfly/react-core";
+import { Title } from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
 import { IssueAlert } from "./plain-language";
@@ -65,74 +61,80 @@ export const SalaryComputationView = ({
 
 	return (
 		<section className="openitr-computation-card">
-				<Title headingLevel="h2" size="lg">
-					New-regime salary scenario
-				</Title>
-				{computation.kind === "blocked" ? (
-					computation.issues.map((issue) => (
-						<IssueAlert issue={issue} key={String(issue.code)} />
-					))
-				) : (
-					<>
-						<section aria-labelledby="salary-sources-heading">
-							<h3 id="salary-sources-heading">Salary and pension sources</h3>
-							<div className="openitr-salary-source-list">
-								{computation.sources.map((source) => {
-									const sourceDocuments = source.sourceDocumentIds
-										.map((documentId) =>
-											documents.find(
-												(document) => document.documentId === documentId,
-											),
-										)
-										.filter((document) => document !== undefined);
-									const sourceLabel =
-										source.sourceKind === "form16"
-											? `Form 16 · TAN ${source.sourceId.replace("form16:", "")}`
-											: source.sourceKind === "prefilled-aggregate"
-												? "Prefilled ITR-1 aggregate"
-												: "Salary source";
-									return (
-										<article
-											className="openitr-salary-source"
-											key={source.sourceId}
-										>
-											<h4>{sourceLabel}</h4>
-											<p className="openitr-salary-source-documents">
-												{sourceDocuments.length > 0
-													? sourceDocuments
+			<Title headingLevel="h2" size="lg">
+				New-regime salary scenario
+			</Title>
+			{computation.kind === "blocked" ? (
+				computation.issues.map((issue) => (
+					<IssueAlert issue={issue} key={String(issue.code)} />
+				))
+			) : (
+				<>
+					<section aria-labelledby="salary-sources-heading">
+						<h3 id="salary-sources-heading">Salary and pension sources</h3>
+						<div className="openitr-salary-source-list">
+							{computation.sources.map((source) => {
+								const sourceDocuments = source.sourceDocumentIds
+									.map((documentId) =>
+										documents.find(
+											(document) => document.documentId === documentId,
+										),
+									)
+									.filter((document) => document !== undefined);
+								const sourceLabel =
+									source.sourceKind === "form16"
+										? `Form 16 · TAN ${source.sourceId.replace("form16:", "")}`
+										: source.sourceKind === "prefilled-aggregate"
+											? "Prefilled ITR-1 aggregate"
+											: "Salary source";
+								return (
+									<article
+										className="openitr-salary-source"
+										key={source.sourceId}
+									>
+										<h4>{sourceLabel}</h4>
+										<p className="openitr-salary-source-documents">
+											{sourceDocuments.length > 0
+												? sourceDocuments
 														.map((document) => document.displayName)
 														.join(", ")
-													: `Document ${String(source.documentId).slice(0, 12)}…`}
-											</p>
-											<dl>
-												<div><dt>Gross salary</dt><dd>₹ {rupeeFormat(source.grossSalary)}</dd></div>
-												<div><dt>Section 10 exemptions</dt><dd>₹ {rupeeFormat(source.exemptAllowances)}</dd></div>
-												<div><dt>Taxable salary contribution</dt><dd>₹ {rupeeFormat(source.taxableSalary)}</dd></div>
-											</dl>
-										</article>
-									);
-								})}
+												: `Document ${String(source.documentId).slice(0, 12)}…`}
+										</p>
+										<dl>
+											<div>
+												<dt>Gross salary</dt>
+												<dd>₹ {rupeeFormat(source.grossSalary)}</dd>
+											</div>
+											<div>
+												<dt>Section 10 exemptions</dt>
+												<dd>₹ {rupeeFormat(source.exemptAllowances)}</dd>
+											</div>
+											<div>
+												<dt>Taxable salary contribution</dt>
+												<dd>₹ {rupeeFormat(source.taxableSalary)}</dd>
+											</div>
+										</dl>
+									</article>
+								);
+							})}
+						</div>
+					</section>
+					<dl className="openitr-result-details">
+						{summaryRows(computation).map((row) => (
+							<div key={row.label}>
+								<dt>{row.label}</dt>
+								<dd>
+									<strong>{row.value}</strong>
+									{row.hint ? (
+										<small className="openitr-summary-hint"> {row.hint}</small>
+									) : null}
+								</dd>
 							</div>
-						</section>
-						<dl className="openitr-result-details">
-							{summaryRows(computation).map((row) => (
-								<div key={row.label}>
-									<dt>{row.label}</dt>
-									<dd>
-										<strong>{row.value}</strong>
-										{row.hint ? (
-											<small className="openitr-summary-hint">
-												{" "}
-												{row.hint}
-											</small>
-										) : null}
-									</dd>
-								</div>
-							))}
-						</dl>
-						<ComputationTraceList nodes={computation.nodes} />
-					</>
-				)}
+						))}
+					</dl>
+					<ComputationTraceList nodes={computation.nodes} />
+				</>
+			)}
 		</section>
 	);
 };

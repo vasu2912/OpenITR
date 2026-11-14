@@ -67,9 +67,8 @@ const isSourceId = (value: string): value is SourceId =>
 const isAssessmentYear = (value: string): value is AssessmentYear =>
 	isConsecutiveYearRange(value);
 
-const isTaxAnalysisModuleId = (
-	value: string,
-): value is TaxAnalysisModuleId => /^[a-z][a-z0-9-]+$/.test(value);
+const isTaxAnalysisModuleId = (value: string): value is TaxAnalysisModuleId =>
+	/^[a-z][a-z0-9-]+$/.test(value);
 
 const isTaxFormId = (value: string): value is TaxFormId =>
 	/^[A-Z][A-Z0-9-]+$/.test(value);

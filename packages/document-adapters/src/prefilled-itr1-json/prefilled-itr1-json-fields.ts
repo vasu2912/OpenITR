@@ -1,7 +1,5 @@
-import { parseFactKey } from "@openitr/model";
-import type { FactKey } from "@openitr/model";
-import { parseRuleId } from "@openitr/model";
-import type { RuleId } from "@openitr/model";
+import type { FactKey, RuleId } from "@openitr/model";
+import { parseFactKey, parseRuleId } from "@openitr/model";
 
 export type PrefilledItr1SalaryFieldDefinition = Readonly<{
 	propertyName: string;

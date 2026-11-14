@@ -1,9 +1,4 @@
-import {
-	compareExactMoney,
-	exactMoneyFromWholeRupees,
-	subtractExactMoney,
-} from "@openitr/model";
-import type { ExactMoney, RuleId } from "@openitr/model";
+import type { AcceptedCanonicalFact } from "@openitr/fact-reconciliation";
 import type {
 	ComputationTraceNode,
 	EstimatedBalance,
@@ -14,7 +9,12 @@ import type {
 	Regime,
 	RegimeComparison,
 } from "@openitr/itr1-ay2026-27";
-import type { AcceptedCanonicalFact } from "@openitr/fact-reconciliation";
+import type { ExactMoney, RuleId } from "@openitr/model";
+import {
+	compareExactMoney,
+	exactMoneyFromWholeRupees,
+	subtractExactMoney,
+} from "@openitr/model";
 import type { AttestedAnswerFact } from "@openitr/question-engine";
 
 type ComputedOldRegime = Extract<OldRegimeComputation, { kind: "computed" }>;
@@ -142,12 +142,12 @@ const amount = ({
 	evidenceTargetIds?: readonly string[];
 }>): AnalysisAmount =>
 	Object.freeze({
-	id,
-	label,
-	amount: value,
-	traceTargetIds: Object.freeze(traceTargetIds),
-	evidenceTargetIds: Object.freeze([...evidenceTargetIds]),
-});
+		id,
+		label,
+		amount: value,
+		traceTargetIds: Object.freeze(traceTargetIds),
+		evidenceTargetIds: Object.freeze([...evidenceTargetIds]),
+	});
 
 const incomeCompositionOf = (
 	input: BuildAnalysisReportInput,
@@ -195,18 +195,18 @@ const incomeCompositionOf = (
 			traceTargetIds: [
 				regimeTraceTarget(regime, `${prefix}-other-sources-income`),
 			],
-			evidenceTargetIds: evidenceTargetsFor(input, (key) =>
-				key.startsWith("non-salary-income.") ||
-				key.startsWith("other-sources."),
+			evidenceTargetIds: evidenceTargetsFor(
+				input,
+				(key) =>
+					key.startsWith("non-salary-income.") ||
+					key.startsWith("other-sources."),
 			),
 		}),
 		amount({
 			id: "section-112a",
 			label: "Section 112A gain",
 			value: summary.section112aGain,
-			traceTargetIds: [
-				regimeTraceTarget(regime, `${prefix}-section112a-gain`),
-			],
+			traceTargetIds: [regimeTraceTarget(regime, `${prefix}-section112a-gain`)],
 			evidenceTargetIds: evidenceTargetsFor(input, (key) =>
 				key.startsWith("capital-gains."),
 			),
@@ -413,7 +413,9 @@ const adjustmentsOf = (
 				}),
 			);
 		}
-		if (compareExactMoney(newRegime.summary.housePropertyLossExcluded, ZERO) > 0) {
+		if (
+			compareExactMoney(newRegime.summary.housePropertyLossExcluded, ZERO) > 0
+		) {
 			const node = nodeById(
 				newRegime.nodes,
 				"derived.new-regime-house-property-income",
@@ -494,7 +496,8 @@ const planningIdeasOf = (
 export const buildAnalysisReport = (
 	input: BuildAnalysisReportInput,
 ): AnalysisReport | undefined => {
-	const { oldRegimeComputation, newRegimeComputation, regimeComparison } = input;
+	const { oldRegimeComputation, newRegimeComputation, regimeComparison } =
+		input;
 	if (
 		oldRegimeComputation?.kind !== "computed" ||
 		newRegimeComputation?.kind !== "computed" ||

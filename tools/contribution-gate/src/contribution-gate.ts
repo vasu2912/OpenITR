@@ -1,9 +1,9 @@
-import { canonicalJson, compileRulePack } from "@openitr/rulepack-compiler";
 import type {
 	RulePackIdentity,
 	RulePackManifest,
 	TaxAnalysisModuleArtifact,
 } from "@openitr/model";
+import { canonicalJson, compileRulePack } from "@openitr/rulepack-compiler";
 
 export type ContributionFindingCode =
 	| "unregistered-revision"
@@ -81,7 +81,9 @@ export const auditTaxAnalysisModuleContribution = async ({
 	for (const manifest of manifests) {
 		const firstPass = await compileRulePack({ manifest });
 		const secondPass = await compileRulePack({ manifest });
-		if (canonicalJson(firstPass.identity) !== canonicalJson(secondPass.identity)) {
+		if (
+			canonicalJson(firstPass.identity) !== canonicalJson(secondPass.identity)
+		) {
 			findings.push({
 				code: "nondeterministic-output",
 				detail: `Compiling rule pack "${manifest.rulePackId}" twice produced different identities (${firstPass.identity.compiledPackSha256} then ${secondPass.identity.compiledPackSha256}).`,

@@ -16,11 +16,14 @@ const prompts = Object.freeze({
 	present: "Do you want to analyze a donation under section 80G?",
 	amount: "How much did you donate during FY 2025-26?",
 	fullDeduction: "Is this recipient in a 100% deduction category?",
-	qualifyingLimit: "Is this recipient category subject to the qualifying limit?",
-	adjustedGti: "What is the adjusted gross total income for the section 80G limit?",
+	qualifyingLimit:
+		"Is this recipient category subject to the qualifying limit?",
+	adjustedGti:
+		"What is the adjusted gross total income for the section 80G limit?",
 	cash: "Was the donation paid in cash?",
 	noncashDetails: "Are the IFSC and transaction-reference details available?",
-	recipientQualified: "Was the recipient eligible under section 80G for this donation?",
+	recipientQualified:
+		"Was the recipient eligible under section 80G for this donation?",
 	recipientDetails:
 		"Are the recipient's name, address, and applicable identification details available?",
 	certificate:

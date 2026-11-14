@@ -2,14 +2,11 @@ import type {
 	EstimateEvidenceRole,
 	RefundOrAmountPayableEstimate,
 } from "@openitr/itr1-ay2026-27";
-import {
-	Alert,
-	Title,
-} from "@patternfly/react-core";
+import { Alert, Title } from "@patternfly/react-core";
 
 import { ComputationTraceList, rupeeFormat } from "./computation-trace-view";
-import { FactLabel, IssueAlert } from "./plain-language";
 import { keyed } from "./keyed";
+import { FactLabel, IssueAlert } from "./plain-language";
 
 const roleLabels: Readonly<Record<EstimateEvidenceRole, string>> =
 	Object.freeze({
@@ -128,16 +125,18 @@ export const EstimateView = ({
 	if (estimate.kind === "blocked") {
 		return (
 			<section className="openitr-estimate-card">
-					<Title headingLevel="h2" size="lg">
-						Estimated refund or amount payable
-					</Title>
-					<p>
-						A final estimate needs accepted facts from every slice below.
-						The missing or disputed items need review first.
-					</p>
-					{keyed(estimate.issues, (issue) => String(issue.code)).map(({ key, item: issue }) => (
+				<Title headingLevel="h2" size="lg">
+					Estimated refund or amount payable
+				</Title>
+				<p>
+					A final estimate needs accepted facts from every slice below. The
+					missing or disputed items need review first.
+				</p>
+				{keyed(estimate.issues, (issue) => String(issue.code)).map(
+					({ key, item: issue }) => (
 						<IssueAlert issue={issue} key={key} />
-					))}
+					),
+				)}
 			</section>
 		);
 	}
@@ -146,52 +145,50 @@ export const EstimateView = ({
 
 	return (
 		<section className="openitr-estimate-card">
-				<Title headingLevel="h2" size="lg">
-					Estimated refund or amount payable
-				</Title>
-				<Alert
-					isInline
-					title={presentation.heading}
-					variant={presentation.variant}
-				>
-					One result from this reconciliation: computed liability compared
-					against accepted taxes paid.
-				</Alert>
-				<dl className="openitr-result-details">
-					{summaryRows(estimate).map((row) => (
-						<div key={row.label}>
-							<dt>{row.label}</dt>
-							<dd>
-								<strong>{row.value}</strong>
-								{row.hint ? (
-									<small className="openitr-summary-hint">
-										{" "}
-										{row.hint}
-									</small>
-								) : null}
-							</dd>
-						</div>
-					))}
-				</dl>
-				<p className="openitr-trace-heading">
-					Source evidence behind the estimate
-				</p>
-				<ul className="openitr-evidence-sources">
-					{estimate.sources.map((source) => (
-						<li key={`${source.role}-${String(source.factKey)}`}>
-							<strong>{roleLabels[source.role]}</strong>{" "}
-							<FactLabel factKey={source.factKey} /> ·{" "}
-							{source.observationIds.length} observation
-							{source.observationIds.length === 1 ? "" : "s"} · document{" "}
-							<code>{String(source.sourceDocumentId).slice(0, 16)}…</code>
-						</li>
-					))}
-					{estimate.attestedFactContributions.map((contribution) => {
-						const originId =
-							contribution.origin.kind === "fact-resolution"
-								? contribution.origin.resolutionId
-								: contribution.origin.answerId;
-						return <li key={originId}>
+			<Title headingLevel="h2" size="lg">
+				Estimated refund or amount payable
+			</Title>
+			<Alert
+				isInline
+				title={presentation.heading}
+				variant={presentation.variant}
+			>
+				One result from this reconciliation: computed liability compared against
+				accepted taxes paid.
+			</Alert>
+			<dl className="openitr-result-details">
+				{summaryRows(estimate).map((row) => (
+					<div key={row.label}>
+						<dt>{row.label}</dt>
+						<dd>
+							<strong>{row.value}</strong>
+							{row.hint ? (
+								<small className="openitr-summary-hint"> {row.hint}</small>
+							) : null}
+						</dd>
+					</div>
+				))}
+			</dl>
+			<p className="openitr-trace-heading">
+				Source evidence behind the estimate
+			</p>
+			<ul className="openitr-evidence-sources">
+				{estimate.sources.map((source) => (
+					<li key={`${source.role}-${String(source.factKey)}`}>
+						<strong>{roleLabels[source.role]}</strong>{" "}
+						<FactLabel factKey={source.factKey} /> ·{" "}
+						{source.observationIds.length} observation
+						{source.observationIds.length === 1 ? "" : "s"} · document{" "}
+						<code>{String(source.sourceDocumentId).slice(0, 16)}…</code>
+					</li>
+				))}
+				{estimate.attestedFactContributions.map((contribution) => {
+					const originId =
+						contribution.origin.kind === "fact-resolution"
+							? contribution.origin.resolutionId
+							: contribution.origin.answerId;
+					return (
+						<li key={originId}>
 							<strong>Attested by you</strong>{" "}
 							<FactLabel factKey={contribution.factKey} /> ·{" "}
 							{rupeeFormat(contribution.value)} ·{" "}
@@ -199,13 +196,11 @@ export const EstimateView = ({
 								? "resolution"
 								: "question answer"}{" "}
 							<code>{originId.slice(0, 24)}…</code>
-						</li>;
-					})}
-				</ul>
-				<ComputationTraceList
-					nodes={estimate.nodes}
-					targetPrefix="estimate"
-				/>
+						</li>
+					);
+				})}
+			</ul>
+			<ComputationTraceList nodes={estimate.nodes} targetPrefix="estimate" />
 		</section>
 	);
 };

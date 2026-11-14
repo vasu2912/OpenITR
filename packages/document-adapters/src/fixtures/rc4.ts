@@ -1,10 +1,38 @@
 import { concatBytes, md5 } from "./md5";
 
 const STANDARD_PASSWORD_PADDING = Uint8Array.of(
-	0x28, 0xbf, 0x4e, 0x5e, 0x4e, 0x75, 0x8a, 0x41,
-	0x64, 0x00, 0x4e, 0x56, 0xff, 0xfa, 0x01, 0x08,
-	0x2e, 0x2e, 0x00, 0xb6, 0xd0, 0x68, 0x3e, 0x80,
-	0x2f, 0x0c, 0xa9, 0xfe, 0x64, 0x53, 0x69, 0x7a,
+	0x28,
+	0xbf,
+	0x4e,
+	0x5e,
+	0x4e,
+	0x75,
+	0x8a,
+	0x41,
+	0x64,
+	0x00,
+	0x4e,
+	0x56,
+	0xff,
+	0xfa,
+	0x01,
+	0x08,
+	0x2e,
+	0x2e,
+	0x00,
+	0xb6,
+	0xd0,
+	0x68,
+	0x3e,
+	0x80,
+	0x2f,
+	0x0c,
+	0xa9,
+	0xfe,
+	0x64,
+	0x53,
+	0x69,
+	0x7a,
 );
 
 export { STANDARD_PASSWORD_PADDING };
@@ -17,7 +45,10 @@ export const padPassword = (password: string): Uint8Array<ArrayBuffer> => {
 	const out = new Uint8Array(new ArrayBuffer(32));
 	out.set(encoded.subarray(0, 32));
 	if (encoded.length < 32) {
-		out.set(STANDARD_PASSWORD_PADDING.subarray(0, 32 - encoded.length), encoded.length);
+		out.set(
+			STANDARD_PASSWORD_PADDING.subarray(0, 32 - encoded.length),
+			encoded.length,
+		);
 	}
 	return out;
 };
@@ -58,7 +89,10 @@ export const rc4 = (
 	return out;
 };
 
-const iterateMd5 = (data: Uint8Array, times: number): Uint8Array<ArrayBuffer> => {
+const iterateMd5 = (
+	data: Uint8Array,
+	times: number,
+): Uint8Array<ArrayBuffer> => {
 	let current = md5(data);
 	for (let round = 1; round < times; round += 1) {
 		current = md5(current);
@@ -113,7 +147,10 @@ export const computeUserEntry = (
 	fileKey: Uint8Array,
 	documentId: Uint8Array,
 ): Uint8Array<ArrayBuffer> => {
-	const firstHalf = rc4(fileKey, md5(concatBytes(STANDARD_PASSWORD_PADDING, documentId)));
+	const firstHalf = rc4(
+		fileKey,
+		md5(concatBytes(STANDARD_PASSWORD_PADDING, documentId)),
+	);
 	return concatBytes(firstHalf, firstHalf);
 };
 

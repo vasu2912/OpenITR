@@ -88,7 +88,10 @@ describe("computeOtherSources", () => {
 		const result = computeOtherSources({
 			rulePack: itr1Ay202627RulePack20260906,
 			applicable: true,
-			facts: [...allCategories(), fact("non-salary-income.unknown-category", 1)],
+			facts: [
+				...allCategories(),
+				fact("non-salary-income.unknown-category", 1),
+			],
 		});
 
 		expect(result).toMatchObject({
@@ -117,10 +120,12 @@ describe("computeOtherSources", () => {
 	});
 
 	test("does not ask for an other-source result when the scope presence answer is No", () => {
-		expect(computeOtherSources({
-			rulePack: itr1Ay202627RulePack20260906,
-			applicable: false,
-			facts: [],
-		})).toEqual({ kind: "not-applicable" });
+		expect(
+			computeOtherSources({
+				rulePack: itr1Ay202627RulePack20260906,
+				applicable: false,
+				facts: [],
+			}),
+		).toEqual({ kind: "not-applicable" });
 	});
 });

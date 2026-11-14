@@ -60,7 +60,10 @@ export type PdfLinesOutcome =
 	| Readonly<{
 			outcome: "encrypted" | "damaged" | "not-a-pdf" | "no-text-layer";
 	  }>
-	| Readonly<{ outcome: "text"; pages: readonly (readonly PdfLineGeometry[])[] }>;
+	| Readonly<{
+			outcome: "text";
+			pages: readonly (readonly PdfLineGeometry[])[];
+	  }>;
 
 type OpenedPdf =
 	| Readonly<{ kind: "encrypted" | "damaged" | "not-a-pdf" }>
@@ -115,10 +118,7 @@ const openPdfForText = async (
 		if (signal?.aborted) {
 			throw new DOMException("Inspection cancelled", "AbortError");
 		}
-		if (
-			loadError instanceof Error &&
-			loadError.name === "PasswordException"
-		) {
+		if (loadError instanceof Error && loadError.name === "PasswordException") {
 			return { kind: "encrypted" };
 		}
 		return { kind: "damaged" };

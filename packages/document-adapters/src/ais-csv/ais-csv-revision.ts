@@ -38,8 +38,7 @@ export type AisCsvRevisionParseOutcome =
 	| Readonly<{ kind: "supported"; document: AisCsvRevisionDocument }>
 	| Readonly<{ kind: "unsupported" }>;
 
-const splitPhysicalLines = (text: string): string[] =>
-	text.split(/\r\n|\r|\n/);
+const splitPhysicalLines = (text: string): string[] => text.split(/\r\n|\r|\n/);
 
 type CsvLineParseOutcome = readonly AisCsvCell[] | undefined;
 
@@ -71,10 +70,7 @@ const parseCsvLine = (line: string): CsvLineParseOutcome => {
 				}
 				index += 1;
 			}
-			if (
-				closedAt === -1 ||
-				(index < line.length && line[index] !== ",")
-			) {
+			if (closedAt === -1 || (index < line.length && line[index] !== ",")) {
 				return undefined;
 			}
 			const inner = line.slice(valueStart, closedAt);
@@ -109,9 +105,7 @@ const markerRowMatches = (
 	row.cells[0]?.value === name &&
 	row.cells[1]?.value === value;
 
-const headerRowMatches = (
-	row: AisCsvRecordRow | undefined,
-): boolean => {
+const headerRowMatches = (row: AisCsvRecordRow | undefined): boolean => {
 	if (row === undefined) {
 		return false;
 	}
@@ -153,7 +147,9 @@ export const parseAisCsvRevision = (
 		rows.push({ line: index + 1, cells });
 	}
 
-	if (!markerRowMatches(rows[0], "documentType", AIS_CSV_SUPPORTED_DOCUMENT_TYPE)) {
+	if (
+		!markerRowMatches(rows[0], "documentType", AIS_CSV_SUPPORTED_DOCUMENT_TYPE)
+	) {
 		return { kind: "unsupported" };
 	}
 	if (

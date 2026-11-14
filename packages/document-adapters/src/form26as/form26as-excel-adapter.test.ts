@@ -1,11 +1,8 @@
-import { computeSourceDocumentIdentity } from "@openitr/model";
 import type { Sha256Digest } from "@openitr/model";
+import { computeSourceDocumentIdentity } from "@openitr/model";
 import { describe, expect, test } from "vitest";
 
-import {
-	createForm26AsExcelFixture,
-	utf8Bytes,
-} from "../testing";
+import { createForm26AsExcelFixture, utf8Bytes } from "../testing";
 import { createForm26AsExcelAdapter } from "./form26as-excel-adapter";
 
 const identityOf = async (
@@ -64,9 +61,9 @@ describe("Form 26AS Excel identification", () => {
 			},
 		],
 	] as const)("does not match %s", async (_label, options) => {
-		expect(
-			await inspectOf(createForm26AsExcelFixture(options)),
-		).toEqual({ verdict: "no-match" });
+		expect(await inspectOf(createForm26AsExcelFixture(options))).toEqual({
+			verdict: "no-match",
+		});
 	});
 
 	test("does not match plain-text bytes", async () => {

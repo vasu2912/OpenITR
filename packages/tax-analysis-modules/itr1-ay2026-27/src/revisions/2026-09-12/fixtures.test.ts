@@ -16,8 +16,7 @@ describe("2026-09-12 donation deduction rule pack", () => {
 				"b5a0955a28d81493a18ebed587564e8f00865d739163cee30397d0d07508e48f",
 		});
 		expect(
-			itr1Ay202627CompiledRulePack20260912.taxConstants
-				?.donationDeductions,
+			itr1Ay202627CompiledRulePack20260912.taxConstants?.donationDeductions,
 		).toMatchObject({
 			cashPaymentLimitWholeRupees: 2_000,
 			adjustedGrossTotalIncomeLimitPercent: 10,

@@ -1,18 +1,18 @@
-import type { CandidateDocument } from "@openitr/model";
 import type {
 	FactResolution,
 	UnresolvedFactConflict,
 } from "@openitr/fact-reconciliation";
+import type { CandidateDocument } from "@openitr/model";
 import {
-	FormGroup,
 	Alert,
 	Button,
+	FormGroup,
 	Radio,
 	TextArea,
 	Title,
 } from "@patternfly/react-core";
-import { useState } from "react";
 import type { FormEvent } from "react";
+import { useState } from "react";
 
 import type { SessionOrchestrator } from "../session/session-orchestrator";
 import { FactLabel } from "./plain-language";
@@ -39,9 +39,8 @@ const ConflictForm = ({
 	session: SessionOrchestrator;
 }>) => {
 	const displayNameOf = (documentId: string): string =>
-		documents.find(
-			(candidate) => String(candidate.documentId) === documentId,
-		)?.displayName ?? `Document ${shortDigest(documentId)}`;
+		documents.find((candidate) => String(candidate.documentId) === documentId)
+			?.displayName ?? `Document ${shortDigest(documentId)}`;
 
 	const [selectedObservationId, setSelectedObservationId] = useState<string>();
 	const [attestSelected, setAttestSelected] = useState(false);
@@ -104,7 +103,8 @@ const ConflictForm = ({
 					<Radio
 						id={`${conflict.conflictId}-${candidate.observationId}`}
 						isChecked={
-							!attestSelected && selectedObservationId === candidate.observationId
+							!attestSelected &&
+							selectedObservationId === candidate.observationId
 						}
 						key={candidate.observationId}
 						label={`${rupeeText(candidate.value)} — ${displayNameOf(String(candidate.sourceDocumentId))}`}
@@ -176,8 +176,8 @@ const ConflictForm = ({
 				Record resolution
 			</Button>
 			<p className="openitr-conflict-note">
-				Recording a resolution keeps every original observation and its
-				evidence unchanged. The estimate then uses only your decided value.
+				Recording a resolution keeps every original observation and its evidence
+				unchanged. The estimate then uses only your decided value.
 			</p>
 		</form>
 	);
@@ -199,108 +199,103 @@ export const FactConflictsView = ({
 	}
 
 	return (
-		<section
-			aria-live="polite"
-			className="openitr-conflicts-card"
-		>
-				<Title headingLevel="h2" size="lg">
-					Cross-source conflicts
-				</Title>
-				{conflicts.length > 0 ? (
-					<Alert
-						isInline
-						title={`${conflicts.length} unresolved ${
-							conflicts.length === 1 ? "conflict" : "conflicts"
-						} blocking affected results below`}
-						variant="warning"
-					>
-						Sources disagree about the same fact. Nothing is edited or
-						deleted: pick the value you can stand behind, or attest it, and
-						say why.
-					</Alert>
-				) : (
-					<Alert
-						isInline
-						title="Every conflict has a recorded resolution"
-						variant="success"
-					>
-						The original observations stay listed in the evidence review
-						below.
-					</Alert>
-				)}
+		<section aria-live="polite" className="openitr-conflicts-card">
+			<Title headingLevel="h2" size="lg">
+				Cross-source conflicts
+			</Title>
+			{conflicts.length > 0 ? (
+				<Alert
+					isInline
+					title={`${conflicts.length} unresolved ${
+						conflicts.length === 1 ? "conflict" : "conflicts"
+					} blocking affected results below`}
+					variant="warning"
+				>
+					Sources disagree about the same fact. Nothing is edited or deleted:
+					pick the value you can stand behind, or attest it, and say why.
+				</Alert>
+			) : (
+				<Alert
+					isInline
+					title="Every conflict has a recorded resolution"
+					variant="success"
+				>
+					The original observations stay listed in the evidence review below.
+				</Alert>
+			)}
 
-				<ul className="openitr-conflict-list">
-					{conflicts.map((conflict) => (
-						<li
-							className="openitr-conflict-item"
-							data-fact-key={String(conflict.factKey)}
-							id={`conflict-${conflict.conflictId}`}
-							key={conflict.conflictId}
-						>
-							<h3 className="openitr-conflict-heading">
-								<FactLabel factKey={conflict.factKey} />
-							</h3>
-							{conflict.affectedResults.length > 0 ? (
-								<p className="openitr-conflict-affected">
-									Affects:{" "}
-									{conflict.affectedResults
-										.map((result) => result.label)
-										.join(", ")}
-								</p>
-							) : null}
-							<ConflictForm
-								conflict={conflict}
-								documents={documents}
-								session={session}
-							/>
-						</li>
-					))}
-				</ul>
-
-				{resolutions.length > 0 ? (
-					<div className="openitr-resolutions">
-						<h3 className="openitr-resolutions-heading">
-							Recorded resolutions ({resolutions.length})
+			<ul className="openitr-conflict-list">
+				{conflicts.map((conflict) => (
+					<li
+						className="openitr-conflict-item"
+						data-fact-key={String(conflict.factKey)}
+						id={`conflict-${conflict.conflictId}`}
+						key={conflict.conflictId}
+					>
+						<h3 className="openitr-conflict-heading">
+							<FactLabel factKey={conflict.factKey} />
 						</h3>
-						<dl className="openitr-result-details openitr-resolution-list">
-							{resolutions.map((resolution) => (
-								<div
-									data-resolution-id={resolution.resolutionId}
-									id={`resolution-${resolution.resolutionId}`}
-									key={resolution.resolutionId}
-								>
-									<dt>
-										<FactLabel factKey={resolution.factKey} />
-									</dt>
-									<dd>
-										<strong>
-											{resolution.choice.kind === "attested"
-												? `${rupeeText(resolution.choice.value)} (attested by you)`
-												: `${rupeeText(resolution.choice.value)} (source observation)`}
-										</strong>
-										<small className="openitr-summary-hint">
-											{" "}
-											— {resolution.reason} · recorded {resolution.recordedAt}
-											. Original evidence retained.
-										</small>
-										<Button
-											aria-label={`Change resolution for ${String(resolution.factKey)}`}
-											onClick={() =>
-												session.send({
-													kind: "remove-fact-resolution",
-													resolutionId: resolution.resolutionId,
-												})
-											}
-											variant="link"
-										>
-											Change resolution
-										</Button>
-									</dd>
-								</div>
-							))}
-						</dl>
-					</div>
-				) : null}
+						{conflict.affectedResults.length > 0 ? (
+							<p className="openitr-conflict-affected">
+								Affects:{" "}
+								{conflict.affectedResults
+									.map((result) => result.label)
+									.join(", ")}
+							</p>
+						) : null}
+						<ConflictForm
+							conflict={conflict}
+							documents={documents}
+							session={session}
+						/>
+					</li>
+				))}
+			</ul>
+
+			{resolutions.length > 0 ? (
+				<div className="openitr-resolutions">
+					<h3 className="openitr-resolutions-heading">
+						Recorded resolutions ({resolutions.length})
+					</h3>
+					<dl className="openitr-result-details openitr-resolution-list">
+						{resolutions.map((resolution) => (
+							<div
+								data-resolution-id={resolution.resolutionId}
+								id={`resolution-${resolution.resolutionId}`}
+								key={resolution.resolutionId}
+							>
+								<dt>
+									<FactLabel factKey={resolution.factKey} />
+								</dt>
+								<dd>
+									<strong>
+										{resolution.choice.kind === "attested"
+											? `${rupeeText(resolution.choice.value)} (attested by you)`
+											: `${rupeeText(resolution.choice.value)} (source observation)`}
+									</strong>
+									<small className="openitr-summary-hint">
+										{" "}
+										— {resolution.reason} · recorded {resolution.recordedAt}.
+										Original evidence retained.
+									</small>
+									<Button
+										aria-label={`Change resolution for ${String(resolution.factKey)}`}
+										onClick={() =>
+											session.send({
+												kind: "remove-fact-resolution",
+												resolutionId: resolution.resolutionId,
+											})
+										}
+										variant="link"
+									>
+										Change resolution
+									</Button>
+								</dd>
+							</div>
+						))}
+					</dl>
+				</div>
+			) : null}
 		</section>
 	);
 };

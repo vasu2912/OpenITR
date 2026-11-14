@@ -1,9 +1,15 @@
 import type { DocumentExtractionOutcome } from "@openitr/model";
-import { createExtractionRejectionOutcome } from "@openitr/model";
-import { parseDocumentKind, parseTemplateRevision } from "@openitr/model";
+import {
+	createExtractionRejectionOutcome,
+	parseDocumentKind,
+	parseTemplateRevision,
+} from "@openitr/model";
 
 import type { PdfLinesOutcome } from "../pdf/pdf-text-layer";
-import { extractPdfLines, normalizedTextContainsAll } from "../pdf/pdf-text-layer";
+import {
+	extractPdfLines,
+	normalizedTextContainsAll,
+} from "../pdf/pdf-text-layer";
 import type {
 	AdapterVerdict,
 	DocumentAdapterManifest,
@@ -32,12 +38,13 @@ const EXTRACTION_REJECTIONS = {
 	"no-text-layer": "image-only",
 } as const;
 
-const form16aMarkersPresent = (outcome: Extract<
-	PdfLinesOutcome,
-	{ outcome: "text" }
->): boolean =>
+const form16aMarkersPresent = (
+	outcome: Extract<PdfLinesOutcome, { outcome: "text" }>,
+): boolean =>
 	normalizedTextContainsAll(
-		outcome.pages.map((lines) => lines.map((line) => line.text).join("\n")).join("\n"),
+		outcome.pages
+			.map((lines) => lines.map((line) => line.text).join("\n"))
+			.join("\n"),
 		FORM16A_REQUIRED_MARKERS,
 	);
 
