@@ -1,0 +1,5 @@
+# Bulk formatting commits that git blame should skip.
+# Enable locally with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: format the repository with Biome
+6136c9ae4466676aac014f5a0dcc90b86f6e9751
